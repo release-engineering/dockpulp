@@ -424,6 +424,37 @@ class Pulp(object):
         if self.certificate:
             self._cleanup(os.path.dirname(self.certificate))
 
+    def push_tar_to_pulp(self, repos, tags, tarfile, missing_repos_info={}):
+        metadata = imgutils.get_metadata(tarfile)
+        pulp_md = imgutils.get_metadata_pulp(metadata)
+        imgs = pulp_md.keys()
+
+        found_repos = self._post('/pulp/api/v2/repositories/search/',
+                              data=json.dumps({"criteria": {"filters": {"id": {"$in": repos}}},
+                                                            "fields": ["id"]}))
+        found_repo_ids = set([repo["id"] for repo in found_repos])
+
+        # create missing repos
+        missing_repos = set(repos) - set(found_repo_ids)
+        log.info("Missing repos:", missing_repos)
+        for repo in missing_repos:
+            kwargs = {}
+            if repo in missing_repos_info:
+                kwargs = {"title": missing_repos_info[repo].get("title"),
+                          "desc": missing_repos_info[repo].get("")}
+            self.createRepo(repo, "/pulp/docker/%s" % repo,
+                            desc=kwargs.get("desc"), title=kwargs.get("title"))
+
+        top_layer = imgutils.get_top_layer(pulp_md)
+
+        for repo in repos:
+            for img in imgs:
+                self.copy(repo, img)
+            for tag in tags:
+                self.updateRepo(repo, {"tag": "%s:%s" % (",".join(tags),
+                                                         top_layer)})
+
+
     def remove(self, repo, img):
         """
         Remove an image from a repo
@@ -556,6 +587,7 @@ class Pulp(object):
                 curr += poll
         log.error('timed out waiting for subtask')
         raise errors.DockPulpError('Timed out waiting for task %s' % tid)
+
 
 def split_content_url(url):
     i = url.find('/content')

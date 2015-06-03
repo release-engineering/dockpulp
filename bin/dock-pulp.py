@@ -356,7 +356,7 @@ def do_login(bopts, bargs):
     p.login(opts.username, opts.password)
     creddir = os.path.expanduser('~/.pulp')
     if not os.path.exists(creddir):
-        os.makedir(creddir)
+        os.makedirs(creddir)
     shutil.copy(p.certificate, creddir)
     shutil.copy(p.key, creddir)
     log.info('Credentials stored in %s.' % creddir)
@@ -374,6 +374,29 @@ def do_json(bopts, bargs):
     j = p.dump(pretty=opts.pretty)
     log.info('json dump follows this line on stderr')
     print >> sys.stderr, j
+
+def do_push_to_pulp(bopts, bargs):
+    """
+    dock-pulp push_to_pulp <tar_file> <name[:tag]>
+    Push images to pulp <name> repository and tag top-layer image with tag
+    """
+    #parser = OptionParser(usage=do_json.__doc__)
+    #parser.add_option('-p', '--pretty', default=False, action='store_true',
+    #    help='format the json into something human-readable')
+    #opts, args = parser.parse_args(bargs)
+    parser = OptionParser(usage=do_push_to_pulp.__doc__)
+    opts, args = parser.parse_args(bargs)
+    if len(args) < 2:
+        raise ValueError("push_to_pulp accepts 2 arguments")
+    p = pulp_login(bopts)
+    tar_file = args[0]
+    repo,tag = (None,None)
+    splitted = args[1].split(":")
+    repo = splitted[0]
+    if len(splitted) > 1:
+        tag = splitted[1]
+    p.push_tar_to_pulp([repo], [tag], tar_file)
+
 
 def do_release(bopts, bargs):
     """
