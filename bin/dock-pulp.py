@@ -385,6 +385,10 @@ def do_push_to_pulp(bopts, bargs):
     #    help='format the json into something human-readable')
     #opts, args = parser.parse_args(bargs)
     parser = OptionParser(usage=do_push_to_pulp.__doc__)
+    parser.add_option('-d', '--desc',
+                      help='New repo description (only if repo doesn\'t exist)')
+    parser.add_option('-l', '--label',
+                      help='New repo label (only if repo doesn\'t exist)')
     opts, args = parser.parse_args(bargs)
     if len(args) < 2:
         raise ValueError("push_to_pulp accepts 2 arguments")
@@ -395,7 +399,14 @@ def do_push_to_pulp(bopts, bargs):
     repo = splitted[0]
     if len(splitted) > 1:
         tag = splitted[1]
-    p.push_tar_to_pulp([repo], [tag], tar_file)
+
+    if opts.label or opts.desc:
+        missing_repos_info = {}
+        missing_repos_info[repo] = {"desc": opts.desc, "title": opts.label}
+    else:
+        missing_repos_info = None
+    p.push_tar_to_pulp([repo], [tag], tar_file,
+                       missing_repos_info=missing_repos_info)
 
 
 def do_release(bopts, bargs):

@@ -436,16 +436,19 @@ class Pulp(object):
 
         # create missing repos
         missing_repos = set(repos) - set(found_repo_ids)
-        log.info("Missing repos:", missing_repos)
+        log.info("Missing repos: %s" % missing_repos)
         for repo in missing_repos:
             kwargs = {}
+            print missing_repos_info
             if repo in missing_repos_info:
                 kwargs = {"title": missing_repos_info[repo].get("title"),
-                          "desc": missing_repos_info[repo].get("")}
+                          "desc": missing_repos_info[repo].get("desc")}
+                print kwargs
             self.createRepo(repo, "/pulp/docker/%s" % repo,
                             desc=kwargs.get("desc"), title=kwargs.get("title"))
 
         top_layer = imgutils.get_top_layer(pulp_md)
+        self.upload(tarfile)
 
         for repo in repos:
             for img in imgs:
