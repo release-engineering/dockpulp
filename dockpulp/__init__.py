@@ -424,10 +424,18 @@ class Pulp(object):
         if self.certificate:
             self._cleanup(os.path.dirname(self.certificate))
 
-    def push_tar_to_pulp(self, repos, tags, tarfile, missing_repos_info={}):
+    def push_tar_to_pulp(self, repos_tags_mapping, tarfile, missing_repos_info={}):
+        """
+        repos_tags_mapping is mapping between repos and tags which should be applied to those repos:
+        {
+            "repo": ["tag1", "tag2"],
+            "repo2": ["tag3", "tag1"],
+        }
+        """
         metadata = imgutils.get_metadata(tarfile)
         pulp_md = imgutils.get_metadata_pulp(metadata)
         imgs = pulp_md.keys()
+        repos = repos_tags_mapping.keys()
 
         found_repos = self._post('/pulp/api/v2/repositories/search/',
                               data=json.dumps({"criteria": {"filters": {"id": {"$in": repos}}},
@@ -450,7 +458,7 @@ class Pulp(object):
         top_layer = imgutils.get_top_layer(pulp_md)
         self.upload(tarfile)
 
-        for repo in repos:
+        for repo, tags in repos_tags_mapping.items():
             for img in imgs:
                 self.copy(repo, img)
             for tag in tags:

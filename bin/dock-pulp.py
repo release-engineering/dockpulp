@@ -405,7 +405,10 @@ def do_push_to_pulp(bopts, bargs):
         missing_repos_info[repo] = {"desc": opts.desc, "title": opts.label}
     else:
         missing_repos_info = None
-    p.push_tar_to_pulp([repo], [tag], tar_file,
+    repo_tag_mapping = {
+        repo: [tag],
+    }
+    p.push_tar_to_pulp(repo_tag_mapping, tar_file,
                        missing_repos_info=missing_repos_info)
 
 
