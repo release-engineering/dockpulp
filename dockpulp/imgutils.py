@@ -135,6 +135,7 @@ def get_ancestry(image_id, metadata):
     return tuple(image_ids)
 
 def get_top_layer(pulp_md):
+    # Find the origin layer
     origin = None
     for img_hash, value in pulp_md.iteritems():
         if "parent" not in value or value["parent"] is None:
@@ -142,9 +143,10 @@ def get_top_layer(pulp_md):
             break
     if not origin:
         raise ValueError("Corrupted metadata")
-    images = list(set(pulp_md.keys()) - set([origin]))
 
-    while len(images)>1:
-        images.pop(images.index(pulp_md[images[0]]['parent']))
+    # Now find the layer whose parent is the origin layer
+    for img_hash, value in pulp_md.iteritems():
+        if "parent" in value and value["parent"] == origin:
+            return img_hash
 
-    return images[0]
+    raise ValueError("No top layer")
