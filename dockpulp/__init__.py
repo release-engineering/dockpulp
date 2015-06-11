@@ -200,16 +200,17 @@ class Pulp(object):
                     data=json.dumps({'id': did}))
                 self.watch(tid)
 
-    def createRepo(self, id, url, desc=None, title=None, distributors=True):
+    def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None, distributors=True):
         """
         create a docker repository in pulp, an id and a description is required
         """
-        if '/' in id:
+        if '/' in repo_id:
             log.warning('Looks like you supplied a docker repo ID, not pulp')
             raise errors.DockPulpError('Pulp repo ID cannot have a "/"')
-        did = id.replace('redhat-', '').replace('-', '/', 1)
-        if '/' in did:
-            if '-' in did[:did.index('/')]:
+        registry_id = registry_id or \
+                repo_id.replace('redhat-', '').replace('-', '/', 1)
+        if '/' in registry_id:
+            if '-' in registry_id[:registry_id.index('/')]:
                 log.warning('docker-pull does not support this repo ID')
                 raise errors.DockPulpError('Docker repo ID has a hyphen before the "/"')
         rurl = url
@@ -218,12 +219,12 @@ class Pulp(object):
         if not desc:
             desc = 'No description'
         if not title:
-            title = id
-        log.info('creating repo %s' % id)
-        log.info('docker ID is %s' % did)
+            title = repo_id
+        log.info('creating repo %s' % repo_id)
+        log.info('docker ID is %s' % registry_id)
         log.info('redirect is %s' % rurl)
         stuff = {
-            'id': id,
+            'id': repo_id,
             'description': desc,
             'display_name': title,
             'importer_type_id': 'docker_importer',
@@ -236,7 +237,7 @@ class Pulp(object):
                 'distributor_type_id': 'docker_distributor_export',
                 'distributor_config': {
                     'protected': False,
-                    'repo-registry-id': did,
+                    'repo-registry-id': registry_id,
                     'redirect-url': rurl
                 },
                 'auto_publish': True
@@ -245,7 +246,7 @@ class Pulp(object):
                 'distributor_type_id': 'docker_distributor_web',
                 'distributor_config': {
                     'protected': False,
-                    'repo-registry-id': did,
+                    'repo-registry-id': registry_id,
                     'redirect-url': rurl
                 },
                 'auto_publish': True
