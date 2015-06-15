@@ -389,6 +389,8 @@ def do_push_to_pulp(bopts, bargs):
                       help='New repo description (only if repo doesn\'t exist)')
     parser.add_option('-l', '--label',
                       help='New repo label (only if repo doesn\'t exist)')
+    parser.add_option('-r', '--registry-id',
+                      help='Registry id (only if repo doesn\'t exist)')
     opts, args = parser.parse_args(bargs)
     if len(args) < 2:
         raise ValueError("push_to_pulp accepts 2 arguments")
@@ -405,12 +407,18 @@ def do_push_to_pulp(bopts, bargs):
         missing_repos_info[repo] = {"desc": opts.desc, "title": opts.label}
     else:
         missing_repos_info = None
+    registry_id = opts.registry_id or \
+        repo.replace('redhat-', '').replace('-', '/', 1)
+
     repo_tag_mapping = {
-        repo: [tag],
+        repo: {"tags": [tag],
+               "registry-id": registry_id
+        }
     }
     p.push_tar_to_pulp(repo_tag_mapping, tar_file,
                        missing_repos_info=missing_repos_info)
 
+    p.crane([repo])
 
 def do_release(bopts, bargs):
     """
