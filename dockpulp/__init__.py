@@ -523,9 +523,15 @@ class Pulp(object):
                 delta['delta'][key] = update[key]
         if update.has_key('tag'):
             tags, iid = update['tag'].split(':')
+            new_tags = tags.split(",")
+
             existing = self._getTags(id) # need to preserve existing tags
             # need to wipe out existing tags for the given image
             existing = [e for e in existing if e['image_id'] != iid]
+            # also wipe out existing tags for another images
+            existing = [e for e in existing if e["tag"] not in new_tags and
+                        e['image_id'] != iid]
+
             log.debug(existing)
             delta['delta']['scratchpad'] = {'tags': existing}
             if tags != '':
