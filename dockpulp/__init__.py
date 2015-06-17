@@ -207,12 +207,12 @@ class Pulp(object):
         if '/' in repo_id:
             log.warning('Looks like you supplied a docker repo ID, not pulp')
             raise errors.DockPulpError('Pulp repo ID cannot have a "/"')
-        registry_id = registry_id or \
-                repo_id.replace('redhat-', '').replace('-', '/', 1)
-        if '/' in registry_id:
-            if '-' in registry_id[:registry_id.index('/')]:
-                log.warning('docker-pull does not support this repo ID')
-                raise errors.DockPulpError('Docker repo ID has a hyphen before the "/"')
+        if registry_id is None:
+            registry_id = repo_id.replace('redhat-', '').replace('-', '/', 1)
+            if '/' in registry_id:
+                if '-' in registry_id[:registry_id.index('/')]:
+                    log.warning('docker-pull does not support this repo ID')
+                    raise errors.DockPulpError('Docker repo ID has a hyphen before the "/"')
         rurl = url
         if not rurl.startswith('http'):
             rurl = self.cdnhost + url
