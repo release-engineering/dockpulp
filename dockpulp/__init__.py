@@ -35,13 +35,14 @@ import imgutils
 
 C_TYPE = 'docker_image'         # pulp content type identifier for docker
 HIDDEN = 'redhat-everything'    # ID of a "hidden" repository for RCM
+DEFAULT_CONFIG_FILE = '/etc/dockpulp.conf'
 
 log = logging.getLogger('dockpulp')
 log.setLevel(logging.INFO)
 logging.basicConfig(stream=sys.stdout, format='%(levelname)-9s %(message)s')
 
 class Pulp(object):
-    def __init__(self, env='qa'):
+    def __init__(self, env='qa', config_file=None):
         """
         The constructor only sets up the remote hostname given an environment.
         Accepts shorthand, or full hostnames.
@@ -50,7 +51,9 @@ class Pulp(object):
         self.key = None
         self.env = env
         conf = ConfigParser.ConfigParser()
-        conf.readfp(open('/etc/dockpulp.conf'))
+        if not config_file:
+            raise errors.DockPulpConfigError('Missing config file')
+        conf.readfp(open(config_file))
         for sect in ('pulps', 'registries', 'filers'):
             if not conf.has_section(sect):
                 raise errors.DockPulpConfigError('Missing section: %s' % sect)
