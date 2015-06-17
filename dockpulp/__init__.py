@@ -36,9 +36,22 @@ import imgutils
 C_TYPE = 'docker_image'         # pulp content type identifier for docker
 HIDDEN = 'redhat-everything'    # ID of a "hidden" repository for RCM
 
-log = logging.getLogger('dockpulp')
-log.setLevel(logging.INFO)
-logging.basicConfig(stream=sys.stdout, format='%(levelname)-9s %(message)s')
+
+# Setup our logger
+# Null logger to avoid spurious messages, add a handler in app code
+class NullHandler(logging.Handler):
+    def emit(self, record):
+        pass
+
+
+# This is our log object, clients of this library can use this object to
+# define their own logging needs
+log = logging.getLogger("dockpulp")
+
+# Add the null handler
+h = NullHandler()
+log.addHandler(h)
+
 
 class Pulp(object):
     def __init__(self, env='qa'):
@@ -560,3 +573,9 @@ class Pulp(object):
 def split_content_url(url):
     i = url.find('/content')
     return url[:i], url[i:]
+
+
+def setup_logger(log):
+    log.setLevel(logging.INFO)
+    logging.basicConfig(stream=sys.stdout)
+    return log

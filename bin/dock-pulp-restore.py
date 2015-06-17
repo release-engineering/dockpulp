@@ -22,7 +22,7 @@ import sys
 
 import dockpulp
 
-log = dockpulp.log
+log = dockpulp.setup_logger(dockpulp.log)
 
 def get_opts():
     usage="""%prog [options] environment config.json
