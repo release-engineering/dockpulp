@@ -425,7 +425,8 @@ class Pulp(object):
         if self.certificate:
             self._cleanup(os.path.dirname(self.certificate))
 
-    def push_tar_to_pulp(self, repos_tags_mapping, tarfile, missing_repos_info={}):
+    def push_tar_to_pulp(self, repos_tags_mapping, tarfile, missing_repos_info={},
+                         repo_prefix="redhat-"):
         """
         repos_tags_mapping is mapping between repo-ids, registry-ids and tags
         which should be applied to those repos, expected structure:
@@ -440,7 +441,14 @@ class Pulp(object):
         metadata = imgutils.get_metadata(tarfile)
         pulp_md = imgutils.get_metadata_pulp(metadata)
         imgs = pulp_md.keys()
-        repos = repos_tags_mapping.keys()
+        mod_repos_tags_mapping = {}
+        for repo in repos_tags_mapping:
+            new_repo_key = repo
+            if not repo.startswith(repo_prefix):
+                new_repo_key = repo_prefix + repo
+            mod_repos_tags_mapping[new_repo_key] = repos_tags_mapping[repo]
+
+        repos = mod_repos_tags_mapping.keys()
 
         found_repos = self._post('/pulp/api/v2/repositories/search/',
                               data=json.dumps({"criteria": {"filters": {"id": {"$in": repos}}},
@@ -458,13 +466,13 @@ class Pulp(object):
                           "desc": missing_repos_info[repo].get("desc")}
                 print kwargs
             self.createRepo(repo, "/pulp/docker/%s" % repo,
-                            registry_id=repos_tags_mapping[repo]["registry-id"],
+                            registry_id=mod_repos_tags_mapping[repo]["registry-id"],
                             desc=kwargs.get("desc"), title=kwargs.get("title"))
 
         top_layer = imgutils.get_top_layer(pulp_md)
         self.upload(tarfile)
 
-        for repo, repo_conf in repos_tags_mapping.items():
+        for repo, repo_conf in mod_repos_tags_mapping.items():
             for img in imgs:
                 self.copy(repo, img)
             self.updateRepo(repo, {"tag": "%s:%s" % (",".join(repo_conf["tags"]),
