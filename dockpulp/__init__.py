@@ -200,16 +200,17 @@ class Pulp(object):
                     data=json.dumps({'id': did}))
                 self.watch(tid)
 
-    def createRepo(self, id, url, desc=None, title=None, distributors=True):
+    def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None, distributors=True):
         """
         create a docker repository in pulp, an id and a description is required
         """
-        if '/' in id:
+        if '/' in repo_id:
             log.warning('Looks like you supplied a docker repo ID, not pulp')
             raise errors.DockPulpError('Pulp repo ID cannot have a "/"')
-        did = id.replace('redhat-', '').replace('-', '/', 1)
-        if '/' in did:
-            if '-' in did[:did.index('/')]:
+        registry_id = registry_id or \
+                repo_id.replace('redhat-', '').replace('-', '/', 1)
+        if '/' in registry_id:
+            if '-' in registry_id[:registry_id.index('/')]:
                 log.warning('docker-pull does not support this repo ID')
                 raise errors.DockPulpError('Docker repo ID has a hyphen before the "/"')
         rurl = url
@@ -218,12 +219,12 @@ class Pulp(object):
         if not desc:
             desc = 'No description'
         if not title:
-            title = id
-        log.info('creating repo %s' % id)
-        log.info('docker ID is %s' % did)
+            title = repo_id
+        log.info('creating repo %s' % repo_id)
+        log.info('docker ID is %s' % registry_id)
         log.info('redirect is %s' % rurl)
         stuff = {
-            'id': id,
+            'id': repo_id,
             'description': desc,
             'display_name': title,
             'importer_type_id': 'docker_importer',
@@ -236,7 +237,7 @@ class Pulp(object):
                 'distributor_type_id': 'docker_distributor_export',
                 'distributor_config': {
                     'protected': False,
-                    'repo-registry-id': did,
+                    'repo-registry-id': registry_id,
                     'redirect-url': rurl
                 },
                 'auto_publish': True
@@ -245,7 +246,7 @@ class Pulp(object):
                 'distributor_type_id': 'docker_distributor_web',
                 'distributor_config': {
                     'protected': False,
-                    'repo-registry-id': did,
+                    'repo-registry-id': registry_id,
                     'redirect-url': rurl
                 },
                 'auto_publish': True
@@ -424,6 +425,59 @@ class Pulp(object):
         if self.certificate:
             self._cleanup(os.path.dirname(self.certificate))
 
+    def push_tar_to_pulp(self, repos_tags_mapping, tarfile, missing_repos_info={},
+                         repo_prefix="redhat-"):
+        """
+        repos_tags_mapping is mapping between repo-ids, registry-ids and tags
+        which should be applied to those repos, expected structure:
+        {
+            "my-image": {
+                "registry-id": "nick/my-image",
+                "tags": ["v1", "latest"],
+            },
+            ...
+        }
+        """
+        metadata = imgutils.get_metadata(tarfile)
+        pulp_md = imgutils.get_metadata_pulp(metadata)
+        imgs = pulp_md.keys()
+        mod_repos_tags_mapping = {}
+        for repo in repos_tags_mapping:
+            new_repo_key = repo
+            if not repo.startswith(repo_prefix):
+                new_repo_key = repo_prefix + repo
+            mod_repos_tags_mapping[new_repo_key] = repos_tags_mapping[repo]
+
+        repos = mod_repos_tags_mapping.keys()
+
+        found_repos = self._post('/pulp/api/v2/repositories/search/',
+                              data=json.dumps({"criteria": {"filters": {"id": {"$in": repos}}},
+                                                            "fields": ["id"]}))
+        found_repo_ids = set([repo["id"] for repo in found_repos])
+
+        # create missing repos
+        missing_repos = set(repos) - set(found_repo_ids)
+        log.info("Missing repos: %s" % missing_repos)
+        for repo in missing_repos:
+            kwargs = {}
+            print missing_repos_info
+            if repo in missing_repos_info:
+                kwargs = {"title": missing_repos_info[repo].get("title"),
+                          "desc": missing_repos_info[repo].get("desc")}
+                print kwargs
+            self.createRepo(repo, "/pulp/docker/%s" % repo,
+                            registry_id=mod_repos_tags_mapping[repo]["registry-id"],
+                            desc=kwargs.get("desc"), title=kwargs.get("title"))
+
+        top_layer = imgutils.get_top_layer(pulp_md)
+        self.upload(tarfile)
+
+        for repo, repo_conf in mod_repos_tags_mapping.items():
+            for img in imgs:
+                self.copy(repo, img)
+            self.updateRepo(repo, {"tag": "%s:%s" % (",".join(repo_conf["tags"]),
+                                                         top_layer)})
+
     def remove(self, repo, img):
         """
         Remove an image from a repo
@@ -477,9 +531,15 @@ class Pulp(object):
                 delta['delta'][key] = update[key]
         if update.has_key('tag'):
             tags, iid = update['tag'].split(':')
+            new_tags = tags.split(",")
+
             existing = self._getTags(id) # need to preserve existing tags
             # need to wipe out existing tags for the given image
             existing = [e for e in existing if e['image_id'] != iid]
+            # also wipe out existing tags for another images
+            existing = [e for e in existing if e["tag"] not in new_tags and
+                        e['image_id'] != iid]
+
             log.debug(existing)
             delta['delta']['scratchpad'] = {'tags': existing}
             if tags != '':
@@ -556,6 +616,7 @@ class Pulp(object):
                 curr += poll
         log.error('timed out waiting for subtask')
         raise errors.DockPulpError('Timed out waiting for task %s' % tid)
+
 
 def split_content_url(url):
     i = url.find('/content')

@@ -133,3 +133,22 @@ def get_ancestry(image_id, metadata):
         image_ids.append(image_id)
         image_id = metadata[image_id].get('parent')
     return tuple(image_ids)
+
+def get_top_layer(pulp_md):
+    """
+    Find the top (youngest) layer.
+    """
+
+    # Find layers that are parents
+    layers = set()
+    parents = set()
+    for img_hash, value in pulp_md.iteritems():
+        layers.add(img_hash)
+        if 'parent' in value:
+            parents.add(value['parent'])
+        else:
+            # Base layer has no 'parent' but it itself a parent
+            parents.add(img_hash)
+
+    # Any layers not parents are the youngest.
+    return list(layers - parents)[0]
