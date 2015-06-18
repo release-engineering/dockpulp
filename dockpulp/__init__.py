@@ -200,10 +200,13 @@ class Pulp(object):
                     data=json.dumps({'id': did}))
                 self.watch(tid)
 
-    def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None, distributors=True):
+    def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None, distributors=True,
+                   prefix_with="redhat-"):
         """
         create a docker repository in pulp, an id and a description is required
         """
+        if not repo_id.startswith(prefix_with):
+            repo_id = prefix_with + repo_id
         if '/' in repo_id:
             log.warning('Looks like you supplied a docker repo ID, not pulp')
             raise errors.DockPulpError('Pulp repo ID cannot have a "/"')
