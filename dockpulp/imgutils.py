@@ -79,7 +79,8 @@ def check_repo(tarfile_path):
     seen_ids = []
     with contextlib.closing(tarfile.open(tarfile_path)) as archive:
         for member in archive.getmembers():
-            if member.path == 'repositories':
+            # member.path can be: "repositories" or "./repositories"
+            if os.path.basename(member.path) == "repositories":
                 repo_data = json.load(archive.extractfile(member))
                 found = True
                 if len(repo_data.keys()) != 1:
