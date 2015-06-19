@@ -24,7 +24,8 @@ import sys
 
 import dockpulp
 
-log = dockpulp.log
+
+log = dockpulp.setup_logger(dockpulp.log)
 
 def main():
     usage = """CLI for Pulp instances providing Docker content
