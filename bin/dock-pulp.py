@@ -357,7 +357,7 @@ def do_login(bopts, bargs):
     p.login(opts.username, opts.password)
     creddir = os.path.expanduser('~/.pulp')
     if not os.path.exists(creddir):
-        os.makedir(creddir)
+        os.makedirs(creddir)
     shutil.copy(p.certificate, creddir)
     shutil.copy(p.key, creddir)
     log.info('Credentials stored in %s.' % creddir)
