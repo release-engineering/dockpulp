@@ -40,6 +40,9 @@ def main():
     parser.add_option('-d', '--debug', default=False, action='store_true')
     parser.add_option('-s', '--server', default='qa',
         help='a Pulp environment to execute against')
+    parser.add_option('-c', '--config-file',
+        default=dockpulp.DEFAULT_CONFIG_FILE,
+        help='config file to use [default: %default]')
     opts, args = parser.parse_args()
     cmd = find_directive('do_', args)
     try:
@@ -73,7 +76,7 @@ def main():
         log.error('   http://pulp-dev-guide.readthedocs.org/en/latest/integration/index.html')
 
 def pulp_login(bopts):
-    p = dockpulp.Pulp(env=bopts.server)
+    p = dockpulp.Pulp(env=bopts.server, config_file=bopts.config_file)
     if bopts.debug:
         p.setDebug()
     if bopts.cert and bopts.key:
@@ -353,7 +356,7 @@ def do_login(bopts, bargs):
     opts, args = parser.parse_args(bargs)
     if not opts.password:
         parser.error('You should provide a password too')
-    p = dockpulp.Pulp(env=bopts.server)
+    p = dockpulp.Pulp(env=bopts.server, config_file=bopts.config_file)
     p.login(opts.username, opts.password)
     creddir = os.path.expanduser('~/.pulp')
     if not os.path.exists(creddir):
