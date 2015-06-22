@@ -186,19 +186,23 @@ class Pulp(object):
             data=json.dumps(data))
         self.watch(tid)
 
-    def crane(self, repos=[]):
+    def crane(self, repos=[], wait=True):
         """
         Export pulp configuration to crane for one or more repositories
         """
         if len(repos) == 0:
             repos = self.getAllRepoIDs()
+        tasks = []
         for repo in repos:
             for did in ('docker_export_distributor_name_cli', 'docker_web_distributor_name_cli'):
                 log.info('updating distributor: %s' % did)
                 tid = self._post(
                     '/pulp/api/v2/repositories/%s/actions/publish/' % repo,
                     data=json.dumps({'id': did}))
-                self.watch(tid)
+                if wait:
+                    self.watch(tid)
+                tasks.append(tid)
+        return tasks
 
     def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None, distributors=True):
         """
@@ -320,6 +324,14 @@ class Pulp(object):
         """
         log.debug('getting task %s information' % tid)
         return self._get('/pulp/api/v2/tasks/%s/' % tid)
+
+    def getTasks(self, tids):
+        """
+        return a task report for a given id
+        """
+        log.debug('getting task %s information' % tid)
+        criteria = json.dumps({"criteria":{"filters":{"id":{"$in":tids}}}})
+        return self._post('/pulp/api/v2/tasks/search/', data=criteria)
 
     def listOrphans(self):
         """
@@ -617,6 +629,30 @@ class Pulp(object):
         log.error('timed out waiting for subtask')
         raise errors.DockPulpError('Timed out waiting for task %s' % tid)
 
+    def watch_tasks(self, tids, timeout=60, poll=5):
+        """watch a tasks ID and return when all finishes or fails"""
+        log.info('waiting up to %s seconds for task %s...' % (timeout, tid))
+        curr = 0
+        awaited = tids[:]
+
+        while curr < timeout and awaited:
+            states = self.getTasks(awaited)
+            for task in states:
+                if t['state'] == 'finished':
+                    log.info('subtask completed')
+                    awaited.pop(awaited.index(t["task_id"]))
+                    return True
+                elif t['state'] == 'error':
+                    log.debug('traceback from subtask:')
+                    log.debug(t['traceback'])
+                    awaited.pop(awaited.index(t["task_id"]))
+                    raise errors.DockPulpTaskError(t['error'])
+                else:
+                    log.debug('sleeping (%s/%s seconds passed)' % (curr, timeout))
+                    time.sleep(poll)
+                    curr += poll
+        log.error('timed out waiting for subtasks')
+        raise errors.DockPulpError('Timed out waiting for tasks %s' % awaited)
 
 def split_content_url(url):
     i = url.find('/content')
