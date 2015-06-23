@@ -216,8 +216,8 @@ class Pulp(object):
                     data=json.dumps({'id': did}))
                 self.watch(tid)
 
-    def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None, distributors=True,
-                   prefix_with="redhat-"):
+    def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None,
+        distributors=True, prefix_with="redhat-"):
         """
         create a docker repository in pulp, an id and a description is required
         """
@@ -293,6 +293,20 @@ class Pulp(object):
                 sort_keys=True, indent=2)
         else:
             return json.dumps(self.listRepos(content=True))
+
+    def exists(self, rid):
+        """
+        Return True if a repository already exists, False otherwise
+        """
+        data = {'criteria':
+                    {'filters':
+                        {'id': rid}
+                    },
+                'fields': ['id']
+                }
+        found = self._post('/pulp/api/v2/repositories/search/',
+            data=json.dumps(data))
+        return len(found) > 0
 
     def getAllRepoIDs(self):
         """
