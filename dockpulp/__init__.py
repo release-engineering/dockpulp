@@ -55,7 +55,7 @@ log.addHandler(h)
 
 
 class Pulp(object):
-    def __init__(self, env='qa', config_file=None):
+    def __init__(self, env='qa', config_file=DEFAULT_CONFIG_FILE):
         """
         The constructor only sets up the remote hostname given an environment.
         Accepts shorthand, or full hostnames.
