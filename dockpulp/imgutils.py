@@ -111,6 +111,13 @@ def get_id(tarfile_path):
     """
     meta_raw = get_metadata(tarfile_path)
     metadata = get_metadata_pulp(meta_raw)
+    return get_top_layer(metadata)
+
+def get_top_layer(metadata):
+    """
+    Returns the ID as get_id does, but starts with pulp image metadata.
+    Provided for compatibility with atomic-reactor.
+    """
     images = metadata.keys()
     parents = 0
     youngest = images[0]
