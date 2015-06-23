@@ -277,6 +277,20 @@ class Pulp(object):
         else:
             return json.dumps(self.listRepos(content=True))
 
+    def exists(self, rid):
+        """
+        Return True if a repository already exists, False otherwise
+        """
+        data = {'criteria':
+                    {'filters':
+                        {'id': rid}
+                    },
+                'fields': ['id']
+                }
+        found = self._post('/pulp/api/v2/repositories/search/',
+            data=json.dumps(data))
+        return len(found) > 0
+
     def getAllRepoIDs(self):
         """
         Get all repository IDs in Pulp
