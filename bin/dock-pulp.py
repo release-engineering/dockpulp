@@ -262,8 +262,6 @@ def do_create(bopts, bargs):
     else:
         if len(args) != 3:
             parser.error('You need a product line (rhel6, openshift3, etc), image name and a content-url')
-        if '-' in args[0]:
-            parser.error('The product line cannot have hyphens')
         id = 'redhat-%s-%s' % (args[0], args[1])
         url = args[2]
     if not url.startswith('/content'):
