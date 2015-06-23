@@ -329,8 +329,8 @@ class Pulp(object):
         """
         return a task report for a given id
         """
-        log.debug('getting task %s information' % tid)
-        criteria = json.dumps({"criteria":{"filters":{"id":{"$in":tids}}}})
+        log.debug('getting tasks %s information' % tids)
+        criteria = json.dumps({"criteria":{"filters":{"task_id":{"$in":tids}}}})
         return self._post('/pulp/api/v2/tasks/search/', data=criteria)
 
     def listOrphans(self):
@@ -631,22 +631,22 @@ class Pulp(object):
 
     def watch_tasks(self, tids, timeout=60, poll=5):
         """watch a tasks ID and return when all finishes or fails"""
-        log.info('waiting up to %s seconds for task %s...' % (timeout, tid))
+        log.info('waiting up to %s seconds for task %s...' % (timeout, tids))
         curr = 0
         awaited = tids[:]
 
         while curr < timeout and awaited:
             states = self.getTasks(awaited)
             for task in states:
-                if t['state'] == 'finished':
+                if task['state'] == 'finished':
                     log.info('subtask completed')
-                    awaited.pop(awaited.index(t["task_id"]))
+                    awaited.pop(awaited.index(task["task_id"]))
                     return True
-                elif t['state'] == 'error':
+                elif task['state'] == 'error':
                     log.debug('traceback from subtask:')
-                    log.debug(t['traceback'])
-                    awaited.pop(awaited.index(t["task_id"]))
-                    raise errors.DockPulpTaskError(t['error'])
+                    log.debug(task['traceback'])
+                    awaited.pop(awaited.index(task["task_id"]))
+                    raise errors.DockPulpTaskError(task['error'])
                 else:
                     log.debug('sleeping (%s/%s seconds passed)' % (curr, timeout))
                     time.sleep(poll)
