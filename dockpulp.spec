@@ -5,7 +5,7 @@ Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
 Group:		Applications/System
 License:	Red Hat Internal
-URL:		http://git.engineering.redhat.com/?p=users/jgregusk/%{name}/.git
+URL:		https://github.com/release-engineering/dockpulp.git
 Source0:	%{name}-%{version}.tar.gz
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 BuildArch:  noarch
