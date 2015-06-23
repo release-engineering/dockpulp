@@ -212,14 +212,24 @@ def do_clone(bopts, bargs):
 def do_confirm(bopts, bargs):
     """
     dock-pulp confirm [options] [repo-id...]
-    Confirm all images are reachable"""
+    Confirm all images are reachable. Accepts globs!"""
     parser = OptionParser(usage=do_clone.__doc__)
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
-    ids = None
+    rids = None
     if len(args) > 0:
-       ids = args
-    repos = p.listRepos(repos=ids, content=True)
+        rids = []
+        for arg in args:
+            if '*' in arg or '?' in arg:
+                results = p.searchRepos(arg)
+                if len(results) == 0:
+                    log.warning('Glob did not match anything')
+                    return
+                else:
+                    rids.extend(results)
+            else:
+                rids.append(arg)
+    repos = p.listRepos(repos=rids, content=True)
     errors = 0
     for repo in repos:
         log.info('Testing %s' % repo['id'])
@@ -307,7 +317,7 @@ def do_empty(bopts, bargs):
 def do_list(bopts, bargs):
     """
     dock-pulp list [options] [repo-id...]
-    List one or more repositories"""
+    List one or more repositories. Accepts globs!"""
     parser = OptionParser(usage=do_list.__doc__)
     parser.add_option('-c', '--content', default=False, action='store_true',
         help='also return information about images in a repository')
@@ -318,7 +328,18 @@ def do_list(bopts, bargs):
     if len(args) == 0:
         repos = p.listRepos(content=opts.content)
     else:
-        repos = p.listRepos(repos=args, content=opts.content)
+        rids = []
+        for arg in args:
+            if '*' in arg or '?' in arg:
+                results = p.searchRepos(arg)
+                if len(results) == 0:
+                    log.warning('Glob did not match anything')
+                    return
+                else:
+                    rids.extend(results)
+            else:
+                rids.append(arg)
+        repos = p.listRepos(repos=rids, content=opts.content)
     for repo in repos:
         log.info(repo['id'])
         if opts.details or opts.content:
@@ -380,7 +401,7 @@ def do_json(bopts, bargs):
 def do_release(bopts, bargs):
     """
     dock-pulp release [options] [repo-id...]
-    Publish pulp configurations to Crane, making them live"""
+    Publish pulp configurations to Crane, making them live. Accepts globs!"""
     parser = OptionParser(usage=do_release.__doc__)
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
@@ -389,7 +410,17 @@ def do_release(bopts, bargs):
     if len(args) == 0:
         p.crane()
     else:
-        p.crane(repos=args)
+        for arg in args:
+            if '*' in arg or '?' in arg:
+                results = p.searchRepos(arg)
+                if len(results) == 0:
+                    log.warning('Glob did not match anything')
+                    return
+                else:
+                    rids.extend(results)
+            else:
+                rids.append(arg)
+        p.crane(repos=rids)
     log.info('pulp configuration(s) successfully exported')
 
 def do_remove(bopts, bargs):

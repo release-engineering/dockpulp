@@ -482,6 +482,24 @@ class Pulp(object):
             data=json.dumps(data))
         self.watch(tid)
 
+    def searchRepos(self, patt):
+        """
+        Return a list of existing Pulp repository IDs that match a pattern
+        """
+        data = {
+            'criteria': {
+                'filters': {
+                    'id': {
+                        '$regex': patt
+                    }
+                },
+                'fields': ['id']
+            }
+        }
+        repos = self._post('/pulp/api/v2/repositories/search/',
+            data=json.dumps(data))
+        return [r['id'] for r in repos]
+
     def setDebug(self):
         """turn on debug output"""
         log.setLevel(logging.DEBUG)
