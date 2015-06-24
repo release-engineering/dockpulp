@@ -144,6 +144,18 @@ class Pulp(object):
     def _delete(self, api, **kwargs):
         return self._request('delete', api, **kwargs)
 
+
+    def _enforce_repo_name_policy(self, repos, repo_prefix=None):
+        new_repos = []
+        for repo in repos:
+            if not repo.startswith(repo_prefix):
+                new_repo_key = repo_prefix + repo
+            else:
+                new_repo_key = repo
+            new_repos.append(new_repo_key)
+        return new_repos
+
+
     # public methods start here, alphabetically
 
     def cleanOrphans(self):
@@ -454,29 +466,28 @@ class Pulp(object):
         pulp_md = imgutils.get_metadata_pulp(metadata)
         imgs = pulp_md.keys()
         mod_repos_tags_mapping = {}
-        for repo in repos_tags_mapping:
-            new_repo_key = repo
-            if not repo.startswith(repo_prefix):
-                new_repo_key = repo_prefix + repo
-            mod_repos_tags_mapping[new_repo_key] = repos_tags_mapping[repo]
+        repos = self._enforce_repo_name_policy(repos_tags_mapping.keys(),
+                                               repo_prefix=repo_prefix)
+        for new_repo,old_repo in zip(repos,repos_tags_mapping.keys()):
+            mod_repos_tags_mapping[new_repo] = repos_tags_mapping[repo]
 
-        repos = mod_repos_tags_mapping.keys()
+        #repos = mod_repos_tags_mapping.keys()
 
         found_repos = self._post('/pulp/api/v2/repositories/search/',
                               data=json.dumps({"criteria": {"filters": {"id": {"$in": repos}}},
                                                             "fields": ["id"]}))
-        found_repo_ids = set([repo["id"] for repo in found_repos])
+        found_repo_ids = [repo["id"] for repo in found_repos]
 
         # create missing repos
         missing_repos = set(repos) - set(found_repo_ids)
         log.info("Missing repos: %s" % missing_repos)
         for repo in missing_repos:
             kwargs = {}
-            print missing_repos_info
+            #print missing_repos_info
             if repo in missing_repos_info:
                 kwargs = {"title": missing_repos_info[repo].get("title"),
                           "desc": missing_repos_info[repo].get("desc")}
-                print kwargs
+                #print kwargs
             self.createRepo(repo, "/pulp/docker/%s" % repo,
                             registry_id=mod_repos_tags_mapping[repo]["registry-id"],
                             desc=kwargs.get("desc"), title=kwargs.get("title"))
