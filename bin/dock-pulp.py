@@ -409,6 +409,7 @@ def do_release(bopts, bargs):
     if len(args) == 0:
         p.crane()
     else:
+        rids = []
         for arg in args:
             if '*' in arg or '?' in arg:
                 results = p.searchRepos(arg)
