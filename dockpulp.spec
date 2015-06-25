@@ -1,6 +1,6 @@
 Name:		dockpulp
 Version:	1.11
-Release:	0%{?dist}
+Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
 Group:		Applications/System
@@ -51,6 +51,12 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Thu Jun 25 2015 Jay Greguske <jgregusk@redhat.com> 1.11-1
+- add glob support for some commands
+- add exists() and searchRepos() to the API
+- add get_top_layer() for atomic-reactor
+- update setup.py
+
 * Thu May 28 2015 Jay Greguske <jgregusk@redhat.com> 1.10-2
 - fix config extension
 
