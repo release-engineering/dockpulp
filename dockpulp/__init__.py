@@ -658,10 +658,10 @@ class Pulp(object):
                     log.debug(task['traceback'])
                     awaited.pop(awaited.index(task["task_id"]))
                     raise errors.DockPulpTaskError(task['error'])
-                else:
-                    log.debug('sleeping (%s/%s seconds passed)' % (curr, timeout))
-                    time.sleep(poll)
-                    curr += poll
+            log.debug('sleeping (%s/%s seconds passed)' % (curr, timeout))
+            time.sleep(poll)
+            curr += poll
+
         log.error('timed out waiting for subtasks')
         raise errors.DockPulpError('Timed out waiting for tasks %s' % awaited)
 
