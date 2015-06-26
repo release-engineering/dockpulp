@@ -469,7 +469,7 @@ class Pulp(object):
         repos = self._enforce_repo_name_policy(repos_tags_mapping.keys(),
                                                repo_prefix=repo_prefix)
         for new_repo,old_repo in zip(repos,repos_tags_mapping.keys()):
-            mod_repos_tags_mapping[new_repo] = repos_tags_mapping[repo]
+            mod_repos_tags_mapping[new_repo] = repos_tags_mapping[old_repo]
 
         #repos = mod_repos_tags_mapping.keys()
 
