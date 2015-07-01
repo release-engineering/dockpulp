@@ -79,7 +79,8 @@ def check_repo(tarfile_path):
     seen_ids = []
     with contextlib.closing(tarfile.open(tarfile_path)) as archive:
         for member in archive.getmembers():
-            if member.path == 'repositories':
+            # member.path can be: "repositories" or "./repositories"
+            if os.path.basename(member.path) == "repositories":
                 repo_data = json.load(archive.extractfile(member))
                 found = True
                 if len(repo_data.keys()) != 1:
@@ -110,6 +111,13 @@ def get_id(tarfile_path):
     """
     meta_raw = get_metadata(tarfile_path)
     metadata = get_metadata_pulp(meta_raw)
+    return get_top_layer(metadata)
+
+def get_top_layer(metadata):
+    """
+    Returns the ID as get_id does, but starts with pulp image metadata.
+    Provided for compatibility with atomic-reactor.
+    """
     images = metadata.keys()
     parents = 0
     youngest = images[0]

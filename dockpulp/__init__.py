@@ -38,10 +38,24 @@ import imgutils
 
 C_TYPE = 'docker_image'         # pulp content type identifier for docker
 HIDDEN = 'redhat-everything'    # ID of a "hidden" repository for RCM
+DEFAULT_CONFIG_FILE = '/etc/dockpulp.conf'
 
-log = logging.getLogger('dockpulp')
-log.setLevel(logging.INFO)
-logging.basicConfig(stream=sys.stdout, format='%(levelname)-9s %(message)s')
+
+# Setup our logger
+# Null logger to avoid spurious messages, add a handler in app code
+class NullHandler(logging.Handler):
+    def emit(self, record):
+        pass
+
+
+# This is our log object, clients of this library can use this object to
+# define their own logging needs
+log = logging.getLogger("dockpulp")
+
+# Add the null handler
+h = NullHandler()
+log.addHandler(h)
+
 
 class RequestsHttpCaller(object):
     def __init__(self, url):
@@ -103,7 +117,7 @@ class RequestsHttpCaller(object):
     """
 
 class Pulp(object):
-    def __init__(self, env='qa'):
+    def __init__(self, env='qa', config_file=DEFAULT_CONFIG_FILE):
         """
         The constructor only sets up the remote hostname given an environment.
         Accepts shorthand, or full hostnames.
@@ -112,7 +126,9 @@ class Pulp(object):
         self.key = None
         self.env = env
         conf = ConfigParser.ConfigParser()
-        conf.readfp(open('/etc/dockpulp.conf'))
+        if not config_file:
+            raise errors.DockPulpConfigError('Missing config file')
+        conf.readfp(open(config_file))
         for sect in ('pulps', 'registries', 'filers'):
             if not conf.has_section(sect):
                 raise errors.DockPulpConfigError('Missing section: %s' % sect)
@@ -242,7 +258,6 @@ class Pulp(object):
             for did in ('docker_export_distributor_name_cli',
                         'docker_web_distributor_name_cli'):
                 log.info('updating distributor: %s' % did)
-
                 url = '/pulp/api/v2/repositories/%s/actions/publish/' % repo
                 kwds={"data": json.dumps({'id': did})}
                 if not wait:
@@ -260,19 +275,22 @@ class Pulp(object):
         else:
             return tasks
 
-    def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None, distributors=True):
+    def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None,
+        distributors=True, prefix_with="redhat-"):
         """
         create a docker repository in pulp, an id and a description is required
         """
+        if not repo_id.startswith(prefix_with):
+            repo_id = prefix_with + repo_id
         if '/' in repo_id:
             log.warning('Looks like you supplied a docker repo ID, not pulp')
             raise errors.DockPulpError('Pulp repo ID cannot have a "/"')
-        registry_id = registry_id or \
-                repo_id.replace('redhat-', '').replace('-', '/', 1)
-        if '/' in registry_id:
-            if '-' in registry_id[:registry_id.index('/')]:
-                log.warning('docker-pull does not support this repo ID')
-                raise errors.DockPulpError('Docker repo ID has a hyphen before the "/"')
+        if registry_id is None:
+            registry_id = repo_id.replace('redhat-', '').replace('-', '/', 1)
+            if '/' in registry_id:
+                if '-' in registry_id[:registry_id.index('/')]:
+                    log.warning('docker-pull does not support this repo ID')
+                    raise errors.DockPulpError('Docker repo ID has a hyphen before the "/"')
         rurl = url
         if not rurl.startswith('http'):
             rurl = self.cdnhost + url
@@ -334,6 +352,20 @@ class Pulp(object):
                 sort_keys=True, indent=2)
         else:
             return json.dumps(self.listRepos(content=True))
+
+    def exists(self, rid):
+        """
+        Return True if a repository already exists, False otherwise
+        """
+        data = {'criteria':
+                    {'filters':
+                        {'id': rid}
+                    },
+                'fields': ['id']
+                }
+        found = self._post('/pulp/api/v2/repositories/search/',
+            data=json.dumps(data))
+        return len(found) > 0
 
     def getAllRepoIDs(self):
         """
@@ -569,16 +601,34 @@ class Pulp(object):
             data=json.dumps(data))
         self.watch(tid)
 
+    def searchRepos(self, patt):
+        """
+        Return a list of existing Pulp repository IDs that match a pattern
+        """
+        data = {
+            'criteria': {
+                'filters': {
+                    'id': {
+                        '$regex': patt
+                    }
+                },
+                'fields': ['id']
+            }
+        }
+        repos = self._post('/pulp/api/v2/repositories/search/',
+            data=json.dumps(data))
+        return [r['id'] for r in repos]
+
     def setDebug(self):
         """turn on debug output"""
         log.setLevel(logging.DEBUG)
 
-    def updateRepo(self, id, update):
+    def updateRepo(self, rid, update):
         """
         Update metadata on a repository
         "update" is a dictionary of keys to update with new values
         """
-        log.info('updating repo %s' % id)
+        log.info('updating repo %s' % rid)
         export_id = 'docker_export_distributor_name_cli'
         web_id = 'docker_web_distributor_name_cli'
         delta = {
@@ -599,14 +649,11 @@ class Pulp(object):
         if update.has_key('tag'):
             tags, iid = update['tag'].split(':')
             new_tags = tags.split(",")
-
-            existing = self._getTags(id) # need to preserve existing tags
-            # need to wipe out existing tags for the given image
-            existing = [e for e in existing if e['image_id'] != iid]
-            # also wipe out existing tags for another images
+            existing = self._getTags(rid) # need to preserve existing tags
+            # need to wipe out existing tags for the given image and the
+            # existing tags for other images if they match
             existing = [e for e in existing if e["tag"] not in new_tags and
-                        e['image_id'] != iid]
-
+                e['image_id'] != iid]
             log.debug(existing)
             delta['delta']['scratchpad'] = {'tags': existing}
             if tags != '':
@@ -621,7 +668,7 @@ class Pulp(object):
             log.info('  no need to update the distributor configs')
             delta.pop('distributor_configs')
         log.debug('update request body: %s' % pprint.pformat(delta))
-        tid = self._put('/pulp/api/v2/repositories/%s/' % id,
+        tid = self._put('/pulp/api/v2/repositories/%s/' % rid,
             data=json.dumps(delta))
         self.watch(tid)
 
@@ -712,3 +759,8 @@ class Pulp(object):
 def split_content_url(url):
     i = url.find('/content')
     return url[:i], url[i:]
+
+def setup_logger(log):
+    log.setLevel(logging.INFO)
+    logging.basicConfig(stream=sys.stdout, format='%(levelname)-9s %(message)s')
+    return log

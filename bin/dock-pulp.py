@@ -24,7 +24,8 @@ import sys
 
 import dockpulp
 
-log = dockpulp.log
+
+log = dockpulp.setup_logger(dockpulp.log)
 
 def main():
     usage = """CLI for Pulp instances providing Docker content
@@ -39,6 +40,9 @@ def main():
     parser.add_option('-d', '--debug', default=False, action='store_true')
     parser.add_option('-s', '--server', default='qa',
         help='a Pulp environment to execute against')
+    parser.add_option('-c', '--config-file',
+        default=dockpulp.DEFAULT_CONFIG_FILE,
+        help='config file to use [default: %default]')
     opts, args = parser.parse_args()
     cmd = find_directive('do_', args)
     try:
@@ -72,7 +76,7 @@ def main():
         log.error('   http://pulp-dev-guide.readthedocs.org/en/latest/integration/index.html')
 
 def pulp_login(bopts):
-    p = dockpulp.Pulp(env=bopts.server)
+    p = dockpulp.Pulp(env=bopts.server, config_file=bopts.config_file)
     if bopts.debug:
         p.setDebug()
     if bopts.cert and bopts.key:
@@ -208,14 +212,24 @@ def do_clone(bopts, bargs):
 def do_confirm(bopts, bargs):
     """
     dock-pulp confirm [options] [repo-id...]
-    Confirm all images are reachable"""
+    Confirm all images are reachable. Accepts globs!"""
     parser = OptionParser(usage=do_clone.__doc__)
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
-    ids = None
+    rids = None
     if len(args) > 0:
-       ids = args
-    repos = p.listRepos(repos=ids, content=True)
+        rids = []
+        for arg in args:
+            if '*' in arg or '?' in arg:
+                results = p.searchRepos(arg)
+                if len(results) == 0:
+                    log.warning('Glob did not match anything')
+                    return
+                else:
+                    rids.extend(results)
+            else:
+                rids.append(arg)
+    repos = p.listRepos(repos=rids, content=True)
     errors = 0
     for repo in repos:
         log.info('Testing %s' % repo['id'])
@@ -258,8 +272,6 @@ def do_create(bopts, bargs):
     else:
         if len(args) != 3:
             parser.error('You need a product line (rhel6, openshift3, etc), image name and a content-url')
-        if '-' in args[0]:
-            parser.error('The product line cannot have hyphens')
         id = 'redhat-%s-%s' % (args[0], args[1])
         url = args[2]
     if not url.startswith('/content'):
@@ -305,7 +317,7 @@ def do_empty(bopts, bargs):
 def do_list(bopts, bargs):
     """
     dock-pulp list [options] [repo-id...]
-    List one or more repositories"""
+    List one or more repositories. Accepts globs!"""
     parser = OptionParser(usage=do_list.__doc__)
     parser.add_option('-c', '--content', default=False, action='store_true',
         help='also return information about images in a repository')
@@ -316,7 +328,18 @@ def do_list(bopts, bargs):
     if len(args) == 0:
         repos = p.listRepos(content=opts.content)
     else:
-        repos = p.listRepos(repos=args, content=opts.content)
+        rids = []
+        for arg in args:
+            if '*' in arg or '?' in arg:
+                results = p.searchRepos(arg)
+                if len(results) == 0:
+                    log.warning('Glob did not match anything')
+                    return
+                else:
+                    rids.extend(results)
+            else:
+                rids.append(arg)
+        repos = p.listRepos(repos=rids, content=opts.content)
     for repo in repos:
         log.info(repo['id'])
         if opts.details or opts.content:
@@ -352,7 +375,7 @@ def do_login(bopts, bargs):
     opts, args = parser.parse_args(bargs)
     if not opts.password:
         parser.error('You should provide a password too')
-    p = dockpulp.Pulp(env=bopts.server)
+    p = dockpulp.Pulp(env=bopts.server, config_file=bopts.config_file)
     p.login(opts.username, opts.password)
     creddir = os.path.expanduser('~/.pulp')
     if not os.path.exists(creddir):
@@ -423,7 +446,7 @@ def do_push_to_pulp(bopts, bargs):
 def do_release(bopts, bargs):
     """
     dock-pulp release [options] [repo-id...]
-    Publish pulp configurations to Crane, making them live"""
+    Publish pulp configurations to Crane, making them live. Accepts globs!"""
     parser = OptionParser(usage=do_release.__doc__)
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
@@ -432,7 +455,18 @@ def do_release(bopts, bargs):
     if len(args) == 0:
         p.crane()
     else:
-        p.crane(repos=args)
+        rids = []
+        for arg in args:
+            if '*' in arg or '?' in arg:
+                results = p.searchRepos(arg)
+                if len(results) == 0:
+                    log.warning('Glob did not match anything')
+                    return
+                else:
+                    rids.extend(results)
+            else:
+                rids.append(arg)
+        p.crane(repos=rids)
     log.info('pulp configuration(s) successfully exported')
 
 def do_remove(bopts, bargs):
