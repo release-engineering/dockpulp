@@ -17,12 +17,15 @@ import atexit
 import ConfigParser
 import logging
 import os
+import pickle
 import pprint
 import requests
 import shutil
 import sys
 import tempfile
 import time
+
+import multiprocessing
 
 try:
     import json
@@ -39,6 +42,61 @@ HIDDEN = 'redhat-everything'    # ID of a "hidden" repository for RCM
 log = logging.getLogger('dockpulp')
 log.setLevel(logging.INFO)
 logging.basicConfig(stream=sys.stdout, format='%(levelname)-9s %(message)s')
+
+class RequestsHttpCaller(object):
+    def __init__(self, url):
+        self.url = url
+        self.certificate = None
+
+    def __call__(self, meth, api, **kwargs):
+        """post an http request to a Pulp API"""
+        log.debug('remote host is %s' % self.url)
+        c = getattr(requests, meth)
+        url = self.url + api
+        if self.certificate:
+            kwargs['cert'] = (self.certificate, self.key)
+        kwargs['verify'] = False # TODO: figure out when to make True
+        log.debug('calling %s on %s' % (meth, url))
+        if 'uploads' not in api:
+            # prevent printing for uploads, since that will print megabytes of
+            # text to the screen uselessly
+            log.debug('kwargs: %s' % kwargs)
+        try:
+            answer = c(url, **kwargs)
+        except requests.exceptions.SSLError, se:
+            raise errors.DockPulpLoginError('Expired or bad certificate, please re-login')
+        try:
+            r = json.loads(answer.content)
+            log.debug('raw response data:')
+            log.debug(pprint.pformat(r))
+        except ValueError:
+            log.warning('No content in Pulp response')
+        if answer.status_code == 403:
+            raise errors.DockPulpLoginError('Received 403: Forbidden')
+        elif answer.status_code >= 500:
+            raise errors.DockPulpServerError('Received a 500 error')
+        elif answer.status_code >= 400:
+            self._error(answer.status_code, url)
+        elif answer.status_code == 202:
+            log.info('Pulp spawned a subtask: %s' % 
+                r['spawned_tasks'][0]['task_id'])
+            # TODO: blindly takes the first task only
+            return r['spawned_tasks'][0]['task_id']
+        return r
+
+    """
+    def _get(self, api, **kwargs):
+        return self._request('get', api, **kwargs)
+
+    def _post(self, api, **kwargs):
+        return self._request('post', api, **kwargs)
+
+    def _put(self, api, **kwargs):
+        return self._request('put', api, **kwargs)
+
+    def _delete(self, api, **kwargs):
+        return self._request('delete', api, **kwargs)
+    """
 
 class Pulp(object):
     def __init__(self, env='qa'):
@@ -58,6 +116,7 @@ class Pulp(object):
                 raise errors.DockPulpConfigError('%s section is missing %s' %
                     (sect, env))
         self.url = conf.get('pulps', env)
+        self._request = RequestsHttpCaller(conf.get('pulps', env))
         self.registry = conf.get('registries', env)
         self.cdnhost = conf.get('filers', env)
 
@@ -95,42 +154,6 @@ class Pulp(object):
             return rinfo['scratchpad']['tags']
         else:
             return []
-
-    def _request(self, meth, api, **kwargs):
-        """post an http request to a Pulp API"""
-        log.debug('remote host is %s' % self.url)
-        c = getattr(requests, meth)
-        url = self.url + api
-        if self.certificate:
-            kwargs['cert'] = (self.certificate, self.key)
-        kwargs['verify'] = False # TODO: figure out when to make True
-        log.debug('calling %s on %s' % (meth, url))
-        if 'uploads' not in api:
-            # prevent printing for uploads, since that will print megabytes of
-            # text to the screen uselessly
-            log.debug('kwargs: %s' % kwargs)
-        try:
-            answer = c(url, **kwargs)
-        except requests.exceptions.SSLError, se:
-            raise errors.DockPulpLoginError('Expired or bad certificate, please re-login')
-        try:
-            r = json.loads(answer.content)
-            log.debug('raw response data:')
-            log.debug(pprint.pformat(r))
-        except ValueError:
-            log.warning('No content in Pulp response')
-        if answer.status_code == 403:
-            raise errors.DockPulpLoginError('Received 403: Forbidden')
-        elif answer.status_code >= 500:
-            raise errors.DockPulpServerError('Received a 500 error')
-        elif answer.status_code >= 400:
-            self._error(answer.status_code, url)
-        elif answer.status_code == 202:
-            log.info('Pulp spawned a subtask: %s' % 
-                r['spawned_tasks'][0]['task_id'])
-            # TODO: blindly takes the first task only
-            return r['spawned_tasks'][0]['task_id']
-        return r
 
     def _get(self, api, **kwargs):
         return self._request('get', api, **kwargs)
@@ -198,6 +221,8 @@ class Pulp(object):
             data=json.dumps(data))
         self.watch(tid)
 
+    """
+    """
     def crane(self, repos=[], wait=True):
         """
         Export pulp configuration to crane for one or more repositories
@@ -205,16 +230,31 @@ class Pulp(object):
         if len(repos) == 0:
             repos = self.getAllRepoIDs()
         tasks = []
+        results = []
+        if not wait:
+            pool = multiprocessing.Pool()
+
         for repo in repos:
-            for did in ('docker_export_distributor_name_cli', 'docker_web_distributor_name_cli'):
+            for did in ('docker_export_distributor_name_cli',
+                        'docker_web_distributor_name_cli'):
                 log.info('updating distributor: %s' % did)
-                tid = self._post(
-                    '/pulp/api/v2/repositories/%s/actions/publish/' % repo,
-                    data=json.dumps({'id': did}))
-                if wait:
+
+                url = '/pulp/api/v2/repositories/%s/actions/publish/' % repo
+                kwds={"data": json.dumps({'id': did})}
+                if not wait:
+                    results.append(pool.apply_async(self._request,
+                                                    args=("post", url,),
+                                                    kwds=kwds))
+                else:
+                    tid = self._post(url, data=kwds["data"])
                     self.watch(tid)
-                tasks.append(tid)
-        return tasks
+                    tasks.append(tid)
+        if not wait:
+            pool.close()
+            pool.join()
+            return [result.get() for result in results]
+        else:
+            return tasks
 
     def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None, distributors=True):
         """
@@ -426,7 +466,7 @@ class Pulp(object):
         additional logins.
         """
         log.info('logging in as %s' % user)
-        if not self.certificate:
+        if not self._request.certificate:
             blob = self._post('/pulp/api/v2/actions/login/',
                 auth=(user, password))
             sessiondir = tempfile.mkdtemp()
@@ -437,7 +477,7 @@ class Pulp(object):
                 fd = open(f, 'w')
                 fd.write(blob[part])
                 fd.close()
-                setattr(self, part, f)
+                setattr(self._request, part, f)
             atexit.register(self._cleanup, sessiondir)
 
     def logout(self):
