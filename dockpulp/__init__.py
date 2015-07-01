@@ -17,12 +17,15 @@ import atexit
 import ConfigParser
 import logging
 import os
+import pickle
 import pprint
 import requests
 import shutil
 import sys
 import tempfile
 import time
+
+import multiprocessing
 
 try:
     import json
@@ -54,6 +57,65 @@ h = NullHandler()
 log.addHandler(h)
 
 
+class RequestsHttpCaller(object):
+    def __init__(self, url):
+        self.url = url
+        self.certificate = None
+
+    def _error(self, code, url):
+        """format a nice error message"""
+        raise errors.DockPulpError('Received response %s from %s' % (code, url))
+
+    def __call__(self, meth, api, **kwargs):
+        """post an http request to a Pulp API"""
+        log.debug('remote host is %s' % self.url)
+        c = getattr(requests, meth)
+        url = self.url + api
+        if self.certificate:
+            kwargs['cert'] = (self.certificate, self.key)
+        kwargs['verify'] = False # TODO: figure out when to make True
+        log.debug('calling %s on %s' % (meth, url))
+        if 'uploads' not in api:
+            # prevent printing for uploads, since that will print megabytes of
+            # text to the screen uselessly
+            log.debug('kwargs: %s' % kwargs)
+        try:
+            answer = c(url, **kwargs)
+        except requests.exceptions.SSLError, se:
+            raise errors.DockPulpLoginError('Expired or bad certificate, please re-login')
+        try:
+            r = json.loads(answer.content)
+            log.debug('raw response data:')
+            log.debug(pprint.pformat(r))
+        except ValueError:
+            log.warning('No content in Pulp response')
+        if answer.status_code == 403:
+            raise errors.DockPulpLoginError('Received 403: Forbidden')
+        elif answer.status_code >= 500:
+            raise errors.DockPulpServerError('Received a 500 error')
+        elif answer.status_code >= 400:
+            self._error(answer.status_code, url)
+        elif answer.status_code == 202:
+            log.info('Pulp spawned a subtask: %s' % 
+                r['spawned_tasks'][0]['task_id'])
+            # TODO: blindly takes the first task only
+            return r['spawned_tasks'][0]['task_id']
+        return r
+
+    """
+    def _get(self, api, **kwargs):
+        return self._request('get', api, **kwargs)
+
+    def _post(self, api, **kwargs):
+        return self._request('post', api, **kwargs)
+
+    def _put(self, api, **kwargs):
+        return self._request('put', api, **kwargs)
+
+    def _delete(self, api, **kwargs):
+        return self._request('delete', api, **kwargs)
+    """
+
 class Pulp(object):
     def __init__(self, env='qa', config_file=DEFAULT_CONFIG_FILE):
         """
@@ -74,6 +136,7 @@ class Pulp(object):
                 raise errors.DockPulpConfigError('%s section is missing %s' %
                     (sect, env))
         self.url = conf.get('pulps', env)
+        self._request = RequestsHttpCaller(conf.get('pulps', env))
         self.registry = conf.get('registries', env)
         self.cdnhost = conf.get('filers', env)
 
@@ -112,42 +175,6 @@ class Pulp(object):
         else:
             return []
 
-    def _request(self, meth, api, **kwargs):
-        """post an http request to a Pulp API"""
-        log.debug('remote host is %s' % self.url)
-        c = getattr(requests, meth)
-        url = self.url + api
-        if self.certificate:
-            kwargs['cert'] = (self.certificate, self.key)
-        kwargs['verify'] = False # TODO: figure out when to make True
-        log.debug('calling %s on %s' % (meth, url))
-        if 'uploads' not in api:
-            # prevent printing for uploads, since that will print megabytes of
-            # text to the screen uselessly
-            log.debug('kwargs: %s' % kwargs)
-        try:
-            answer = c(url, **kwargs)
-        except requests.exceptions.SSLError, se:
-            raise errors.DockPulpLoginError('Expired or bad certificate, please re-login')
-        try:
-            r = json.loads(answer.content)
-            log.debug('raw response data:')
-            log.debug(pprint.pformat(r))
-        except ValueError:
-            log.warning('No content in Pulp response')
-        if answer.status_code == 403:
-            raise errors.DockPulpLoginError('Received 403: Forbidden')
-        elif answer.status_code >= 500:
-            raise errors.DockPulpServerError('Received a 500 error')
-        elif answer.status_code >= 400:
-            self._error(answer.status_code, url)
-        elif answer.status_code == 202:
-            log.info('Pulp spawned a subtask: %s' % 
-                r['spawned_tasks'][0]['task_id'])
-            # TODO: blindly takes the first task only
-            return r['spawned_tasks'][0]['task_id']
-        return r
-
     def _get(self, api, **kwargs):
         return self._request('get', api, **kwargs)
 
@@ -159,6 +186,18 @@ class Pulp(object):
 
     def _delete(self, api, **kwargs):
         return self._request('delete', api, **kwargs)
+
+
+    def _enforce_repo_name_policy(self, repos, repo_prefix=None):
+        new_repos = []
+        for repo in repos:
+            if not repo.startswith(repo_prefix):
+                new_repo_key = repo_prefix + repo
+            else:
+                new_repo_key = repo
+            new_repos.append(new_repo_key)
+        return new_repos
+
 
     # public methods start here, alphabetically
 
@@ -202,19 +241,39 @@ class Pulp(object):
             data=json.dumps(data))
         self.watch(tid)
 
-    def crane(self, repos=[]):
+    """
+    """
+    def crane(self, repos=[], wait=True):
         """
         Export pulp configuration to crane for one or more repositories
         """
         if len(repos) == 0:
             repos = self.getAllRepoIDs()
+        tasks = []
+        results = []
+        if not wait:
+            pool = multiprocessing.Pool()
+
         for repo in repos:
-            for did in ('docker_export_distributor_name_cli', 'docker_web_distributor_name_cli'):
+            for did in ('docker_export_distributor_name_cli',
+                        'docker_web_distributor_name_cli'):
                 log.info('updating distributor: %s' % did)
-                tid = self._post(
-                    '/pulp/api/v2/repositories/%s/actions/publish/' % repo,
-                    data=json.dumps({'id': did}))
-                self.watch(tid)
+                url = '/pulp/api/v2/repositories/%s/actions/publish/' % repo
+                kwds={"data": json.dumps({'id': did})}
+                if not wait:
+                    results.append(pool.apply_async(self._request,
+                                                    args=("post", url,),
+                                                    kwds=kwds))
+                else:
+                    tid = self._post(url, data=kwds["data"])
+                    self.watch(tid)
+                    tasks.append(tid)
+        if not wait:
+            pool.close()
+            pool.join()
+            return [result.get() for result in results]
+        else:
+            return tasks
 
     def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None,
         distributors=True, prefix_with="redhat-"):
@@ -354,6 +413,14 @@ class Pulp(object):
         log.debug('getting task %s information' % tid)
         return self._get('/pulp/api/v2/tasks/%s/' % tid)
 
+    def getTasks(self, tids):
+        """
+        return a task report for a given id
+        """
+        log.debug('getting tasks %s information' % tids)
+        criteria = json.dumps({"criteria":{"filters":{"task_id":{"$in":tids}}}})
+        return self._post('/pulp/api/v2/tasks/search/', data=criteria)
+
     def listOrphans(self):
         """
         return a list of orphaned content
@@ -435,7 +502,7 @@ class Pulp(object):
         additional logins.
         """
         log.info('logging in as %s' % user)
-        if not self.certificate:
+        if not self._request.certificate:
             blob = self._post('/pulp/api/v2/actions/login/',
                 auth=(user, password))
             sessiondir = tempfile.mkdtemp()
@@ -446,7 +513,7 @@ class Pulp(object):
                 fd = open(f, 'w')
                 fd.write(blob[part])
                 fd.close()
-                setattr(self, part, f)
+                setattr(self._request, part, f)
             atexit.register(self._cleanup, sessiondir)
 
     def logout(self):
@@ -457,6 +524,58 @@ class Pulp(object):
         log.info('logging out')
         if self.certificate:
             self._cleanup(os.path.dirname(self.certificate))
+
+    def push_tar_to_pulp(self, repos_tags_mapping, tarfile, missing_repos_info={},
+                         repo_prefix="redhat-"):
+        """
+        repos_tags_mapping is mapping between repo-ids, registry-ids and tags
+        which should be applied to those repos, expected structure:
+        {
+            "my-image": {
+                "registry-id": "nick/my-image",
+                "tags": ["v1", "latest"],
+            },
+            ...
+        }
+        """
+        metadata = imgutils.get_metadata(tarfile)
+        pulp_md = imgutils.get_metadata_pulp(metadata)
+        imgs = pulp_md.keys()
+        mod_repos_tags_mapping = {}
+        repos = self._enforce_repo_name_policy(repos_tags_mapping.keys(),
+                                               repo_prefix=repo_prefix)
+        for new_repo,old_repo in zip(repos,repos_tags_mapping.keys()):
+            mod_repos_tags_mapping[new_repo] = repos_tags_mapping[old_repo]
+
+        #repos = mod_repos_tags_mapping.keys()
+
+        found_repos = self._post('/pulp/api/v2/repositories/search/',
+                              data=json.dumps({"criteria": {"filters": {"id": {"$in": repos}}},
+                                                            "fields": ["id"]}))
+        found_repo_ids = [repo["id"] for repo in found_repos]
+
+        # create missing repos
+        missing_repos = set(repos) - set(found_repo_ids)
+        log.info("Missing repos: %s" % missing_repos)
+        for repo in missing_repos:
+            kwargs = {}
+            #print missing_repos_info
+            if repo in missing_repos_info:
+                kwargs = {"title": missing_repos_info[repo].get("title"),
+                          "desc": missing_repos_info[repo].get("desc")}
+                #print kwargs
+            self.createRepo(repo, "/pulp/docker/%s" % repo,
+                            registry_id=mod_repos_tags_mapping[repo]["registry-id"],
+                            desc=kwargs.get("desc"), title=kwargs.get("title"))
+
+        top_layer = imgutils.get_top_layer(pulp_md)
+        self.upload(tarfile)
+
+        for repo, repo_conf in mod_repos_tags_mapping.items():
+            for img in imgs:
+                self.copy(repo, img)
+            self.updateRepo(repo, {"tag": "%s:%s" % (",".join(repo_conf["tags"]),
+                                                         top_layer)})
 
     def remove(self, repo, img):
         """
@@ -611,6 +730,31 @@ class Pulp(object):
                 curr += poll
         log.error('timed out waiting for subtask')
         raise errors.DockPulpError('Timed out waiting for task %s' % tid)
+
+    def watch_tasks(self, tids, timeout=60, poll=5):
+        """watch a tasks ID and return when all finishes or fails"""
+        log.info('waiting up to %s seconds for task %s...' % (timeout, tids))
+        curr = 0
+        awaited = tids[:]
+
+        while curr < timeout and awaited:
+            states = self.getTasks(awaited)
+            for task in states:
+                if task['state'] == 'finished':
+                    log.info('subtask completed')
+                    awaited.pop(awaited.index(task["task_id"]))
+                    return True
+                elif task['state'] == 'error':
+                    log.debug('traceback from subtask:')
+                    log.debug(task['traceback'])
+                    awaited.pop(awaited.index(task["task_id"]))
+                    raise errors.DockPulpTaskError(task['error'])
+            log.debug('sleeping (%s/%s seconds passed)' % (curr, timeout))
+            time.sleep(poll)
+            curr += poll
+
+        log.error('timed out waiting for subtasks')
+        raise errors.DockPulpError('Timed out waiting for tasks %s' % awaited)
 
 def split_content_url(url):
     i = url.find('/content')
