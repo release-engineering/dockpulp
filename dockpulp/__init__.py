@@ -48,6 +48,10 @@ class RequestsHttpCaller(object):
         self.url = url
         self.certificate = None
 
+    def _error(self, code, url):
+        """format a nice error message"""
+        raise errors.DockPulpError('Received response %s from %s' % (code, url))
+
     def __call__(self, meth, api, **kwargs):
         """post an http request to a Pulp API"""
         log.debug('remote host is %s' % self.url)
