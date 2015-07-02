@@ -514,6 +514,7 @@ class Pulp(object):
                 fd.write(blob[part])
                 fd.close()
                 setattr(self._request, part, f)
+                setattr(self, part, f)
             atexit.register(self._cleanup, sessiondir)
 
     def logout(self):
