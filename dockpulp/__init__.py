@@ -65,6 +65,11 @@ class RequestsHttpCaller(object):
     def __init__(self, url):
         self.url = url
         self.certificate = None
+        self.key = None
+
+    def set_cert_key_paths(self, cert_path, key_path):
+        self.certificate = cert_path
+        self.key = key_path
 
     def _error(self, code, url):
         """format a nice error message"""
@@ -121,28 +126,55 @@ class RequestsHttpCaller(object):
     """
 
 class Pulp(object):
-    def __init__(self, env='qa', config_file=DEFAULT_CONFIG_FILE):
+    #                           section, process function, target attribute
+    MANDATORY_CONF_SECTIONS = (('pulps', "_set_env_attr", "url"),
+                               ('registries', "_set_env_attr", "registry"),
+                               ( 'filers', "_set_env_attr", "cdnhost"))
+    OPTIONAL_CONF_SECTIONS = (('certificates', "_set_cert", None),)
+    AUTH_CER_FILE = "pulp.cer"
+    AUTH_KEY_FILE = "pulp.key"
+
+    def __init__(self, env='qa', config_file=DEFAULT_CONFIG_FILE,
+                 config_override=None):
         """
-        The constructor only sets up the remote hostname given an environment.
+        The constructor sets up the remote hostname given an environment.
         Accepts shorthand, or full hostnames.
         """
         self.certificate = None # set in login()
         self.key = None
         self.env = env
-        conf = ConfigParser.ConfigParser()
-        if not config_file:
-            raise errors.DockPulpConfigError('Missing config file')
-        conf.readfp(open(config_file))
-        for sect in ('pulps', 'registries', 'filers'):
-            if not conf.has_section(sect):
-                raise errors.DockPulpConfigError('Missing section: %s' % sect)
-            if not conf.has_option(sect, env):
-                raise errors.DockPulpConfigError('%s section is missing %s' %
-                    (sect, env))
-        self.url = conf.get('pulps', env)
-        self._request = RequestsHttpCaller(conf.get('pulps', env))
-        self.registry = conf.get('registries', env)
-        self.cdnhost = conf.get('filers', env)
+        self.load_configuration(config_file)
+        self._load_override_conf(config_override)
+
+        self._request = RequestsHttpCaller(self.url)
+        self._request.set_cert_key_paths(self.certificate, self.key)
+
+
+    def _set_cert(self, attrs):
+        for key, cert_path in attrs:
+            if self.env == key:
+                self.certificate = os.path.join(os.path.expanduser(cert_path),
+                                                self.AUTH_CER_FILE)
+                self.key = os.path.join(os.path.expanduser(cert_path),
+                                        self.AUTH_KEY_FILE)
+
+    def _set_env_attr(self, attrs):
+        for key, val in attrs:
+            if self.env == key:
+                return val
+        return None
+
+    def _load_override_conf(self, config_override):
+        if not isinstance(config_override, dict):
+            return
+        for sections in (self.MANDATORY_CONF_SECTIONS,
+                         self.OPTIONAL_CONF_SECTIONS):
+            for key, process, target in sections:
+                if key in config_override:
+                    process_f = getattr(self, process)
+                    ret = process_f([(self.env, config_override[key])])
+                    if target:
+                        setattr(self, target, ret)
 
     def _cleanup(self, creddir):
         """
@@ -533,17 +565,42 @@ class Pulp(object):
         log.debug('getting all upload IDs')
         return self._get('/pulp/api/v2/content/uploads/')['upload_ids']
 
+    def load_configuration(self, conf_file):
+        conf = ConfigParser.ConfigParser()
+        if not conf_file:
+            raise errors.DockPulpConfigError('Missing config file')
+        conf.readfp(open(conf_file))
+        for sect, process, target in self.MANDATORY_CONF_SECTIONS:
+            if not conf.has_section(sect):
+                raise errors.DockPulpConfigError('Missing section: %s' % sect)
+            if not conf.has_option(sect, self.env):
+                raise errors.DockPulpConfigError('%s section is missing %s' %
+                    (sect, env))
+            process_f = getattr(self, process)
+            ret = process_f(conf.items(sect))
+            if target:
+                setattr(self, target, ret)
+
+        for sect, process, target in self.OPTIONAL_CONF_SECTIONS:
+            if conf.has_section(sect):
+                process_f = getattr(self, process)
+                ret = process_f(conf.items(sect))
+                if target:
+                    setattr(self, target, ret)
+
     def login(self, user, password):
         """
         Log into pulp using a user/pass combo. A certificate is saved for
         additional logins.
         """
         log.info('logging in as %s' % user)
-        if not self._request.certificate:
+        log.info('certificate %s' % self._request.certificate)
+        if not self._request.certificate or\
+           not os.path.exists(self._request.certificate):
             blob = self._post('/pulp/api/v2/actions/login/',
                 auth=(user, password))
             sessiondir = tempfile.mkdtemp()
-            log.debug('session info saved in %s' % sessiondir)
+            log.info('session info saved in %s' % sessiondir)
             for part in ('certificate', 'key'):
                 # save the cert and key for future calls
                 f = os.path.join(sessiondir, 'pulp.' + part[:3])
@@ -551,6 +608,7 @@ class Pulp(object):
                 fd.write(blob[part])
                 fd.close()
                 setattr(self._request, part, f)
+                setattr(self, part, f)
             atexit.register(self._cleanup, sessiondir)
 
     def logout(self):
@@ -559,8 +617,8 @@ class Pulp(object):
         is no need to call this function.
         """
         log.info('logging out')
-        if self.certificate:
-            self._cleanup(os.path.dirname(self.certificate))
+        if self._request.certificate:
+            self._cleanup(os.path.dirname(self._request.certificate))
 
     def push_tar_to_pulp(self, repos_tags_mapping, tarfile, missing_repos_info={},
                          repo_prefix="redhat-"):
@@ -654,6 +712,11 @@ class Pulp(object):
         repos = self._post('/pulp/api/v2/repositories/search/',
             data=json.dumps(data))
         return [r['id'] for r in repos]
+
+    def set_certs(self, cert, key):
+        self.certificate = cert
+        self.key = key
+        self._request.set_cert_key_paths(self.certificate, self.key)
 
     def setDebug(self):
         """turn on debug output"""
