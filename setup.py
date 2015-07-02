@@ -13,5 +13,5 @@ setup(
     package_dir = {'': '.'},
     packages = ['dockpulp'],
     scripts = ['bin/dock-pulp.py', 'bin/dock-pulp-bootstrap.py', 'bin/dock-pulp-restore.py'],
-    data_files = [('/etc', ['conf/dockpulp.conf'])],
+    package_data = {'': ['conf/dockpulp.conf']},
 )
