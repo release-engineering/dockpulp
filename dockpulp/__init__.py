@@ -28,10 +28,14 @@ import time
 import multiprocessing
 
 try:
-    import json
-except ImportError:
     # Python 2.6 and earlier
     import simplejson as json
+except ImportError:
+    if sys.version_info[0] > 2 or sys.version_info[1] > 6:
+        import json
+    else:
+        # json on python 2.6 does not behave like simplejson
+        raise
 
 import errors
 import imgutils
