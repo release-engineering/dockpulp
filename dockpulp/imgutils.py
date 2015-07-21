@@ -21,6 +21,7 @@ try:
     # Python 2.6 and earlier
     import simplejson as json
 except ImportError:
+    import sys
     if sys.version_info[0] > 2 or sys.version_info[1] > 6:
         import json
     else:
