@@ -570,7 +570,8 @@ class Pulp(object):
                 #print kwargs
             self.createRepo(repo, "/pulp/docker/%s" % repo,
                             registry_id=mod_repos_tags_mapping[repo]["registry-id"],
-                            desc=kwargs.get("desc"), title=kwargs.get("title"))
+                            desc=kwargs.get("desc"), title=kwargs.get("title"),
+                            prefix_with=repo_prefix)
 
         top_layer = imgutils.get_top_layer(pulp_md)
         self.upload(tarfile)
