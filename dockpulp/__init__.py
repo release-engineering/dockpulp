@@ -767,5 +767,9 @@ def split_content_url(url):
 
 def setup_logger(log):
     log.setLevel(logging.INFO)
-    logging.basicConfig(stream=sys.stdout, format='%(levelname)-9s %(message)s')
+    handler = logging.StreamHandler(stream=sys.stdout)
+    handler.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(levelname)-9s %(message)s')
+    handler.setFormatter(formatter)
+    log.addHandler(handler)
     return log
