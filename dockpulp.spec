@@ -1,6 +1,6 @@
 Name:		dockpulp
-Version:	1.11
-Release:	2%{?dist}
+Version:	1.12
+Release:	0%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
 Group:		Applications/System
