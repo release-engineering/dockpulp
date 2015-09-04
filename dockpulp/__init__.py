@@ -23,6 +23,7 @@ import shutil
 import sys
 import tempfile
 import time
+import warnings
 
 try:
     # Python 2.6 and earlier
@@ -67,6 +68,7 @@ class Pulp(object):
         self.url = conf.get('pulps', env)
         self.registry = conf.get('registries', env)
         self.cdnhost = conf.get('filers', env)
+        self.verify = conf.getboolean('verify', env)
 
     def _cleanup(self, creddir):
         """
@@ -110,16 +112,26 @@ class Pulp(object):
         url = self.url + api
         if self.certificate:
             kwargs['cert'] = (self.certificate, self.key)
-        kwargs['verify'] = False # TODO: figure out when to make True
+        kwargs['verify'] = self.verify
         log.debug('calling %s on %s' % (meth, url))
         if 'uploads' not in api:
             # prevent printing for uploads, since that will print megabytes of
             # text to the screen uselessly
             log.debug('kwargs: %s' % kwargs)
         try:
-            answer = c(url, **kwargs)
+            with warnings.catch_warnings():
+                # XXX: hides a known SecurityWarning (and potentially others)
+                if not self.verify:
+                    warnings.simplefilter("ignore")
+                    log.warning('SSL verification is off!')
+                answer = c(url, **kwargs)
         except requests.exceptions.SSLError, se:
-            raise errors.DockPulpLoginError('Expired or bad certificate, please re-login')
+            if not self.verify:
+                raise errors.DockPulpLoginError(
+                    'Expired or bad certificate, please re-login')
+            else:
+                raise errors.DockPulpLoginError(
+                    'Expired or bad certificate, or SSL verification failed')
         try:
             r = json.loads(answer.content)
             log.debug('raw response data:')
