@@ -69,6 +69,8 @@ class Pulp(object):
         self.registry = conf.get('registries', env)
         self.cdnhost = conf.get('filers', env)
         self.verify = conf.getboolean('verify', env)
+        if not self.verify:
+            log.warning('SSL verification is off!')
 
     def _cleanup(self, creddir):
         """
@@ -123,7 +125,6 @@ class Pulp(object):
                 # XXX: hides a known SecurityWarning (and potentially others)
                 if not self.verify:
                     warnings.simplefilter("ignore")
-                    log.warning('SSL verification is off!')
                 answer = c(url, **kwargs)
         except requests.exceptions.SSLError, se:
             if not self.verify:
