@@ -1,6 +1,6 @@
 Name:		dockpulp
 Version:	1.12
-Release:	0%{?dist}
+Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
 Group:		Applications/System
@@ -51,6 +51,26 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Fri Sep 04 2015 Jay Greguske <jgregusk@redhat.com> 1.12-1
+- update to 1.12 (jgregusk@redhat.com)
+- Don't use logging.basicConfig, set handler to the logger instance
+- Import sys before checking sys.version_info
+- Require simplejson on Python 2.6 (twaugh@redhat.com)
+- Add simplejson as a requirement for Python 2.6
+- Don't install dockpulp.conf in /etc (twaugh@redhat.com)
+- fix missing initialization
+- fix upstream URL
+- add dockpulp.spec
+- omit spec from gitignore
+- add searchRepos support globs for some commands
+- remove obsolete product line check
+- remove older tags when tagging a new image
+- implement exists
+- steal ownership in setup.py, include other scripts
+- introduce get_top_layer for atomic-reactor
+- use default config path instead of None
+- add setup.py
+
 * Thu Jun 25 2015 Jay Greguske <jgregusk@redhat.com> 1.11-2
 - fix missing initialization (jgregusk@redhat.com)
 
