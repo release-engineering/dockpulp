@@ -1,6 +1,6 @@
 Name:		dockpulp
 Version:	1.12
-Release:	2%{?dist}
+Release:	3%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
 Group:		Applications/System
@@ -51,6 +51,9 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Fri Sep 04 2015 Jay Greguske <jgregusk@redhat.com> 1.12-3
+- only warn about ssl once (jgregusk@redhat.com)
+
 * Fri Sep 04 2015 Jay Greguske <jgregusk@redhat.com> 1.12-2
 - expose ssl verification (jgregusk@redhat.com)
 
