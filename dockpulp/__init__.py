@@ -872,6 +872,7 @@ class Pulp(object):
         running_count = len(running)
         failed = False
         results = {}
+        failed_tasks = []
         if running:
             log.debug("Waiting on the following %d Pulp tasks: %s" % (len(running), ",".join(sorted(running))))
         while running:
@@ -915,6 +916,7 @@ class Pulp(object):
                                 '\n'.join([str(x) for x in t.get("tags", [])]),
                                 '\n'.join([str(x) for x in reasons]),
                                 exception, traceback))
+                failed_tasks.append(t)
                 failed = True
             running -= set([t["task_id"] for t in finished])
 
@@ -923,6 +925,7 @@ class Pulp(object):
                 for task_id in running:
                     self.deleteTask(task_id)
                 running = set()
+                raise errors.DockPulpError("Pulp tasks failed:%s" % failed_tasks)
 
             if running and len(running) != running_count:
                 log.debug("Waiting on the following %d Pulp tasks: %s" % (len(running), ",".join(sorted(running))))
