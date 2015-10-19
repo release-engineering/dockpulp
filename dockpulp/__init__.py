@@ -100,7 +100,7 @@ class RequestsHttpCaller(object):
         elif answer.status_code >= 400:
             self._error(answer.status_code, url)
         elif answer.status_code == 202:
-            log.info('Pulp spawned a subtask: %s' % 
+            log.info('Pulp spawned a subtask: %s' %
                 r['spawned_tasks'][0]['task_id'])
             # TODO: blindly takes the first task only
             return r['spawned_tasks'][0]['task_id']
@@ -788,7 +788,7 @@ class Pulp(object):
         log.error('timed out waiting for subtask')
         raise errors.DockPulpError('Timed out waiting for task %s' % tid)
 
-    def watch_tasks(self, tids, timeout=60, poll=5):
+    def watch_tasks_orig(self, tids, timeout=60, poll=5):
         """watch a tasks ID and return when all finishes or fails"""
         log.info('waiting up to %s seconds for task %s...' % (timeout, tids))
         curr = 0
@@ -812,6 +812,115 @@ class Pulp(object):
 
         log.error('timed out waiting for subtasks')
         raise errors.DockPulpError('Timed out waiting for tasks %s' % awaited)
+
+    def is_task_successful(self, task):
+        # Try to inspect task results to catch buried failures
+        if task["state"] == "error":
+            return False
+        elif type(task["result"]) == list:
+            # Used by Content Unit / Repo association
+            # No buried errors found so far
+            return True
+        elif type(task["result"]) == dict:
+            # Used by Distributors
+            if 'result' in task["result"]:
+                # Used by Yum distributor
+                return task['result']['result'] == 'success'
+            elif 'success_flag' in task["result"]:
+                # Used by CDN distributor
+                return task["result"]['success_flag']
+            elif 'units_successful' in task["result"] or task["result"] == {}:
+                return True
+        elif task["state"] == "finished":
+            return True
+        elif task["state"] in ("error", "canceled"):
+            return False
+        log.info("Unknown task result type: %s (%s)" % (task['result'], type(task['result'])))
+        return True
+
+    def resolve_task_type(self, task):
+        tags = task.get("tags", [])
+        if "pulp:action:publish" in tags:
+            repo = [tag for tag in tags if tag.startswith("pulp:repository")][0]
+            repo = repo.replace("pulp:repository:", "")
+            return "Publishing to %s" % repo
+        elif "pulp:action:associate" in tags:
+            repos = [tag for tag in tags if tag.startswith("pulp:repository")]
+            repos = [repo.replace("pulp:repository:", "") for repo in repos]
+            return "Association content %s -> %s" % (repos[1], repos[0])
+        elif "pulp:action:import_upload" in tags:
+            repo = [tag for tag in tags if tag.startswith("pulp:repository")][0]
+            repo = repo.replace("pulp:repository:", "")
+            return "Importing content to repo %s" % (repo)
+
+    def watch_tasks(self, task_ids, timeout=60, poll=5):
+        """
+        Waits for all supplied task ids to complete. If fail_immediately is
+        true, then don't wait for other tasks if at least one fails. Just
+        cancel everything running and raise error.
+        If return_after_first is True, then return when any of tasks
+        finishes, don't wait for others.
+        """
+        running = set(task_ids)
+        running_count = len(running)
+        failed = False
+        results = {}
+        if running:
+            log.debug("Waiting on the following %d Pulp tasks: %s" % (len(running), ",".join(sorted(running))))
+        while running:
+            time.sleep(poll)
+            tasks_found = self.getTasks(list(running))
+            finished = [t for t in tasks_found if t["state"]  in ("finished", "error", "canceled")]
+            for t in finished:
+                if self.is_task_successful(t):
+                    log.debug("Task successful: %s, %s" % (t["task_id"], self.resolve_task_type(t)))
+                else:
+                    log.debug("Finished: Failed: %s" % (t))
+                results[t["task_id"]] = t
+            # some tasks could be already removed from cache - search_tasks
+            #doesn't find them. Need check manually
+            for task_id in set(running) - set([t["task_id"] for t in tasks_found]):
+                t = self.getTask(task_id)
+                if t["state"] in ("finished", "error", "canceled"):
+                    results[t["task_id"]] = t
+                    if self.is_task_successful(t):
+                        log.debug("Task successful: %s, %s" % (t["task_id"], self.resolve_task_type(t)))
+                    else:
+                        log.debug("Finished: Failed: %s" % (t))
+                    finished.append(t)
+            for t in [t for t in finished if not self.is_task_successful(t)]:
+                if t.get("exception", None):
+                     exception = u''.join(t["exception"])
+                else:
+                     exception = None
+                if t.get("traceback", None):
+                     traceback = u''.join(t["traceback"])
+                else:
+                     traceback = None
+                try:
+                    reasons = t.reasons
+                except AttributeError:
+                    result = t.get("result",{}) if t.get("result", {}) else {}
+                    reasons = result.get('reasons', [])
+                log.error(u"Pulp task [%s] failed:\nDetails:\n%s\nTags:\n%s\nReasons:\n%s\nException:\n%s\nTraceback:\n%s" %
+                               (t["task_id"],
+                                pprint.pformat(result.get('details', '')),
+                                '\n'.join([str(x) for x in t.get("tags", [])]),
+                                '\n'.join([str(x) for x in reasons]),
+                                exception, traceback))
+                failed = True
+            running -= set([t["task_id"] for t in finished])
+
+            if failed and running:
+                log.warning("Canceling running tasks: %s" % ', '.join(running))
+                for task_id in running:
+                    self.pa_tool.proxy.task.delete(TASK_ID=task_id)
+                running = set()
+
+            if running and len(running) != running_count:
+                log.debug("Waiting on the following %d Pulp tasks: %s" % (len(running), ",".join(sorted(running))))
+                running_count = len(running)
+        return results.values()
 
 def split_content_url(url):
     i = url.find('/content')
