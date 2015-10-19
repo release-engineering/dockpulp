@@ -450,6 +450,13 @@ class Pulp(object):
         log.debug('getting task %s information' % tid)
         return self._get('/pulp/api/v2/tasks/%s/' % tid)
 
+    def deleteTask(self, tid):
+        """
+        return a task report for a given id
+        """
+        log.debug('getting task %s information' % tid)
+        return self._delete('/pulp/api/v2/tasks/%s/' % tid)
+
     def getTasks(self, tids):
         """
         return a task report for a given id
@@ -914,7 +921,7 @@ class Pulp(object):
             if failed and running:
                 log.warning("Canceling running tasks: %s" % ', '.join(running))
                 for task_id in running:
-                    self.pa_tool.proxy.task.delete(TASK_ID=task_id)
+                    self.deleteTask(task_id)
                 running = set()
 
             if running and len(running) != running_count:
