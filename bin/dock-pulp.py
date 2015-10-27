@@ -477,6 +477,43 @@ def do_remove(bopts, bargs):
         p.remove(args[0], img)
     log.info('removed images and unneeded layers')
 
+def do_sync(bopts, bargs):
+    """                                                                          
+    dock-pulp sync [options] <env to sync from> repo-id
+    Sync an image from one environment to another"""
+    parser = OptionParser(usage=do_sync.__doc__)
+    opts, args = parser.parse_args(bargs)
+    if len(args) < 2:
+        parser.error('You must provide an environment to sync from and a repo id')
+    p = pulp_login(bopts)
+    
+    env = args[0]
+    repo = args[1]
+
+    repoinfo = p.syncRepo(env, repo, bopts.config_file)
+    repoinfo = repoinfo[0]
+
+    if len(repoinfo['images'].keys()) == 0:
+        pass
+    else:
+        oldimgs = repoinfo['images'].keys() 
+
+    repoinfo = p.listRepos(repo, True)
+    repoinfo = repoinfo[0]
+
+    log.info(repoinfo['id'])
+    log.info('-' * len(repoinfo['id']))    
+    log.info('synced images:')
+    if len(repoinfo['images'].keys()) == 0:
+        log.info('  No new images')
+    else:
+        newimgs = repoinfo['images'].keys()
+        imgs = list(set(newimgs) - set(oldimgs))
+        imgs.sort()
+        for img in imgs:
+            log.info(img)
+    log.info('')
+
 def do_tag(bopts, bargs):
     """
     dock-pulp tag [options] repo-id image-id tags,with,commas
