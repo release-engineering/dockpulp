@@ -168,6 +168,20 @@ class Pulp(object):
         """format a nice error message"""
         raise errors.DockPulpError('Received response %s from %s' % (code, url))
 
+    def _getRepo(self, env, config_file=DEFAULT_CONFIG_FILE):
+        """helper function to set up hostname for sync"""
+        conf = ConfigParser.ConfigParser()
+        if not config_file:
+            raise errors.DockPulpConfigError('Missing config file')
+        conf.readfp(open(config_file))
+        for sect in ('pulps', 'registries', 'filers'):
+            if not conf.has_section(sect):
+                raise errors.DockPulpConfigError('Missing section: %s' % sect)
+            if not conf.has_option(sect, env):
+                raise errors.DockPulpConfigError('%s section is missing %s' %
+                    (sect, env))
+                self.syncenv = conf.get('pulps', env)
+
     def _getTags(self, repo):
         """return the tag list for a given repo"""
         log.debug('getting tag data...')
@@ -627,6 +641,27 @@ class Pulp(object):
     def setDebug(self):
         """turn on debug output"""
         log.setLevel(logging.DEBUG)
+
+    def syncRepo(self, env, repo, config_file=DEFAULT_CONFIG_FILE):
+        """sync repo"""
+
+        self._getRepo(env, config_file)
+        repoinfo = self.listRepos(repo, True)
+        repoid = repoinfo[0]['docker-id']
+
+        data = {
+            'override_config': {
+                'ssl_validation': False,
+                'feed': self.syncenv + ':5001',
+                'upstream_name': repoid
+            }
+        }
+
+        tid = self._post('/pulp/api/v2/repositories/%s/actions/sync/' % repo,
+            data=json.dumps(data))
+        self.watch(tid)
+
+        return repoinfo
 
     def updateRepo(self, rid, update):
         """
