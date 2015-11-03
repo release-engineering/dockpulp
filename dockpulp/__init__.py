@@ -424,6 +424,25 @@ class Pulp(object):
         else:
             return parents
 
+    def getRepos(self, rids, fields=None):
+        """
+        Return list of repo objects with given IDs
+        """
+        data = {
+            "criteria": {
+                "filters": {
+                    "id": {"$in": rids}
+                }
+            }
+        }
+
+        if fields:
+            data["fields"] = fields
+
+        log.debug('getting repositories %s', ', '.join(rids))
+        return  self._post('/pulp/api/v2/repositories/search/',
+                           data=json.dumps(data))
+
     def getTask(self, tid):
         """
         return a task report for a given id
@@ -567,9 +586,7 @@ class Pulp(object):
 
         #repos = mod_repos_tags_mapping.keys()
 
-        found_repos = self._post('/pulp/api/v2/repositories/search/',
-                              data=json.dumps({"criteria": {"filters": {"id": {"$in": repos}}},
-                                                            "fields": ["id"]}))
+        found_repos = self.getRepos(repos, ["id"])
         found_repo_ids = [repo["id"] for repo in found_repos]
 
         # create missing repos
