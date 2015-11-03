@@ -452,9 +452,9 @@ class Pulp(object):
 
     def deleteTask(self, tid):
         """
-        return a task report for a given id
+        delete a task with the given id
         """
-        log.debug('getting task %s information' % tid)
+        log.debug('deleting task: %s' % tid)
         return self._delete('/pulp/api/v2/tasks/%s/' % tid)
 
     def getTasks(self, tids):
@@ -795,31 +795,6 @@ class Pulp(object):
         log.error('timed out waiting for subtask')
         raise errors.DockPulpError('Timed out waiting for task %s' % tid)
 
-    def watch_tasks_orig(self, tids, timeout=60, poll=5):
-        """watch a tasks ID and return when all finishes or fails"""
-        log.info('waiting up to %s seconds for task %s...' % (timeout, tids))
-        curr = 0
-        awaited = tids[:]
-
-        while curr < timeout and awaited:
-            states = self.getTasks(awaited)
-            for task in states:
-                if task['state'] == 'finished':
-                    log.info('subtask completed')
-                    awaited.pop(awaited.index(task["task_id"]))
-                    return True
-                elif task['state'] == 'error':
-                    log.debug('traceback from subtask:')
-                    log.debug(task['traceback'])
-                    awaited.pop(awaited.index(task["task_id"]))
-                    raise errors.DockPulpTaskError(task['error'])
-            log.debug('sleeping (%s/%s seconds passed)' % (curr, timeout))
-            time.sleep(poll)
-            curr += poll
-
-        log.error('timed out waiting for subtasks')
-        raise errors.DockPulpError('Timed out waiting for tasks %s' % awaited)
-
     def is_task_successful(self, task):
         # Try to inspect task results to catch buried failures
         if task["state"] == "error":
@@ -862,11 +837,9 @@ class Pulp(object):
 
     def watch_tasks(self, task_ids, timeout=60, poll=5):
         """
-        Waits for all supplied task ids to complete. If fail_immediately is
-        true, then don't wait for other tasks if at least one fails. Just
-        cancel everything running and raise error.
-        If return_after_first is True, then return when any of tasks
-        finishes, don't wait for others.
+        Waits for all supplied task ids to complete. Doesn't wait for other
+        tasks if at least one fails, just cancel everything running and raise
+        error.
         """
         running = set(task_ids)
         running_count = len(running)
@@ -925,7 +898,7 @@ class Pulp(object):
                 for task_id in running:
                     self.deleteTask(task_id)
                 running = set()
-                raise errors.DockPulpError("Pulp tasks failed:%s" % failed_tasks)
+                raise errors.DockPulpError("Pulp tasks failed: %s" % failed_tasks)
 
             if running and len(running) != running_count:
                 log.debug("Waiting on the following %d Pulp tasks: %s" % (len(running), ",".join(sorted(running))))
