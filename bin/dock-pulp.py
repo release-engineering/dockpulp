@@ -88,16 +88,21 @@ def pulp_login(bopts):
     p = dockpulp.Pulp(env=bopts.server, config_file=bopts.config_file)
     if bopts.debug:
         p.setDebug()
-    if bopts.cert and bopts.key:
+    if bopts.cert:
         p.certificate = bopts.cert
+    if bopts.key:
         p.key = bopts.key
-    elif not os.path.exists(os.path.join(os.path.expanduser('~/.pulp'), 'pulp.cer')):
+
+    default_creddir = os.path.expanduser('~/.pulp')
+    if (not p.certificate or not p.key) and\
+        (not os.path.exists(os.path.join(default_creddir, p.AUTH_CER_FILE)) or\
+         not os.path.exists(os.path.join(default_creddir, p.AUTH_KEY_FILE))):
         log.error('You need to log in with a user/password first.')
         sys.exit(1)
     else:
         creddir = os.path.expanduser('~/.pulp')
-        p.certificate = os.path.join(creddir, 'pulp.cer')
-        p.key = os.path.join(creddir, 'pulp.key')
+        p.set_certs(os.path.join(creddir,  p.AUTH_CER_FILE),
+                    os.path.join(creddir, p.AUTH_KEY_FILE))
     return p
 
 def list_directives(prefix):
