@@ -729,8 +729,12 @@ class Pulp(object):
         """turn on debug output"""
         log.setLevel(logging.DEBUG)
 
-    def syncRepo(self, env, repo, config_file=DEFAULT_CONFIG_FILE):
+    def syncRepo(self, env, repo, config_file=DEFAULT_CONFIG_FILE,
+                 prefix_with="redhat-"):
         """sync repo"""
+
+        if not repo.startswith(prefix_with):
+            repo = prefix_with + repo
 
         self._getRepo(env, config_file)
         repoinfo = self.listRepos(repo, True)
