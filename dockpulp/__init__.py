@@ -515,7 +515,8 @@ class Pulp(object):
         if not repos:
             # get all repository IDs first since none were specified
             repos = self.getAllRepoIDs()
-        if type(repos) == str:
+        if not isinstance(repos, list):
+            assert isinstance(repos, str) or isinstance(repos, unicode)
             repos = [repos]
         # return information for each repo
         for repo in repos:
