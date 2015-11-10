@@ -212,7 +212,8 @@ class Pulp(object):
             if not conf.has_option(sect, env):
                 raise errors.DockPulpConfigError('%s section is missing %s' %
                     (sect, env))
-                self.syncenv = conf.get('pulps', env)
+
+        self.syncenv = conf.get('pulps', env)
 
     def _getTags(self, repo):
         """return the tag list for a given repo"""
