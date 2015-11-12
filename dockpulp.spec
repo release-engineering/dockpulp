@@ -1,6 +1,6 @@
 Name:		dockpulp
 Version:	1.12
-Release:	4%{?dist}
+Release:	5%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
 Group:		Applications/System
@@ -51,6 +51,9 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Thu Nov 12 2015 Unknown name <breilly@redhat.com> 1.12-5
+- Had to add verify to kwargs (breilly@redhat.com)
+
 * Thu Nov 12 2015 Unknown name <breilly@redhat.com> 1.12-4
 - merging internal and master branches (breilly@redhat.com)
 - Merge pull request #30 from twaugh/syncenv-fix (breilly@redhat.com)
