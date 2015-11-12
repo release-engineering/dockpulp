@@ -65,6 +65,7 @@ class RequestsHttpCaller(object):
         self.url = url
         self.certificate = None
         self.key = None
+        self.verify = False
 
     def set_cert_key_paths(self, cert_path, key_path):
         self.certificate = cert_path
@@ -75,6 +76,7 @@ class RequestsHttpCaller(object):
         raise errors.DockPulpError('Received response %s from %s' % (code, url))
 
     def __call__(self, meth, api, **kwargs):
+#    def _request(self, meth, api, **kwargs):
         """post an http request to a Pulp API"""
         log.debug('remote host is %s' % self.url)
         c = getattr(requests, meth)
@@ -93,7 +95,8 @@ class RequestsHttpCaller(object):
                 if not self.verify:
                     warnings.simplefilter("ignore")
                 answer = c(url, **kwargs)
-        except requests.exceptions.SSLError, se:
+
+        except requests.exceptions.SSLError, se:            
             if not self.verify:
                 raise errors.DockPulpLoginError(
                     'Expired or bad certificate, please re-login')
