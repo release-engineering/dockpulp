@@ -1,6 +1,6 @@
 Name:		dockpulp
 Version:	1.12
-Release:	3%{?dist}
+Release:	4%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
 Group:		Applications/System
@@ -51,6 +51,85 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Thu Nov 12 2015 Unknown name <breilly@redhat.com> 1.12-4
+- merging internal and master branches (breilly@redhat.com)
+- Merge pull request #30 from twaugh/syncenv-fix (breilly@redhat.com)
+- Merge pull request #29 from twaugh/syncRepo-port (breilly@redhat.com)
+- Merge pull request #28 from twaugh/syncRepo-prefix (breilly@redhat.com)
+- syncRepo: don't enforce a particular port but have a default
+  (twaugh@redhat.com)
+- Fix initialization of syncenv instance variable (twaugh@redhat.com)
+- syncRepo: enforce prefix (twaugh@redhat.com)
+- Fix listRepos() str-to-list conversion (twaugh@redhat.com)
+- Merge pull request #25 from mmilata/watch_tasks_fail_early
+  (breilly@redhat.com)
+- Fix some comments/strings, remove watch_tasks_orig (mmilata@redhat.com)
+- - raise exception if any of watched tasks failed (jluza@redhat.com)
+- - added deleteTask, copy-paste issue fixed (jluza@redhat.com)
+- - better task_watch (jluza@redhat.com)
+- - "certificates" in configuration and config_override (jluza@redhat.com)
+- Factor out repo search into getRepos (mmilata@redhat.com)
+- Added sync function (breilly@redhat.com)
+- Added sync function (breilly@redhat.com)
+- Don't use logging.basicConfig, set handler to the logger instance
+  (bkabrda@redhat.com)
+- Fix push_to_pulp with a repo_prefix (mmilata@srck.net)
+- Import sys before checking sys.version_info (twaugh@redhat.com)
+- Require simplejson on Python 2.6 (twaugh@redhat.com)
+- Add simplejson as a requirement for Python 2.6 (twaugh@redhat.com)
+- Don't install dockpulp.conf in /etc (twaugh@redhat.com)
+- Merge branch 'master' of https://github.com/release-engineering/dockpulp into
+  push_to_pulp_perf (jluza@redhat.com)
+- - added _error method to RequestsHttpCaller (jluza@redhat.com)
+- - faster calling of publish request. Lot of time was spent waiting for http
+  response. Requests are now made in parallel what could save time spent on
+  waiting for response. (jluza@redhat.com)
+- - watch_tasks: moved condition to end of cycle (jluza@redhat.com)
+- - typo fix (jluza@redhat.com)
+- Automatic commit of package [dockpulp] minor release [1.11-2].
+  (jgregusk@redhat.com)
+- fix missing initialization (jgregusk@redhat.com)
+- Automatic commit of package [dockpulp] minor release [1.11-1].
+  (jgregusk@redhat.com)
+- - repo_name policy in push_to_pulp (jluza@redhat.com)
+- fix upstream URL (jgregusk@redhat.com)
+- add dockpulp.spec (jgregusk@redhat.com)
+- omit spec from gitignore (jgregusk@redhat.com)
+- add searchRepos support globs for some commands (jgregusk@redhat.com)
+- remove obsolete product line check (jgregusk@redhat.com)
+- remove tags on older images when tagging a new image (jgregusk@redhat.com)
+- add exists() (jgregusk@redhat.com)
+- steal ownership in setup.py, include other scripts (jgregusk@redhat.com)
+- introduce get_top_layer for atomic-reactor (jgregusk@redhat.com)
+- - watch_tasks fixed (jluza@redhat.com)
+- use default config path instead of None (ttomecek@redhat.com)
+- - added watch_tasks, getTasks method for better performance - added wait=True
+  to crane() for better performance (jluza@redhat.com)
+- add setup.py (jgregusk@redhat.com)
+- Merge pull request #6 from midnightercz/createRepo (jgregusk@redhat.com)
+- Merge pull request #4 from pbabinca/configurable-config-file
+  (jgregusk@redhat.com)
+- Merge pull request #3 from pbabinca/mkdir-typo-fix (jgregusk@redhat.com)
+- push_tar_to_pulp: prefix repo names with 'redhat-' (ttomecek@redhat.com)
+- prefix all new repos with 'redhat-' (ttomecek@redhat.com)
+- createRepo: don't validate registry_id when it's specified
+  (ttomecek@redhat.com)
+- create repo: enable specifying registry-id (ttomecek@redhat.com)
+- compare paths more sanely (ttomecek@redhat.com)
+- - fixed: tags duplicates. Conflict tags from already existing images_ids are
+  now removed and added to images which are about to be added
+  (jluza@redhat.com)
+- - fixed cli to match library call (jluza@redhat.com)
+- Fix get_top_layer(). (twaugh@redhat.com)
+- create repo: enable specifying registry-id (ttomecek@redhat.com)
+- Fixed imgutils.get_top_layer(). (twaugh@redhat.com)
+- push_to_pulp: use mapping between repos and tags (ttomecek@redhat.com)
+- added optional desc and title for new repo in push_to_pulp action
+  (jluza@redhat.com)
+- new push_tar_to_pulp method and push_to_pulp cmd action (jluza@redhat.com)
+- Leave logger setup of the library on the clients (pbabinca@redhat.com)
+- Fix mkdir typo in code which created ~/.pulp dir (pbabinca@redhat.com)
+
 * Fri Sep 04 2015 Jay Greguske <jgregusk@redhat.com> 1.12-3
 - only warn about ssl once (jgregusk@redhat.com)
 
