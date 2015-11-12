@@ -529,15 +529,14 @@ def do_remove(bopts, bargs):
     log.info('removed images and unneeded layers')
 
 def do_sync(bopts, bargs):
-    """                                                                                                  
-    dock-pulp sync [options] <env to sync from> repo-id                                                  
+    """                                                                          
+    dock-pulp sync [options] <env to sync from> repo-id
     Sync an image from one environment to another"""
     parser = OptionParser(usage=do_sync.__doc__)
     opts, args = parser.parse_args(bargs)
     if len(args) < 2:
         parser.error('You must provide an environment to sync from and a repo id')
     p = pulp_login(bopts)
-
     env = args[0]
     repo = args[1]
 
@@ -547,13 +546,13 @@ def do_sync(bopts, bargs):
     if len(repoinfo['images'].keys()) == 0:
         pass
     else:
-        oldimgs = repoinfo['images'].keys()
+        oldimgs = repoinfo['images'].keys() 
 
     repoinfo = p.listRepos(repo, True)
     repoinfo = repoinfo[0]
 
     log.info(repoinfo['id'])
-    log.info('-' * len(repoinfo['id']))
+    log.info('-' * len(repoinfo['id']))    
     log.info('synced images:')
     if len(repoinfo['images'].keys()) == 0:
         log.info('  No new images')
