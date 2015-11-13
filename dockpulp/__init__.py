@@ -595,7 +595,7 @@ class Pulp(object):
                 raise errors.DockPulpConfigError('Missing section: %s' % sect)
             if not conf.has_option(sect, self.env):
                 raise errors.DockPulpConfigError('%s section is missing %s' %
-                    (sect, env))
+                    (sect, self.env))
             process_f = getattr(self, process)
             ret = process_f(conf.items(sect))
             if target:
