@@ -640,57 +640,6 @@ class Pulp(object):
         if self._request.certificate:
             self._cleanup(os.path.dirname(self._request.certificate))
 
-    def push_tar_to_pulp(self, repos_tags_mapping, tarfile, missing_repos_info={},
-                         repo_prefix="redhat-"):
-        """
-        repos_tags_mapping is mapping between repo-ids, registry-ids and tags
-        which should be applied to those repos, expected structure:
-        {
-            "my-image": {
-                "registry-id": "nick/my-image",
-                "tags": ["v1", "latest"],
-            },
-            ...
-        }
-        """
-        metadata = imgutils.get_metadata(tarfile)
-        pulp_md = imgutils.get_metadata_pulp(metadata)
-        imgs = pulp_md.keys()
-        mod_repos_tags_mapping = {}
-        repos = self._enforce_repo_name_policy(repos_tags_mapping.keys(),
-                                               repo_prefix=repo_prefix)
-        for new_repo,old_repo in zip(repos,repos_tags_mapping.keys()):
-            mod_repos_tags_mapping[new_repo] = repos_tags_mapping[old_repo]
-
-        #repos = mod_repos_tags_mapping.keys()
-
-        found_repos = self.getRepos(repos, ["id"])
-        found_repo_ids = [repo["id"] for repo in found_repos]
-
-        # create missing repos
-        missing_repos = set(repos) - set(found_repo_ids)
-        log.info("Missing repos: %s" % missing_repos)
-        for repo in missing_repos:
-            kwargs = {}
-            #print missing_repos_info
-            if repo in missing_repos_info:
-                kwargs = {"title": missing_repos_info[repo].get("title"),
-                          "desc": missing_repos_info[repo].get("desc")}
-                #print kwargs
-            self.createRepo(repo, "/pulp/docker/%s" % repo,
-                            registry_id=mod_repos_tags_mapping[repo]["registry-id"],
-                            desc=kwargs.get("desc"), title=kwargs.get("title"),
-                            prefix_with=repo_prefix)
-
-        top_layer = imgutils.get_top_layer(pulp_md)
-        self.upload(tarfile)
-
-        for repo, repo_conf in mod_repos_tags_mapping.items():
-            for img in imgs:
-                self.copy(repo, img)
-            self.updateRepo(repo, {"tag": "%s:%s" % (",".join(repo_conf["tags"]),
-                                                         top_layer)})
-
     def remove(self, repo, img):
         """
         Remove an image from a repo
