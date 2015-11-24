@@ -1,6 +1,6 @@
 Name:		dockpulp
 Version:	1.12
-Release:	7%{?dist}
+Release:	8%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
 Group:		Applications/System
@@ -51,6 +51,9 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Tue Nov 24 2015 Unknown name <breilly@redhat.com> 1.12-8
+- Updated logging to work with python 2.6 (breilly@redhat.com)
+
 * Tue Nov 24 2015 Unknown name <breilly@redhat.com> 1.12-7
 - 
 
