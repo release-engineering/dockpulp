@@ -1,6 +1,6 @@
 Name:		dockpulp
 Version:	1.12
-Release:	6%{?dist}
+Release:	7%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
 Group:		Applications/System
@@ -51,6 +51,9 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Tue Nov 24 2015 Unknown name <breilly@redhat.com> 1.12-7
+- 
+
 * Tue Nov 24 2015 Unknown name <breilly@redhat.com> 1.12-6
 - Removed push_to_pulp functions (breilly@redhat.com)
 - don't tback when server is not specified (ttomecek@redhat.com)
