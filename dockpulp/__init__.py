@@ -54,6 +54,8 @@ class NullHandler(logging.Handler):
 # This is our log object, clients of this library can use this object to
 # define their own logging needs
 log = logging.getLogger("dockpulp")
+log.setLevel(logging.INFO)
+logging.basicConfig(stream=sys.stdout, format='%(levelname)-9s %(message)s')
 
 # Add the null handler
 h = NullHandler()

@@ -34,7 +34,7 @@ except ImportError:
 import dockpulp
 
 
-log = dockpulp.setup_logger(dockpulp.log)
+log = dockpulp.log
 
 def main():
     usage = """CLI for Pulp instances providing Docker content
@@ -486,7 +486,7 @@ def do_remove(bopts, bargs):
 def do_sync(bopts, bargs):
     """                                                                          
     dock-pulp sync [options] <env to sync from> repo-id
-    Sync an image from one environment to another"""
+    Sync a repo from one environment to another"""
     parser = OptionParser(usage=do_sync.__doc__)
     opts, args = parser.parse_args(bargs)
     if len(args) < 2:
