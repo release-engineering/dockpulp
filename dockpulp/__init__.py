@@ -705,9 +705,6 @@ class Pulp(object):
         repoid = repoinfo[0]['docker-id']
 
         syncenv = self.syncenv
-        if ':' not in syncenv:
-            syncenv += ":5000"
-
         data = {
             'override_config': {
                 'ssl_validation': False,
