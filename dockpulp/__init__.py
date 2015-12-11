@@ -547,10 +547,16 @@ class Pulp(object):
                 'description': blob['description'],
                 'title': blob['display_name']
             }
-            if len(blob['distributors']) > 0:
-                r['protected'] = blob['distributors'][0]['config']['protected']
-                r['redirect'] = blob['distributors'][0]['config']['redirect-url']
-                r['docker-id'] = blob['distributors'][0]['config']['repo-registry-id']
+            try:
+                if len(blob['distributors']) > 0:
+                    r['protected'] = blob['distributors'][0]['config']['protected']
+                    r['redirect'] = blob['distributors'][0]['config']['redirect-url']
+                    r['docker-id'] = blob['distributors'][0]['config']['repo-registry-id']
+            except KeyError:
+                log.debug("ignoring repo-id %s, incomplete distributor config",
+                          r['id'])
+                continue
+
             if content:
                 data = {
                     'criteria': {
