@@ -171,12 +171,13 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs):
     missing = set([])
     for img in pulp_imgs:
         for ext in ('json', 'ancestry', 'layer'):
-            url = redirect + '/' + img + '/' + ext
-            log.debug('  reaching for %s' % url)
-            with closing(requests.get(url, verify=False, stream=True)) as answer:
-                log.debug('    got back a %s' % answer.status_code)
-                if answer.status_code != 200:
-                    missing.add(img)
+            if redirect:
+                url = redirect + '/' + img + '/' + ext
+                log.debug('  reaching for %s' % url)
+                with closing(requests.get(url, verify=False, stream=True)) as answer:
+                    log.debug('    got back a %s' % answer.status_code)
+                    if answer.status_code != 200:
+                        missing.add(img)
     if len(missing) > 0:
         log.error('  Could not reach images:')
         log.error('    ' + ', '.join(missing))
@@ -251,6 +252,8 @@ def do_confirm(bopts, bargs):
         if not _test_repo(p, repo['docker-id'], repo['redirect'], imgs):
             errors += 1
     log.info('Testing complete... %s error(s)' % errors)
+    if errors >= 1:
+        sys.exit(1)
 
 def do_copy(bopts, bargs):
     """
@@ -280,27 +283,32 @@ def do_create(bopts, bargs):
     parser.add_option('-t', '--title', help='set the title for the repo')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
+    url = None
     if opts.library:
         if len(args) != 2 and p.isRedirect():
             parser.error('You need a name for a library-level repo and a content-url')
-        elif len(args) != 1 and not p.isRedirect():
+            sys.exit(2)
+        elif ( len(args) != 1 and len(args) != 2 ) and not p.isRedirect():
             parser.error('You need a name for a library-level repo')
+            sys.exit(2)
         id = 'redhat-%s' % (args[0])
-        if p.isRedirect():
+        if len(args) == 2:
             url = args[1]
     else:
         if len(args) != 3 and p.isRedirect():
             parser.error('You need a product line (rhel6, openshift3, etc), image name and a content-url')
-        elif len(args) != 2 and not p.isRedirect():
+            sys.exit(2)
+        elif ( len(args) != 2 and len(args) != 3 ) and not p.isRedirect():
             parser.error('You need a product line (rhel6, openshift3, etc) and image name')
+            sys.exit(2) 
         id = 'redhat-%s-%s' % (args[0], args[1])
-        if p.isRedirect():
+        if len(args) == 3:
             url = args[2]
-    if p.isRedirect():
+
+    if url:
         if not url.startswith('/content'):
             parser.error('the content-url needs to start with /content')
-    else:
-        url = None
+            sys.exit(2)
 
     p.createRepo(id, url, desc=opts.description, title=opts.title)
     log.info('repository created')
@@ -313,6 +321,7 @@ def do_delete(bopts, bargs):
     opts, args = parser.parse_args(bargs)
     if len(args) < 1:
         parser.error('You must provide a repository ID')
+        sys.exit(2)
     p = pulp_login(bopts)
     for repo in args:
         p.deleteRepo(repo)

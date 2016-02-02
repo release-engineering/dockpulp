@@ -365,7 +365,7 @@ class Pulp(object):
                     raise errors.DockPulpError('Docker repo ID has a hyphen before the "/"')
         
         rurl = url
-        if self.redirect and not rurl.startswith('http'): 
+        if rurl and not rurl.startswith('http'): 
             rurl = self.cdnhost + url
         if not desc:
             desc = 'No description'
@@ -373,7 +373,7 @@ class Pulp(object):
             title = repo_id
         log.info('creating repo %s' % repo_id)
         log.info('docker ID is %s' % registry_id)
-        if self.redirect:
+        if rurl:
             log.info('redirect is %s' % rurl)
         stuff = {
             'id': repo_id,
@@ -384,45 +384,25 @@ class Pulp(object):
             'notes': {'_repo-type': 'docker-repo'},
         }
         if distributors:
-            if self.redirect:
-                stuff['distributors'] = [{
-                    'distributor_id': 'docker_export_distributor_name_cli',
-                    'distributor_type_id': 'docker_distributor_export',
-                    'distributor_config': {
-                        'protected': False,
-                        'repo-registry-id': registry_id,
-                        'redirect-url': rurl
-                    },
-                    'auto_publish': True
-                }, {
-                    'distributor_id': 'docker_web_distributor_name_cli',
-                    'distributor_type_id': 'docker_distributor_web',
-                    'distributor_config': {
-                        'protected': False,
-                        'repo-registry-id': registry_id,
-                        'redirect-url': rurl
-                    },
-                    'auto_publish': True
-                }]
-            else:
-                stuff['distributors'] = [{
-                    'distributor_id': 'docker_export_distributor_name_cli',
-                    'distributor_type_id': 'docker_distributor_export',
-                    'distributor_config': {
-                        'protected': False,
-                        'repo-registry-id': registry_id
-                    },
-                    'auto_publish': True
-                }, {
-                    'distributor_id': 'docker_web_distributor_name_cli',
-                    'distributor_type_id': 'docker_distributor_web',
-                    'distributor_config': {
-                        'protected': False,
-                        'repo-registry-id': registry_id,
-                        'redirect-url': rurl
-                    },
-                    'auto_publish': True
-                }]
+            stuff['distributors'] = [{
+                'distributor_id': 'docker_export_distributor_name_cli',
+                'distributor_type_id': 'docker_distributor_export',
+                'distributor_config': {
+                    'protected': False,
+                    'repo-registry-id': registry_id,
+                    'redirect-url': rurl
+                },
+                'auto_publish': True
+            }, {
+                'distributor_id': 'docker_web_distributor_name_cli',
+                'distributor_type_id': 'docker_distributor_web',
+                'distributor_config': {
+                    'protected': False,
+                    'repo-registry-id': registry_id,
+                    'redirect-url': rurl
+                },
+                'auto_publish': True
+            }]
         else:
             stuff['distributors'] = []
         log.debug('data sent in request:')
@@ -583,8 +563,7 @@ class Pulp(object):
             try:
                 if len(blob['distributors']) > 0:
                     r['protected'] = blob['distributors'][0]['config']['protected']
-                    if self.redirect:
-                        r['redirect'] = blob['distributors'][0]['config']['redirect-url']
+                    r['redirect'] = blob['distributors'][0]['config']['redirect-url']
                     r['docker-id'] = blob['distributors'][0]['config']['repo-registry-id']
             except KeyError:
                 log.debug("ignoring repo-id %s, incomplete distributor config",
