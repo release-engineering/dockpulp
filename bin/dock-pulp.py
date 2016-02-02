@@ -270,7 +270,8 @@ def do_create(bopts, bargs):
     """
     dock-pulp create [options] product-line image-name content-url
     dock-pulp create [options] --library image-name content-url
-    Create a repository for docker images"""
+    Create a repository for docker images
+    content-url is not required if redirect-url = no in /etc/dockpulp.conf"""
     parser = OptionParser(usage=do_create.__doc__)
     parser.add_option('-d', '--description', help='specify a repo description',
         default='No description')
@@ -278,19 +279,29 @@ def do_create(bopts, bargs):
         default=False, action='store_true')
     parser.add_option('-t', '--title', help='set the title for the repo')
     opts, args = parser.parse_args(bargs)
-    if opts.library:
-        if len(args) != 2:
-            parser.error('You need a name for a library-level repo and a content-url')
-        id = 'redhat-%s' % (args[0])
-        url = args[1]
-    else:
-        if len(args) != 3:
-            parser.error('You need a product line (rhel6, openshift3, etc), image name and a content-url')
-        id = 'redhat-%s-%s' % (args[0], args[1])
-        url = args[2]
-    if not url.startswith('/content'):
-        parser.error('the content-url needs to start with /content')
     p = pulp_login(bopts)
+    if opts.library:
+        if len(args) != 2 and p.isRedirect():
+            parser.error('You need a name for a library-level repo and a content-url')
+        elif len(args) != 1 and not p.isRedirect():
+            parser.error('You need a name for a library-level repo')
+        id = 'redhat-%s' % (args[0])
+        if p.isRedirect():
+            url = args[1]
+    else:
+        if len(args) != 3 and p.isRedirect():
+            parser.error('You need a product line (rhel6, openshift3, etc), image name and a content-url')
+        elif len(args) != 2 and not p.isRedirect():
+            parser.error('You need a product line (rhel6, openshift3, etc) and image name')
+        id = 'redhat-%s-%s' % (args[0], args[1])
+        if p.isRedirect():
+            url = args[2]
+    if p.isRedirect():
+        if not url.startswith('/content'):
+            parser.error('the content-url needs to start with /content')
+    else:
+        url = None
+
     p.createRepo(id, url, desc=opts.description, title=opts.title)
     log.info('repository created')
 

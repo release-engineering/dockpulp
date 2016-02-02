@@ -142,7 +142,8 @@ class Pulp(object):
     #                           section, process function, target attribute
     MANDATORY_CONF_SECTIONS = (('pulps', "_set_env_attr", "url"),
                                ('registries', "_set_env_attr", "registry"),
-                               ( 'filers', "_set_env_attr", "cdnhost"))
+                               ( 'filers', "_set_env_attr", "cdnhost"),
+                               ( 'redirect', "_set_bool", "redirect"))
     OPTIONAL_CONF_SECTIONS = (('certificates', "_set_cert", None),)
     AUTH_CER_FILE = "pulp.cer"
     AUTH_KEY_FILE = "pulp.key"
@@ -158,10 +159,17 @@ class Pulp(object):
         self.env = env
         self.load_configuration(config_file)
         self._load_override_conf(config_override)
-
         self._request = RequestsHttpCaller(self.url)
         self._request.set_cert_key_paths(self.certificate, self.key)
 
+    def _set_bool(self, attrs):
+        for key, boolean in attrs:
+            if self.env == key:
+                if boolean == "yes":
+                    return True
+                elif boolean == "no":
+                    return False
+        raise errors.DockPulpConfigError('Redirect must be \'yes\' or \'no\'')    
 
     def _set_cert(self, attrs):
         for key, cert_path in attrs:
@@ -355,8 +363,9 @@ class Pulp(object):
                 if '-' in registry_id[:registry_id.index('/')]:
                     log.warning('docker-pull does not support this repo ID')
                     raise errors.DockPulpError('Docker repo ID has a hyphen before the "/"')
+        
         rurl = url
-        if not rurl.startswith('http'):
+        if self.redirect and not rurl.startswith('http'): 
             rurl = self.cdnhost + url
         if not desc:
             desc = 'No description'
@@ -364,7 +373,8 @@ class Pulp(object):
             title = repo_id
         log.info('creating repo %s' % repo_id)
         log.info('docker ID is %s' % registry_id)
-        log.info('redirect is %s' % rurl)
+        if self.redirect:
+            log.info('redirect is %s' % rurl)
         stuff = {
             'id': repo_id,
             'description': desc,
@@ -374,25 +384,45 @@ class Pulp(object):
             'notes': {'_repo-type': 'docker-repo'},
         }
         if distributors:
-            stuff['distributors'] = [{
-                'distributor_id': 'docker_export_distributor_name_cli',
-                'distributor_type_id': 'docker_distributor_export',
-                'distributor_config': {
-                    'protected': False,
-                    'repo-registry-id': registry_id,
-                    'redirect-url': rurl
-                },
-                'auto_publish': True
-            }, {
-                'distributor_id': 'docker_web_distributor_name_cli',
-                'distributor_type_id': 'docker_distributor_web',
-                'distributor_config': {
-                    'protected': False,
-                    'repo-registry-id': registry_id,
-                    'redirect-url': rurl
-                },
-                'auto_publish': True
-            }]
+            if self.redirect:
+                stuff['distributors'] = [{
+                    'distributor_id': 'docker_export_distributor_name_cli',
+                    'distributor_type_id': 'docker_distributor_export',
+                    'distributor_config': {
+                        'protected': False,
+                        'repo-registry-id': registry_id,
+                        'redirect-url': rurl
+                    },
+                    'auto_publish': True
+                }, {
+                    'distributor_id': 'docker_web_distributor_name_cli',
+                    'distributor_type_id': 'docker_distributor_web',
+                    'distributor_config': {
+                        'protected': False,
+                        'repo-registry-id': registry_id,
+                        'redirect-url': rurl
+                    },
+                    'auto_publish': True
+                }]
+            else:
+                stuff['distributors'] = [{
+                    'distributor_id': 'docker_export_distributor_name_cli',
+                    'distributor_type_id': 'docker_distributor_export',
+                    'distributor_config': {
+                        'protected': False,
+                        'repo-registry-id': registry_id
+                    },
+                    'auto_publish': True
+                }, {
+                    'distributor_id': 'docker_web_distributor_name_cli',
+                    'distributor_type_id': 'docker_distributor_web',
+                    'distributor_config': {
+                        'protected': False,
+                        'repo-registry-id': registry_id,
+                        'redirect-url': rurl
+                    },
+                    'auto_publish': True
+                }]
         else:
             stuff['distributors'] = []
         log.debug('data sent in request:')
@@ -511,6 +541,9 @@ class Pulp(object):
         criteria = json.dumps({"criteria":{"filters":{"task_id":{"$in":tids}}}})
         return self._post('/pulp/api/v2/tasks/search/', data=criteria)
 
+    def isRedirect(self):
+        return self.redirect
+
     def listOrphans(self):
         """
         return a list of orphaned content
@@ -550,7 +583,8 @@ class Pulp(object):
             try:
                 if len(blob['distributors']) > 0:
                     r['protected'] = blob['distributors'][0]['config']['protected']
-                    r['redirect'] = blob['distributors'][0]['config']['redirect-url']
+                    if self.redirect:
+                        r['redirect'] = blob['distributors'][0]['config']['redirect-url']
                     r['docker-id'] = blob['distributors'][0]['config']['repo-registry-id']
             except KeyError:
                 log.debug("ignoring repo-id %s, incomplete distributor config",
