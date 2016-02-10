@@ -168,22 +168,65 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs):
             log.error('    In Crane but not Pulp: ' + cdiff)
         return False
     log.info('  Pulp and Crane data reconciled correctly, testing content')
-    missing = set([])
-    for img in pulp_imgs:
-        for ext in ('json', 'ancestry', 'layer'):
-            if redirect:
+
+    # Testing for redirect, only need to check one url per image
+    if redirect:
+        missing = set([])
+        for img in pulp_imgs:
+            for ext in ('json', 'ancestry', 'layer'):
                 url = redirect + '/' + img + '/' + ext
                 log.debug('  reaching for %s' % url)
                 with closing(requests.get(url, verify=False, stream=True)) as answer:
                     log.debug('    got back a %s' % answer.status_code)
                     if answer.status_code != 200:
                         missing.add(img)
-    if len(missing) > 0:
-        log.error('  Could not reach images:')
-        log.error('    ' + ', '.join(missing))
-        return False
-    log.info('  All images are reachable, tests pass.')
-    return True
+        if len(missing) > 0:
+            log.error('  Could not reach images:')
+            log.error('    ' + ', '.join(missing))
+            return False
+        log.info('  All images are reachable, tests pass.')
+        return True
+
+    # Testing for default pulp redirect, requires checking both v1 and v2 urls
+    else:
+        missingv1 = set([])
+        missingv2 = set([])
+        reponame = 'redhat-' + dockerid.replace('/', '-')
+        if dpo.url[:5] == 'https':
+            filerurl = dpo.url.replace('https', 'http', 1)
+
+        for img in pulp_imgs:
+            for ext in ('json', 'ancestry', 'layer'):
+                urlv1 = filerurl + '/pulp/docker/v1/' + reponame + '/' + img + '/' + ext
+                urlv2 = filerurl + '/pulp/docker/v2/' + reponame + '/' + img + '/' + ext
+                log.debug('  reaching for %s' % urlv1)
+                with closing(requests.get(urlv1, verify=False, stream=True)) as answer:
+                    log.debug('    got back a %s' % answer.status_code)
+                    if answer.status_code != 200:
+                        missingv1.add(img)
+                log.debug('  reaching for %s' % urlv2)
+                with closing(requests.get(urlv2, verify=False, stream=True)) as answer:
+                    log.debug('    got back a %s' % answer.status_code)
+                    if answer.status_code != 200:
+                        missingv2.add(img)
+        if len(missingv1) > 0 and len(missingv2) > 0:
+            log.error('  Could not reach v1 or v2 images:')
+            log.error('    ' + 'v1:' + ', '.join(missingv1))
+            log.error('    ' + 'v2:' + ', '.join(missingv2))
+            return False
+        elif len(missingv1) > 0:
+            log.info('  v2 images are reachable, tests pass.')
+            log.error('  Could not reach v1 images:')
+            log.error('    ' + ', '.join(missingv1))
+            return False
+        elif len(missingv2) > 0:
+            log.info('  v1 images are reachable, tests pass.')
+            log.error('  Could not reach v2 images:')
+            log.error('    ' + ', '.join(missingv2))
+            return False
+
+        log.info('  All images are reachable, tests pass.')
+        return True
 
 # all DO commands follow this line in alphabetical order
 
