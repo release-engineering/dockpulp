@@ -1,6 +1,6 @@
 Name:		dockpulp
 Version:	1.12
-Release:	8%{?dist}
+Release:	9%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
 Group:		Applications/System
@@ -51,6 +51,16 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Wed Feb 10 2016 Brendan Reilly <breilly@redhat.com> 1.12-9
+- Updated confirm and list to work with repos with no redirect-url
+  (breilly@redhat.com)
+- Updated changes to work correctly with confirm and list (breilly@redhat.com)
+- Made redirect-url requirement configurable, as per APPINFRAT-1381
+  (breilly@redhat.com)
+- Merge pull request #38 from twaugh/sync-port (breilly@redhat.com)
+- Don't override the default port (twaugh@redhat.com)
+- Don't traceback on incomplete distributor config (twaugh@redhat.com)
+
 * Tue Nov 24 2015 Unknown name <breilly@redhat.com> 1.12-8
 - Updated logging to work with python 2.6 (breilly@redhat.com)
 
