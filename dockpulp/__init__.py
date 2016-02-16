@@ -270,7 +270,6 @@ class Pulp(object):
             new_repos.append(new_repo_key)
         return new_repos
 
-
     # public methods start here, alphabetically
 
     def cleanOrphans(self):
@@ -289,12 +288,12 @@ class Pulp(object):
         for upload in uploads:
             self._deleteUploadRequest(upload)
 
-    def copy(self, drepo, img):
+    def copy(self, drepo, img, source=HIDDEN):
         """
         Copy an image from one repo to another
         """
         data = {
-            'source_repo_id': HIDDEN,
+            'source_repo_id': source,
             'criteria': {
                 'type_ids' : [C_TYPE],
                 'filters' : {
@@ -721,7 +720,7 @@ class Pulp(object):
     def syncRepo(self, env, repo, config_file=DEFAULT_CONFIG_FILE,
                  prefix_with="redhat-"):
         """sync repo"""
-
+            
         if not repo.startswith(prefix_with):
             repo = prefix_with + repo
 
@@ -730,14 +729,20 @@ class Pulp(object):
         repoid = repoinfo[0]['docker-id']
 
         syncenv = self.syncenv
+
+        if syncenv.startswith("https"):
+            syncenv = syncenv.replace("https","http")
+
         data = {
             'override_config': {
                 'ssl_validation': False,
-                'feed': syncenv,
+                'feed': syncenv + ":8888",
                 'upstream_name': repoid
             }
         }
 
+        log.info('Syncing repo %s' % repo)
+        log.info('/pulp/api/v2/repositories/%s/actions/sync/' % repo)
         tid = self._post('/pulp/api/v2/repositories/%s/actions/sync/' % repo,
             data=json.dumps(data))
         self.watch(tid)

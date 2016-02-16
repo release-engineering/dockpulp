@@ -20,6 +20,7 @@ import os
 import requests
 import shutil
 import sys
+import logging
 
 try:
     # Python 2.6 and earlier
@@ -33,8 +34,14 @@ except ImportError:
 
 import dockpulp
 
+#class DockPulpHandler(logging.Handler):
+#    def emit(self, record):
+#        print record
 
 log = dockpulp.log
+#d = DockPulpHandler()
+#log.addHandler(d)
+#formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 def main():
     usage = """CLI for Pulp instances providing Docker content
@@ -61,28 +68,34 @@ def main():
         log.error('')
         log.error('Something is wrong in /etc/dockpulp.conf, or you')
         log.error('mistyped an option you are passing to --server')
+        sys.exit(1)
     except dockpulp.errors.DockPulpInternalError, pe:
         log.error('Internal failure: %s' % str(pe))
+        sys.exit(1)
     except dockpulp.errors.DockPulpLoginError, pe:
         log.error('Login Error: %s' % str(pe))
         log.error(
             'Did you log into the %s environment with the right password?' %
             opts.server)
+        sys.exit(1)
     except dockpulp.errors.DockPulpServerError, pe:
         log.error('Server-side problem: %s' % str(pe))
         log.error('')
         log.error('The only recourse here is to contact IT. :(')
+        sys.exit(1)
     except dockpulp.errors.DockPulpTaskError, pe:
         log.error('Subtask failed: %s' % pe)
         log.error('')
         log.error('Use the "task" command to see the full traceback')
         log.error('Use --debug to see inspect the server request')
+        sys.exit(1)
     except dockpulp.errors.DockPulpError, pe:
         log.error('Error: %s' % str(pe))
         log.error('')
         log.error('For help diagnosing errors, go to the link below. The API')
         log.error('we used is shown above with the HTTP response code.')
         log.error('   http://pulp-dev-guide.readthedocs.org/en/latest/integration/index.html')
+        sys.exit(1)
 
 def pulp_login(bopts):
     p = dockpulp.Pulp(env=bopts.server, config_file=bopts.config_file)
@@ -141,12 +154,12 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs):
     log.debug('  status code: %s' % answer.status_code)
     if answer.content == 'Not Found':
         log.error('  Crane returned a 404')
-        return False
+        sys.exit(1)
     try:
         j = json.loads(answer.content)
     except ValueError, ve:
         log.error('  Crane did not return json')
-        return False
+        sys.exit(1)
     p_imgs = set(pulp_imgs)
     c_imgs = set([i['id'] for i in j])
     log.debug('  crane images: %s' % c_imgs)
@@ -166,7 +179,7 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs):
             log.error('    In Pulp but not Crane: ' + pdiff)
         if len(cdiff) > 0:
             log.error('    In Crane but not Pulp: ' + cdiff)
-        return False
+        sys.exit(1)
     log.info('  Pulp and Crane data reconciled correctly, testing content')
 
     # Testing for redirect, only need to check one url per image
@@ -183,7 +196,7 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs):
         if len(missing) > 0:
             log.error('  Could not reach images:')
             log.error('    ' + ', '.join(missing))
-            return False
+            sys.exit(1)
         log.info('  All images are reachable, tests pass.')
         return True
 
@@ -213,20 +226,19 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs):
             log.error('  Could not reach v1 or v2 images:')
             log.error('    ' + 'v1:' + ', '.join(missingv1))
             log.error('    ' + 'v2:' + ', '.join(missingv2))
-            return False
+            sys.exit(1)
         elif len(missingv1) > 0:
             log.info('  v2 images are reachable, tests pass.')
             log.error('  Could not reach v1 images:')
             log.error('    ' + ', '.join(missingv1))
-            return False
+            sys.exit(1)
         elif len(missingv2) > 0:
             log.info('  v1 images are reachable, tests pass.')
             log.error('  Could not reach v2 images:')
             log.error('    ' + ', '.join(missingv2))
-            return False
+            sys.exit(1)
 
         log.info('  All images are reachable, tests pass.')
-        return True
 
 # all DO commands follow this line in alphabetical order
 
@@ -330,20 +342,16 @@ def do_create(bopts, bargs):
     if opts.library:
         if len(args) != 2 and p.isRedirect():
             parser.error('You need a name for a library-level repo and a content-url')
-            sys.exit(2)
         elif ( len(args) != 1 and len(args) != 2 ) and not p.isRedirect():
             parser.error('You need a name for a library-level repo')
-            sys.exit(2)
         id = 'redhat-%s' % (args[0])
         if len(args) == 2:
             url = args[1]
     else:
         if len(args) != 3 and p.isRedirect():
             parser.error('You need a product line (rhel6, openshift3, etc), image name and a content-url')
-            sys.exit(2)
         elif ( len(args) != 2 and len(args) != 3 ) and not p.isRedirect():
             parser.error('You need a product line (rhel6, openshift3, etc) and image name')
-            sys.exit(2) 
         id = 'redhat-%s-%s' % (args[0], args[1])
         if len(args) == 3:
             url = args[2]
@@ -351,7 +359,6 @@ def do_create(bopts, bargs):
     if url:
         if not url.startswith('/content'):
             parser.error('the content-url needs to start with /content')
-            sys.exit(2)
 
     p.createRepo(id, url, desc=opts.description, title=opts.title)
     log.info('repository created')
@@ -364,7 +371,6 @@ def do_delete(bopts, bargs):
     opts, args = parser.parse_args(bargs)
     if len(args) < 1:
         parser.error('You must provide a repository ID')
-        sys.exit(2)
     p = pulp_login(bopts)
     for repo in args:
         p.deleteRepo(repo)
@@ -580,7 +586,9 @@ def do_sync(bopts, bargs):
         imgs.sort()
         for img in imgs:
             log.info(img)
-    log.info('')
+        for img in imgs:
+            p.copy('redhat-everything', img, repo)
+    log.info('') 
 
 def do_tag(bopts, bargs):
     """
