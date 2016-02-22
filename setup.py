@@ -9,6 +9,9 @@ def _simplejson_on_python26():
         return []
     return ['simplejson']
 
+install_requires = ['requests']
+install_requires.extend(_simplejson_on_python26())
+
 setup(
     name = "dockpulp",
     version = "1.11",
@@ -19,7 +22,7 @@ setup(
     url = "https://github.com/release-engineering/dockpulp.git",
     package_dir = {'': '.'},
     packages = ['dockpulp'],
-    install_requires = _simplejson_on_python26(),
+    install_requires = install_requires,
     scripts = ['bin/dock-pulp.py', 'bin/dock-pulp-bootstrap.py', 'bin/dock-pulp-restore.py'],
     package_data = {'': ['conf/dockpulp.conf']},
 )
