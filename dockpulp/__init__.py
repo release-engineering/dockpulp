@@ -55,12 +55,10 @@ class NullHandler(logging.Handler):
 # define their own logging needs
 log = logging.getLogger("dockpulp")
 log.setLevel(logging.INFO)
-logging.basicConfig(stream=sys.stdout, format='%(levelname)-9s %(message)s')
 
 # Add the null handler
 h = NullHandler()
 log.addHandler(h)
-
 
 class RequestsHttpCaller(object):
     def __init__(self, url):

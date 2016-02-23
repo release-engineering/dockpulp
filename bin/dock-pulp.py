@@ -1,4 +1,4 @@
-#!/usr/bin/python -tt
+#!/usr/bin/env python
 # This file is part of dockpulp.
 #
 # dockpulp is free software: you can redistribute it and/or modify
@@ -34,14 +34,11 @@ except ImportError:
 
 import dockpulp
 
-#class DockPulpHandler(logging.Handler):
-#    def emit(self, record):
-#        print record
-
 log = dockpulp.log
-#d = DockPulpHandler()
-#log.addHandler(d)
-#formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+sh = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter("%(levelname)-9s %(message)s")
+sh.setFormatter(formatter)
+log.addHandler(sh)
 
 def main():
     usage = """CLI for Pulp instances providing Docker content
