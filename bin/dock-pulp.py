@@ -370,8 +370,14 @@ def do_delete(bopts, bargs):
         parser.error('You must provide a repository ID')
     p = pulp_login(bopts)
     for repo in args:
+        repoinfo = p.listRepos(repo, content=True)[0]
         p.deleteRepo(repo)
         log.info('deleted %s' % repo)
+        if len(repoinfo['images']) > 0:
+            log.info('Layers removed:')
+            for img in repoinfo['images'].keys():
+                log.info('    %s', img)
+            log.info('Layers still exist in redhat-everything')
 
 def do_empty(bopts, bargs):
     """
