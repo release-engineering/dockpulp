@@ -234,7 +234,7 @@ class Pulp(object):
                 raise errors.DockPulpConfigError('%s section is missing %s' %
                     (sect, env))
 
-        self.syncenv = conf.get('pulps', env)
+        self.syncenv = conf.get('registries', env)
 
     def _getTags(self, repo):
         """return the tag list for a given repo"""
@@ -306,7 +306,7 @@ class Pulp(object):
         }
         log.debug('copy request we are sending:')
         log.debug(pprint.pformat(data))
-        log.info('copying %s from %s to %s' % (img, HIDDEN, drepo))
+        log.info('copying %s from %s to %s' % (img, source, drepo))
         tid = self._post(
             '/pulp/api/v2/repositories/%s/actions/associate/' % drepo,
             data=json.dumps(data))
@@ -736,13 +736,13 @@ class Pulp(object):
         data = {
             'override_config': {
                 'ssl_validation': False,
-                'feed': syncenv + ":8888",
+                'feed': syncenv,
                 'upstream_name': repoid
             }
         }
 
+        log.info('Syncing from %s' % syncenv)
         log.info('Syncing repo %s' % repo)
-        log.info('/pulp/api/v2/repositories/%s/actions/sync/' % repo)
         tid = self._post('/pulp/api/v2/repositories/%s/actions/sync/' % repo,
             data=json.dumps(data))
         self.watch(tid)

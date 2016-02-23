@@ -568,22 +568,23 @@ def do_sync(bopts, bargs):
     repoinfo = repoinfo[0]
 
     if len(repoinfo['images'].keys()) == 0:
-        pass
+        oldimgs = []
     else:
         oldimgs = repoinfo['images'].keys() 
 
     repoinfo = p.listRepos(repo, True)
     repoinfo = repoinfo[0]
+    newimgs = repoinfo['images'].keys()
+    imgs = list(set(newimgs) - set(oldimgs))
+    imgs.sort()
 
     log.info(repoinfo['id'])
     log.info('-' * len(repoinfo['id']))    
     log.info('synced images:')
-    if len(repoinfo['images'].keys()) == 0:
+
+    if len(imgs) == 0:
         log.info('  No new images')
     else:
-        newimgs = repoinfo['images'].keys()
-        imgs = list(set(newimgs) - set(oldimgs))
-        imgs.sort()
         for img in imgs:
             log.info(img)
         for img in imgs:
