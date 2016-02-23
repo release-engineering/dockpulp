@@ -568,11 +568,14 @@ class Pulp(object):
                           r['id'])
                 continue
 
-            try:
-                r['redirect'] = blob['distributors'][0]['config']['redirect-url']
-            except KeyError:
-                log.debug("no redirect for repo-id %s, using pulp defaults",
-                          r['id'])
+            if blob['distributors']:
+                try:
+                    r['redirect'] = blob['distributors'][0]['config']['redirect-url']
+                except KeyError:
+                    log.debug("no redirect for repo-id %s, using pulp defaults",
+                            r['id'])
+                    r['redirect'] = None
+            else:
                 r['redirect'] = None
 
             if content:
