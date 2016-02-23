@@ -255,23 +255,35 @@ def do_ancestry(bopts, bargs):
 
 def do_clone(bopts, bargs):
     """
-    dock-pulp clone [options] repo-id new-repo-id
+    dock-pulp clone [options] repo-id new-product-line new-image-name
+    dock-pulp clone [options] --library repo-id  new-image-name
     Clone a docker repo, bringing content along"""
     parser = OptionParser(usage=do_clone.__doc__)
+    parser.add_option('-l', '--library', help='create a "library"-level repo',
+        default=False, action='store_true')
     opts, args = parser.parse_args(bargs)
-    if len(args) != 2:
-        parser.error('You must provide a source repo id and new repo id')
     p = pulp_login(bopts)
-    log.info('cloning %s repo to %s' % (args[0], args[1]))
+    id = []
+    if opts.library:
+        if len(args) != 2:
+            parser.error('You need a source repo id and a name for a library-level repo')
+        id.append('redhat-%s' % (args[1]))
+    else:
+        if len(args) != 3:
+            parser.error('You need a source repo id, a new product line (rhel6, openshift3, etc), and a new image name')
+        id.append('redhat-%s' % (args[1]))
+        id.append('%s' % (args[2]))
+
+    log.info('cloning %s repo to %s' % (args[0], '-'.join(id)))
     oldinfo = p.listRepos(args[0], content=True)[0]
-    newrepo = p.createRepo(args[1], oldinfo['redirect'],
+    newrepo = p.createRepo(id, oldinfo['redirect'],
         desc=oldinfo['description'], title=oldinfo['title'])
-    log.info('cloning content in %s to %s' % (args[0], args[1]))
+    log.info('cloning content in %s to %s' % (args[0], '-'.join(id)))
     if len(oldinfo['images']) > 0:
         for img in oldinfo['images'].keys():
-            p.copy(args[1], img)
+            p.copy('-'.join(id), img)
             tags = {'tag': '%s:%s' % (','.join(oldinfo['images'][img]), img)}
-            p.updateRepo(args[1], tags)
+            p.updateRepo('-'.join(id), tags)
     else:
         log.info('no content to copy in')
     log.info('cloning complete')
@@ -336,12 +348,13 @@ def do_create(bopts, bargs):
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     url = None
+    id = []
     if opts.library:
         if len(args) != 2 and p.isRedirect():
             parser.error('You need a name for a library-level repo and a content-url')
         elif ( len(args) != 1 and len(args) != 2 ) and not p.isRedirect():
             parser.error('You need a name for a library-level repo')
-        id = 'redhat-%s' % (args[0])
+        id.append('redhat-%s' % (args[0]))
         if len(args) == 2:
             url = args[1]
     else:
@@ -349,7 +362,8 @@ def do_create(bopts, bargs):
             parser.error('You need a product line (rhel6, openshift3, etc), image name and a content-url')
         elif ( len(args) != 2 and len(args) != 3 ) and not p.isRedirect():
             parser.error('You need a product line (rhel6, openshift3, etc) and image name')
-        id = 'redhat-%s-%s' % (args[0], args[1])
+        id.append('redhat-%s' % (args[0]))
+        id.append('%s' % (args[1]))
         if len(args) == 3:
             url = args[2]
 

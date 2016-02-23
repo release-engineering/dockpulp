@@ -349,18 +349,15 @@ class Pulp(object):
         """
         create a docker repository in pulp, an id and a description is required
         """
-        if not repo_id.startswith(prefix_with):
-            repo_id = prefix_with + repo_id
-        if '/' in repo_id:
+        if not repo_id[0].startswith(prefix_with):
+            repo_id[0] = prefix_with + repo_id[0]
+        if '/' in repo_id[0]:
             log.warning('Looks like you supplied a docker repo ID, not pulp')
             raise errors.DockPulpError('Pulp repo ID cannot have a "/"')
         if registry_id is None:
-            registry_id = repo_id.replace('redhat-', '').replace('-', '/', 1)
-            if '/' in registry_id:
-                if '-' in registry_id[:registry_id.index('/')]:
-                    log.warning('docker-pull does not support this repo ID')
-                    raise errors.DockPulpError('Docker repo ID has a hyphen before the "/"')
-        
+            registry_id = '/'.join(repo_id).replace('redhat-', '')
+
+        repo_id = '-'.join(repo_id)
         rurl = url
         if rurl and not rurl.startswith('http'): 
             rurl = self.cdnhost + url
