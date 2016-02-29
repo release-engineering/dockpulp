@@ -30,6 +30,32 @@ except ImportError:
 
 # see https://github.com/pulp/pulp_docker/blob/master/common/pulp_docker/common/tarutils.py
 
+def get_manifest(tarfile_path):
+    """
+    Given a path to a tarfile, which is itself the product of "docker save",
+    this discovers the manifest for the collection of images, which provides
+    version information.
+    """
+    manifest = []
+    configjson = None
+    with contextlib.closing(tarfile.open(tarfile_path)) as archive:
+        for member in archive.getmembers():
+            # find the "manifest.json" file, which points to metadata json file
+            if os.path.basename(member.path) == 'manifest.json':
+                initial_manifest = json.load(archive.extractfile(member))
+                configjson = initial_manifest[0]['Config']
+        for member in archive.getmembers():
+            # get manifest from shasum json file, docker ver > 1.10
+            if configjson and os.path.basename(member.path) == configjson:
+                image_data = json.load(archive.extractfile(member))
+                manifest.append(image_data)
+            # find the "json" files, which contain all image metadata
+            # legacy code for docker ver < 1.10
+            elif not configjson and os.path.basename(member.path) == 'json':
+                image_data = json.load(archive.extractfile(member))
+                manifest.append(image_data)
+    return manifest
+
 def get_metadata(tarfile_path):
     """
     Given a path to a tarfile, which is itself the product of "docker save",

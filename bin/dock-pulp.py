@@ -558,6 +558,9 @@ def do_remove(bopts, bargs):
     log.info('calculating unneeded layers')
     images = p.listRepos(repos=args[0], content=True)[0]['images']
     tagged_images = set([i for i in images.keys() if len(images[i]) > 0])
+    if len(tagged_images) == 0:
+        log.info('No tagged images, no unneeded layers')
+        sys.exit(0)
     ancestors = set()
     log.debug('tagged images: %s' % tagged_images)
     for tagged_image in tagged_images:
@@ -714,12 +717,13 @@ def do_upload(bopts, bargs):
     log.info('uploading %s' % args[0])
     log.info('Ensuring image conforms to Pulp requirements')
     # TODO: this gets read again during the upload
+    manifest = dockpulp.imgutils.get_manifest(args[0])
     metadata = dockpulp.imgutils.get_metadata(args[0])
     newimgs = dockpulp.imgutils.get_metadata_pulp(metadata).keys()
     log.info('Layers in this tarball:')
     for img in newimgs:
         log.info('  %s' % img)
-    vers = dockpulp.imgutils.get_versions(metadata)
+    vers = dockpulp.imgutils.get_versions(manifest)
     good = True
     for id, version in vers.items():
         minor = int(version[2:version.index('.', 2)])
