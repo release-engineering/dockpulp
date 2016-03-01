@@ -796,16 +796,20 @@ class Pulp(object):
             data=json.dumps(delta))
         self.watch(tid)
 
-    def upload(self, image):
+    def upload(self, image, chunk_size=10 * 1024 * 1024):
         """
         Upload an image to pulp. This does not associate it with any repository.
+
+        :param image: str, pathname
+        :param chunk_size: int, chunk size in bytes, defaults to 10Mb
         """
         # TODO: support a hidden repo for "no-channel" style uploads
         rid = self._createUploadRequest()
         size = int(os.path.getsize(image))
         curr = 0
-        block = 1024 * 1024 # 1M
-        log.info('uploading a %sM image' % (size / block,))
+        block = chunk_size
+        mb = 1024 * 1024  # 1Mb
+        log.info('uploading a %sM image' % (size / mb,))
         with open(image) as fobj:
             while curr < size:
                 data = fobj.read(block)
@@ -831,7 +835,7 @@ class Pulp(object):
         tid = self._post(
             '/pulp/api/v2/repositories/%s/actions/import_upload/' % HIDDEN,
             data=json.dumps(data))
-        timer = max(60, (size/block)*2) # wait 2 seconds per megabyte, or 60,
+        timer = max(60, (size/mb)*2) # wait 2 seconds per megabyte, or 60,
         self.watch(tid, timeout=timer)  # whichever is greater
         self._deleteUploadRequest(rid)
 
