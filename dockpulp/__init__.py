@@ -140,9 +140,10 @@ class Pulp(object):
     #                           section, process function, target attribute
     MANDATORY_CONF_SECTIONS = (('pulps', "_set_env_attr", "url"),
                                ('registries', "_set_env_attr", "registry"),
-                               ( 'filers', "_set_env_attr", "cdnhost"),
-                               ( 'redirect', "_set_bool", "redirect"))
-    OPTIONAL_CONF_SECTIONS = (('certificates', "_set_cert", None),)
+                               ('filers', "_set_env_attr", "cdnhost"),
+                               ('redirect', "_set_bool", "redirect"))
+    OPTIONAL_CONF_SECTIONS = (('certificates', "_set_cert", None),
+                              ('chunk_size', "_set_env_attr", "chunk_size"))
     AUTH_CER_FILE = "pulp.cer"
     AUTH_KEY_FILE = "pulp.key"
 
@@ -799,13 +800,26 @@ class Pulp(object):
     def upload(self, image):
         """
         Upload an image to pulp. This does not associate it with any repository.
+
+        :param image: str, pathname
         """
         # TODO: support a hidden repo for "no-channel" style uploads
         rid = self._createUploadRequest()
         size = int(os.path.getsize(image))
         curr = 0
-        block = 1024 * 1024 # 1M
-        log.info('uploading a %sM image' % (size / block,))
+        mb = 1024 * 1024 # 1M
+        try:
+            block = self.chunk_size
+            if block == None:
+                block = mb
+            # chunk size is in MB, need to convert
+            else:
+                block = int(block) * mb
+        except AttributeError:
+            # chunk size defaults to 1 MB if not set
+            block = mb
+        log.info('uploading a %sM image' % (size / mb,))
+        log.debug('using a chunk size of %sM' % (block / mb,))
         with open(image) as fobj:
             while curr < size:
                 data = fobj.read(block)
@@ -831,7 +845,7 @@ class Pulp(object):
         tid = self._post(
             '/pulp/api/v2/repositories/%s/actions/import_upload/' % HIDDEN,
             data=json.dumps(data))
-        timer = max(60, (size/block)*2) # wait 2 seconds per megabyte, or 60,
+        timer = max(60, (size/mb)*2) # wait 2 seconds per megabyte, or 60,
         self.watch(tid, timeout=timer)  # whichever is greater
         self._deleteUploadRequest(rid)
 
