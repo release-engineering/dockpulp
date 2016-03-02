@@ -1,6 +1,6 @@
 Name:		dockpulp
 Version:	1.12
-Release:	10%{?dist}
+Release:	11%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
 Group:		Applications/System
@@ -51,6 +51,9 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Wed Mar 02 2016 Brendan Reilly <breilly@redhat.com> 1.12-11
+- Fixed indentation error (breilly@redhat.com)
+
 * Wed Mar 02 2016 Brendan Reilly <breilly@redhat.com> 1.12-10
 - Bumped release to 1.12 (breilly@redhat.com)
 - Added error check for missing ancestors (breilly@redhat.com)
