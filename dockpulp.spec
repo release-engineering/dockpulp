@@ -1,6 +1,6 @@
 Name:		dockpulp
 Version:	1.12
-Release:	9%{?dist}
+Release:	10%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
 Group:		Applications/System
@@ -51,6 +51,28 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Wed Mar 02 2016 Brendan Reilly <breilly@redhat.com> 1.12-10
+- Bumped release to 1.12 (breilly@redhat.com)
+- Added error check for missing ancestors (breilly@redhat.com)
+- Chunk size for uploads is now configurable. Default is 1MB.
+  (breilly@redhat.com)
+- Now pulls version information correctly from docker 1.10+ images
+  (breilly@redhat.com)
+- dockpulp create a-b c-d now correctly generates a-b/c-d docker id. Clone args
+  changed to reflect createrepo changes (breilly@redhat.com)
+- Delete now displays removed layers (breilly@redhat.com)
+- Updated to use python from env. (breilly@redhat.com)
+- Updated logging to only appear with CLI. (breilly@redhat.com)
+- Merge pull request #42 from pbabinca/install-requires-fix
+  (breilly@redhat.com)
+- Merge pull request #41 from pbabinca/continue-with-no-distributors
+  (breilly@redhat.com)
+- Sync uses crane instead of pulp. (breilly@redhat.com)
+- Include request in install_requires of setup.py (pbabinca@redhat.com)
+- Continue if there is no distributor for a repo (pbabinca@redhat.com)
+- Sync now copies new images to redhat-everything after sync. Errors should now
+  return standard error codes. (breilly@redhat.com)
+
 * Wed Feb 10 2016 Brendan Reilly <breilly@redhat.com> 1.12-9
 - Updated confirm and list to work with repos with no redirect-url
   (breilly@redhat.com)
