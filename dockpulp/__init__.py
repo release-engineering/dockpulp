@@ -466,8 +466,13 @@ class Pulp(object):
         }
         log.debug('search request:')
         log.debug(json.dumps(data))
+        try:
         img = self._post('/pulp/api/v2/repositories/%s/search/units/' % HIDDEN,
             data=json.dumps(data))[0]
+        except IndexError:
+            log.info('missing parent layer %s', iid)
+            log.info('skipping layer')
+            return parents
         par = img['metadata']['parent_id']
         if par is not None:
             parents.append(par)
