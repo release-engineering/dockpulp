@@ -44,6 +44,7 @@ import imgutils
 C_TYPE = 'docker_image'         # pulp content type identifier for docker
 HIDDEN = 'redhat-everything'    # ID of a "hidden" repository for RCM
 DEFAULT_CONFIG_FILE = '/etc/dockpulp.conf'
+DEFAULT_DISTRIBUTORS_FILE = '/etc/dockpulpdistributors.json'
 
 # Setup our logger
 # Null logger to avoid spurious messages, add a handler in app code
@@ -141,7 +142,8 @@ class Pulp(object):
     MANDATORY_CONF_SECTIONS = (('pulps', "_set_env_attr", "url"),
                                ('registries', "_set_env_attr", "registry"),
                                ('filers', "_set_env_attr", "cdnhost"),
-                               ('redirect', "_set_bool", "redirect"))
+                               ('redirect', "_set_bool", "redirect"),
+                               ('distributors', "_set_env_attr", "distributors"))
     OPTIONAL_CONF_SECTIONS = (('certificates', "_set_cert", None),
                               ('chunk_size', "_set_env_attr", "chunk_size"))
     AUTH_CER_FILE = "pulp.cer"
@@ -160,6 +162,10 @@ class Pulp(object):
         self._load_override_conf(config_override)
         self._request = RequestsHttpCaller(self.url)
         self._request.set_cert_key_paths(self.certificate, self.key)
+        if not os.path.exists(DEFAULT_DISTRIBUTORS_FILE):
+                log.error('could not load distributors json: %s' % DEFAULT_DISTRIBUTORS_FILE)
+        self.distributorconf = json.load(open(DEFAULT_DISTRIBUTORS_FILE, 'r'))
+
 
     def _set_bool(self, attrs):
         for key, boolean in attrs:
@@ -378,26 +384,20 @@ class Pulp(object):
             'importer_config': {},
             'notes': {'_repo-type': 'docker-repo'},
         }
+        if self.distributors == "":
+            distributors = False
         if distributors:
-            stuff['distributors'] = [{
-                'distributor_id': 'docker_export_distributor_name_cli',
-                'distributor_type_id': 'docker_distributor_export',
-                'distributor_config': {
-                    'protected': False,
-                    'repo-registry-id': registry_id,
-                    'redirect-url': rurl
-                },
-                'auto_publish': True
-            }, {
-                'distributor_id': 'docker_web_distributor_name_cli',
-                'distributor_type_id': 'docker_distributor_web',
-                'distributor_config': {
-                    'protected': False,
-                    'repo-registry-id': registry_id,
-                    'redirect-url': rurl
-                },
-                'auto_publish': True
-            }]
+            stuff['distributors'] = []
+            distributorkeys = self.distributors.strip().split(",")
+            for key in distributorkeys:
+                stuff['distributors'].append(self.distributorconf[key])
+            for distributor in stuff['distributors']:
+               try:
+                   distributor['distributor_config']['protected'] = False
+                   distributor['distributor_config']['repo-registry-id'] = registry_id
+                   distributor['distributor_config']['redirect-url'] = rurl
+               except KeyError:
+                   continue
         else:
             stuff['distributors'] = []
         log.debug('data sent in request:')
@@ -560,6 +560,7 @@ class Pulp(object):
                 'description': blob['description'],
                 'title': blob['display_name']
             }
+
             try:
                 if len(blob['distributors']) > 0:
                     r['protected'] = blob['distributors'][0]['config']['protected']
@@ -759,15 +760,17 @@ class Pulp(object):
         "update" is a dictionary of keys to update with new values
         """
         log.info('updating repo %s' % rid)
-        export_id = 'docker_export_distributor_name_cli'
-        web_id = 'docker_web_distributor_name_cli'
         delta = {
             'delta': {},
             'distributor_configs': {
-                export_id: {},
-                web_id: {}
             }
         }
+        if self.distributors == "":
+            distributor = False
+        if distributor:
+            distributorkeys = self.distributors.strip().split(",")
+            for distributorkey in distributorkeys:
+                delta['distributor_configs'][distributorkey] = {}
         # we intentionally ignore everything else
         valid = ('redirect-url', 'repo-registry-id', 'description', 'display_name', 'tag')
         for u in update.keys():
@@ -791,9 +794,9 @@ class Pulp(object):
                     delta['delta']['scratchpad']['tags'].append(
                         {'image_id': iid, 'tag': tag})
         for key in ('protected', 'redirect-url', 'repo-registry-id'):
-            if update.has_key(key):
-                delta['distributor_configs'][export_id][key] = update[key]
-                delta['distributor_configs'][web_id][key] = update[key]
+            if update.has_key(key) and distributor:
+                for distributorkey in delta['distributor_configs']:
+                    delta['distributor_configs'][distributorkey][key] = update[key]
         if len(delta['distributor_configs']) == 0:
             log.info('  no need to update the distributor configs')
             delta.pop('distributor_configs')

@@ -1,6 +1,6 @@
 Name:		dockpulp
-Version:	1.12
-Release:	11%{?dist}
+Version:	1.13
+Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
 Group:		Applications/System
@@ -36,6 +36,7 @@ install -pm 0755 bin/dock-pulp.py $RPM_BUILD_ROOT%{_bindir}/dock-pulp
 install -pm 0755 bin/dock-pulp-bootstrap.py $RPM_BUILD_ROOT%{_bindir}/dock-pulp-bootstrap
 install -pm 0755 bin/dock-pulp-restore.py $RPM_BUILD_ROOT%{_bindir}/dock-pulp-restore
 install -pm 0644 conf/dockpulp.conf $RPM_BUILD_ROOT%{_sysconfdir}
+install -pm 0644 conf/dockpulpdistributors.json $RPM_BUILD_ROOT%{_sysconfdir}
 
 
 %clean
@@ -47,6 +48,7 @@ rm -rf $RPM_BUILD_ROOT
 %{python_sitelib}/*
 %{_bindir}/*
 %config(noreplace) %{_sysconfdir}/dockpulp.conf
+%config(noreplace) %{_sysconfdir}/dockpulpdistributors.json
 %doc LICENSE
 
 
