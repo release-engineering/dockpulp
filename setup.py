@@ -14,7 +14,7 @@ install_requires.extend(_simplejson_on_python26())
 
 setup(
     name = "dockpulp",
-    version = "1.13",
+    version = "1.14",
     author = "Jay Greguske",
     author_email = "jgregusk@redhat.com",
     description = ("ReST API Client to Pulp for manipulating docker images"),

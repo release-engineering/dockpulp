@@ -327,15 +327,20 @@ class Pulp(object):
             repos = self.getAllRepoIDs()
         tasks = []
         results = []
+        distributorkeys = []
         if not wait:
             pool = multiprocessing.Pool()
 
         for repo in repos:
-            for did in ('docker_export_distributor_name_cli',
-                        'docker_web_distributor_name_cli'):
-                log.info('updating distributor: %s' % did)
+            disturl = '/pulp/api/v2/repositories/%s/distributors/' % repo
+            log.debug("calling %s", disturl)
+            blob = self._get(disturl)
+            for did in blob:
+                distributorkeys.append(did['id'])
+            for key in distributorkeys:
+                log.info('updating distributor: %s' % key)
                 url = '/pulp/api/v2/repositories/%s/actions/publish/' % repo
-                kwds={"data": json.dumps({'id': did})}
+                kwds={"data": json.dumps({'id': key})}
                 if not wait:
                     results.append(pool.apply_async(self._request,
                                                     args=("post", url,),
@@ -392,12 +397,13 @@ class Pulp(object):
             for key in distributorkeys:
                 stuff['distributors'].append(self.distributorconf[key])
             for distributor in stuff['distributors']:
-               try:
-                   distributor['distributor_config']['protected'] = False
-                   distributor['distributor_config']['repo-registry-id'] = registry_id
-                   distributor['distributor_config']['redirect-url'] = rurl
-               except KeyError:
-                   continue
+                try:
+                    if distributor['distributor_type_id'] == 'docker_distributor_web':
+                        distributor['distributor_config']['protected'] = False
+                        distributor['distributor_config']['repo-registry-id'] = registry_id
+                        distributor['distributor_config']['redirect-url'] = rurl
+                except KeyError:
+                    continue
         else:
             stuff['distributors'] = []
         log.debug('data sent in request:')
@@ -563,8 +569,11 @@ class Pulp(object):
 
             try:
                 if len(blob['distributors']) > 0:
-                    r['protected'] = blob['distributors'][0]['config']['protected']
-                    r['docker-id'] = blob['distributors'][0]['config']['repo-registry-id']
+                    for distributor in blob['distributors']:
+                        if distributor['distributor_type_id'] == 'docker_distributor_web':
+                            r['protected'] = distributor['config']['protected']
+                            r['docker-id'] = distributor['config']['repo-registry-id']
+                            break
             except KeyError:
                 log.debug("ignoring repo-id %s, incomplete distributor config",
                           r['id'])
@@ -572,7 +581,10 @@ class Pulp(object):
 
             if blob['distributors']:
                 try:
-                    r['redirect'] = blob['distributors'][0]['config']['redirect-url']
+                    for distributor in blob['distributors']:
+                        if distributor['distributor_type_id'] == 'docker_distributor_web':
+                            r['redirect'] = distributor['config']['redirect-url']
+                            break
                 except KeyError:
                     log.debug("no redirect for repo-id %s, using pulp defaults",
                             r['id'])
@@ -765,12 +777,23 @@ class Pulp(object):
             'distributor_configs': {
             }
         }
-        if self.distributors == "":
-            distributor = False
-        if distributor:
-            distributorkeys = self.distributors.strip().split(",")
-            for distributorkey in distributorkeys:
-                delta['distributor_configs'][distributorkey] = {}
+
+        distributors = []
+        distributorkeys = []
+        validdistributorkeys = []
+        webdist = 'docker_distributor_web'
+        exportdist = 'docker_distributor_export'
+
+        disturl = '/pulp/api/v2/repositories/%s/distributors/' % rid
+        log.debug("calling %s", disturl)
+        blob = self._get(disturl)
+        for did in blob:
+            if did['distributor_type_id'] == webdist or did['distributor_type_id'] == exportdist:
+                validdistributorkeys.append(did['id'])
+            else:
+                distributorkeys.append(did['id'])
+        for distributorkey in validdistributorkeys:
+            delta['distributor_configs'][distributorkey] = {}
         # we intentionally ignore everything else
         valid = ('redirect-url', 'repo-registry-id', 'description', 'display_name', 'tag')
         for u in update.keys():
@@ -794,9 +817,11 @@ class Pulp(object):
                     delta['delta']['scratchpad']['tags'].append(
                         {'image_id': iid, 'tag': tag})
         for key in ('protected', 'redirect-url', 'repo-registry-id'):
-            if update.has_key(key) and distributor:
+            if update.has_key(key):
                 for distributorkey in delta['distributor_configs']:
                     delta['distributor_configs'][distributorkey][key] = update[key]
+        for distributorkey in distributorkeys:
+            delta['distributor_configs'][distributorkey] = {}
         if len(delta['distributor_configs']) == 0:
             log.info('  no need to update the distributor configs')
             delta.pop('distributor_configs')

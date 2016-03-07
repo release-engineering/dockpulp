@@ -1,12 +1,12 @@
 {
-    "docker_export_distributor": {
+    "docker_export_distributor_name_cli": {
 	"distributor_id": "docker_export_distributor_name_cli",
 	"distributor_type_id": "docker_distributor_export",
 	"distributor_config": {
 	},
 	"auto_publish": "True"
     }, 
-    "docker_web_distributor": {
+    "docker_web_distributor_name_cli": {
 	"distributor_id": "docker_web_distributor_name_cli",
 	"distributor_type_id": "docker_distributor_web",
 	"distributor_config": {
