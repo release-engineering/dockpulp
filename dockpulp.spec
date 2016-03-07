@@ -1,6 +1,6 @@
 Name:		dockpulp
 Version:	1.14
-Release:	1%{?dist}
+Release:	2%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
 Group:		Applications/System
@@ -53,6 +53,14 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Mon Mar 07 2016 Brendan Reilly <breilly@redhat.com> 1.14-2
+- Updated distributor conf to work with publish, list, update correctly
+  (breilly@redhat.com)
+- Bumping version (breilly@redhat.com)
+- Adding default distributors file (breilly@redhat.com)
+- Can now specify distributors via /etc/dockpulp.conf. Distributors should be
+  defined in /etc/dockpulpdistributors.json (breilly@redhat.com)
+
 * Wed Mar 02 2016 Brendan Reilly <breilly@redhat.com> 1.12-11
 - Fixed indentation error (breilly@redhat.com)
 
