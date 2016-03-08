@@ -30,13 +30,10 @@ and workflows that are specific to docker image and registries.
 rm -rf $RPM_BUILD_ROOT
 install -d $RPM_BUILD_ROOT%{python_sitelib}/dockpulp
 install -d $RPM_BUILD_ROOT%{_bindir}
-install -d $RPM_BUILD_ROOT%{_sysconfdir}
 install -pm 0644 dockpulp/* $RPM_BUILD_ROOT%{python_sitelib}/dockpulp
 install -pm 0755 bin/dock-pulp.py $RPM_BUILD_ROOT%{_bindir}/dock-pulp
 install -pm 0755 bin/dock-pulp-bootstrap.py $RPM_BUILD_ROOT%{_bindir}/dock-pulp-bootstrap
 install -pm 0755 bin/dock-pulp-restore.py $RPM_BUILD_ROOT%{_bindir}/dock-pulp-restore
-install -pm 0644 conf/dockpulp.conf $RPM_BUILD_ROOT%{_sysconfdir}
-install -pm 0644 conf/dockpulpdistributors.json $RPM_BUILD_ROOT%{_sysconfdir}
 
 
 %clean
@@ -47,8 +44,6 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 %{python_sitelib}/*
 %{_bindir}/*
-%config(noreplace) %{_sysconfdir}/dockpulp.conf
-%config(noreplace) %{_sysconfdir}/dockpulpdistributors.json
 %doc LICENSE
 
 
