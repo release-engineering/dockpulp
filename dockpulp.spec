@@ -1,6 +1,6 @@
 Name:		dockpulp
 Version:	1.14
-Release:	2%{?dist}
+Release:	3%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
 Group:		Applications/System
@@ -48,6 +48,9 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Tue Mar 08 2016 Brendan Reilly <breilly@redhat.com> 1.14-3
+- Removed dockpulp conf from rpm (breilly@redhat.com)
+
 * Mon Mar 07 2016 Brendan Reilly <breilly@redhat.com> 1.14-2
 - Updated distributor conf to work with publish, list, update correctly
   (breilly@redhat.com)
