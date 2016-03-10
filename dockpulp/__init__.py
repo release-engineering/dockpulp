@@ -327,11 +327,12 @@ class Pulp(object):
             repos = self.getAllRepoIDs()
         tasks = []
         results = []
-        distributorkeys = []
+
         if not wait:
             pool = multiprocessing.Pool()
 
         for repo in repos:
+            distributorkeys = []
             disturl = '/pulp/api/v2/repositories/%s/distributors/' % repo
             log.debug("calling %s", disturl)
             blob = self._get(disturl)
