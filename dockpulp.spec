@@ -1,6 +1,6 @@
 Name:		dockpulp
 Version:	1.15
-Release:	1%{?dist}
+Release:	2%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
 Group:		Applications/System
@@ -48,6 +48,11 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Thu Mar 10 2016 Brendan Reilly <breilly@redhat.com> 1.15-2
+- bumped version (breilly@redhat.com)
+- Fixed broken backwards compat for createRepo api (breilly@redhat.com)
+- Fixed bug when releasing more than one repo (breilly@redhat.com)
+
 * Tue Mar 08 2016 Brendan Reilly <breilly@redhat.com> 1.14-3
 - Removed dockpulp conf from rpm (breilly@redhat.com)
 
