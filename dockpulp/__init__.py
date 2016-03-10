@@ -751,9 +751,6 @@ class Pulp(object):
 
         syncenv = self.syncenv
 
-        if syncenv.startswith("https"):
-            syncenv = syncenv.replace("https","http")
-
         data = {
             'override_config': {
                 'ssl_validation': False,
