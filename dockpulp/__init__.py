@@ -358,19 +358,22 @@ class Pulp(object):
             return tasks
 
     def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None,
-        distributors=True, prefix_with="redhat-"):
+                   distributors=True, prefix_with="redhat-", productline=None):
         """
         create a docker repository in pulp, an id and a description is required
         """
-        if not repo_id[0].startswith(prefix_with):
-            repo_id[0] = prefix_with + repo_id[0]
-        if '/' in repo_id[0]:
+        if not repo_id.startswith(prefix_with):
+            repo_id = prefix_with + repo_id
+        if '/' in repo_id:
             log.warning('Looks like you supplied a docker repo ID, not pulp')
             raise errors.DockPulpError('Pulp repo ID cannot have a "/"')
         if registry_id is None:
-            registry_id = '/'.join(repo_id).replace('redhat-', '')
+            if productline:
+                pindex = repo_id.find(productline)
+                registry_id = productline + '/' + repo_id[pindex + len(productline) + 1:]
+            else:
+                registry_id = repo_id.replace('redhat-', '').replace('-', '/', 1)
 
-        repo_id = '-'.join(repo_id)
         rurl = url
         if rurl and not rurl.startswith('http'): 
             rurl = self.cdnhost + url

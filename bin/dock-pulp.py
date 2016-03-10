@@ -263,27 +263,27 @@ def do_clone(bopts, bargs):
         default=False, action='store_true')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
-    id = []
+    productid = None
     if opts.library:
         if len(args) != 2:
             parser.error('You need a source repo id and a name for a library-level repo')
-        id.append('redhat-%s' % (args[1]))
+        repoid = 'redhat-%s' % (args[1])
     else:
         if len(args) != 3:
             parser.error('You need a source repo id, a new product line (rhel6, openshift3, etc), and a new image name')
-        id.append('redhat-%s' % (args[1]))
-        id.append('%s' % (args[2]))
+        repoid = 'redhat-%s-%s' % (args[1], args[2])
+        productid = args[1]
 
-    log.info('cloning %s repo to %s' % (args[0], '-'.join(id)))
+    log.info('cloning %s repo to %s' % (args[0], repoid))
     oldinfo = p.listRepos(args[0], content=True)[0]
-    newrepo = p.createRepo(id, oldinfo['redirect'],
-        desc=oldinfo['description'], title=oldinfo['title'])
-    log.info('cloning content in %s to %s' % (args[0], '-'.join(id)))
+    newrepo = p.createRepo(repoid, oldinfo['redirect'],
+                        desc=oldinfo['description'], title=oldinfo['title'], productline=productid)
+    log.info('cloning content in %s to %s' % (args[0], repoid))
     if len(oldinfo['images']) > 0:
         for img in oldinfo['images'].keys():
-            p.copy('-'.join(id), img)
+            p.copy(repoid, img)
             tags = {'tag': '%s:%s' % (','.join(oldinfo['images'][img]), img)}
-            p.updateRepo('-'.join(id), tags)
+            p.updateRepo(repoid, tags)
     else:
         log.info('no content to copy in')
     log.info('cloning complete')
@@ -348,13 +348,13 @@ def do_create(bopts, bargs):
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     url = None
-    id = []
+    productid = None
     if opts.library:
         if len(args) != 2 and p.isRedirect():
             parser.error('You need a name for a library-level repo and a content-url')
         elif ( len(args) != 1 and len(args) != 2 ) and not p.isRedirect():
             parser.error('You need a name for a library-level repo')
-        id.append('redhat-%s' % (args[0]))
+        repoid = 'redhat-%s' % (args[0])
         if len(args) == 2:
             url = args[1]
     else:
@@ -362,8 +362,8 @@ def do_create(bopts, bargs):
             parser.error('You need a product line (rhel6, openshift3, etc), image name and a content-url')
         elif ( len(args) != 2 and len(args) != 3 ) and not p.isRedirect():
             parser.error('You need a product line (rhel6, openshift3, etc) and image name')
-        id.append('redhat-%s' % (args[0]))
-        id.append('%s' % (args[1]))
+        productid = args[0] 
+        repoid = 'redhat-%s-%s' % (args[0], args[1])
         if len(args) == 3:
             url = args[2]
 
@@ -371,7 +371,7 @@ def do_create(bopts, bargs):
         if not url.startswith('/content'):
             parser.error('the content-url needs to start with /content')
 
-    p.createRepo(id, url, desc=opts.description, title=opts.title)
+    p.createRepo(repoid, url, desc=opts.description, title=opts.title, productline=productid)
     log.info('repository created')
 
 def do_delete(bopts, bargs):
