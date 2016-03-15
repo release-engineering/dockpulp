@@ -143,7 +143,7 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs):
     """confirm we can reach crane and get data back from it"""
     # manual: curl --insecure https://registry.access.stage.redhat.com/v1/repositories/rhel6/rhel/images
     #         curl --insecure https://registry.access.stage.redhat.com/v1/repositories/rhel6.6/images
-    url = dpo.registry + '/' + dockerid + '/images'
+    url = dpo.registry + '/v1/repositories/' + dockerid + '/images'
     log.info('  Testing Pulp and Crane data')
     log.debug('  contacting %s' % url)
     answer = requests.get(url, verify=False)
@@ -194,8 +194,8 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs):
             log.error('  Could not reach images:')
             log.error('    ' + ', '.join(missing))
             sys.exit(1)
-        log.info('  All images are reachable, tests pass.')
-        return True
+        log.info('  All images are reachable, testing Crane ancestry')
+
 
     # Testing for default pulp redirect, requires checking both v1 and v2 urls
     else:
@@ -235,7 +235,54 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs):
             log.error('    ' + ', '.join(missingv2))
             sys.exit(1)
 
-        log.info('  All images are reachable, tests pass.')
+        log.info('  All images are reachable, testing Crane ancestry')
+
+    # Testing all parent images in Crane. If one is down, docker pull will fail
+    craneimages = list(c_imgs)
+    parents = []
+    for img in craneimages:
+        url = dpo.registry + '/v1/images/' + img + '/json'
+        log.debug('  reaching for %s' % url)
+        answer = requests.get(url, verify=False)
+        log.debug('  crane content: %s' % answer.content)
+        log.debug('  status code: %s' % answer.status_code)
+        if answer.content == 'Not Found':
+            log.error('  Crane returned a 404')
+            sys.exit(1)
+        try:
+            j = json.loads(answer.content)
+        except ValueError, ve:
+            log.error('  Crane did not return json')
+            sys.exit(1)
+        try:
+            parents.append(j['parent'])
+        except KeyError:
+            log.debug('  Image has no parent: %s' % img)
+
+    while parents:
+        imgs = parents
+        parents = []
+        for img in imgs:
+            url = dpo.registry + '/v1/images/' + img + '/json'
+            log.debug('  reaching for %s' % url)
+            answer = requests.get(url, verify=False)
+            log.debug('  crane content: %s' % answer.content)
+            log.debug('  status code: %s' % answer.status_code)
+            if answer.content == 'Not Found':
+                log.error('  Crane returned a 404 on parent image %s' % img)
+                sys.exit(1)
+            try:
+                j = json.loads(answer.content)
+            except ValueError, ve:
+                log.error('  Crane did not return json on parent image %s' % img)
+                sys.exit(1)
+            try:
+                parents.append(j['parent'])
+            except KeyError:
+                log.debug('  Image has no parent: %s' % img)
+    
+    log.info('  All ancestors reachable, tests pass')
+    return True
 
 # all DO commands follow this line in alphabetical order
 
