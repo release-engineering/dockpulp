@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.15
+Version:	1.16
 Release:	2%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -48,6 +48,10 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Tue Mar 15 2016 Brendan Reilly <breilly@redhat.com> 1.16-2
+- dockpulp confirm now checks all parent images (breilly@redhat.com)
+- syncRepo: don't change the sync environment (#47) (twaugh@redhat.com)
+
 * Thu Mar 10 2016 Brendan Reilly <breilly@redhat.com> 1.15-2
 - bumped version (breilly@redhat.com)
 - Fixed broken backwards compat for createRepo api (breilly@redhat.com)
