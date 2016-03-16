@@ -1,6 +1,6 @@
 Name:		dockpulp
 Version:	1.17
-Release:	1%{?dist}
+Release:	2%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
 Group:		Applications/System
@@ -48,6 +48,10 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Wed Mar 16 2016 Brendan Reilly <breilly@redhat.com> 1.17-2
+- Made timeout on pulp waits configurable, new default is 180s
+  (breilly@redhat.com)
+
 * Tue Mar 15 2016 Brendan Reilly <breilly@redhat.com> 1.16-2
 - dockpulp confirm now checks all parent images (breilly@redhat.com)
 - syncRepo: don't change the sync environment (#47) (twaugh@redhat.com)
