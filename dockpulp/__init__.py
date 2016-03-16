@@ -145,7 +145,8 @@ class Pulp(object):
                                ('redirect', "_set_bool", "redirect"),
                                ('distributors', "_set_env_attr", "distributors"))
     OPTIONAL_CONF_SECTIONS = (('certificates', "_set_cert", None),
-                              ('chunk_size', "_set_env_attr", "chunk_size"))
+                              ('chunk_size', "_set_int_attr", "chunk_size"),
+                              ('timeout', "_set_int_attr", "timeout"))
     AUTH_CER_FILE = "pulp.cer"
     AUTH_KEY_FILE = "pulp.key"
 
@@ -165,7 +166,10 @@ class Pulp(object):
         if not os.path.exists(DEFAULT_DISTRIBUTORS_FILE):
                 log.error('could not load distributors json: %s' % DEFAULT_DISTRIBUTORS_FILE)
         self.distributorconf = json.load(open(DEFAULT_DISTRIBUTORS_FILE, 'r'))
-
+        try:
+            self.timeout
+        except AttributeError:
+            self.timeout = 180
 
     def _set_bool(self, attrs):
         for key, boolean in attrs:
@@ -188,6 +192,15 @@ class Pulp(object):
         for key, val in attrs:
             if self.env == key:
                 return val
+        return None
+
+    def _set_int_attr(self, attrs):
+        for key, val in attrs:
+            if self.env == key:
+                try:
+                    return int(val)
+                except TypeError:
+                    pass
         return None
 
     def _load_override_conf(self, config_override):
@@ -848,7 +861,7 @@ class Pulp(object):
                 block = mb
             # chunk size is in MB, need to convert
             else:
-                block = int(block) * mb
+                block = block * mb
         except AttributeError:
             # chunk size defaults to 1 MB if not set
             block = mb
@@ -879,12 +892,14 @@ class Pulp(object):
         tid = self._post(
             '/pulp/api/v2/repositories/%s/actions/import_upload/' % HIDDEN,
             data=json.dumps(data))
-        timer = max(60, (size/mb)*2) # wait 2 seconds per megabyte, or 60,
+        timer = max(self.timeout, (size/mb)*2) # wait 2 seconds per megabyte, or timeout,
         self.watch(tid, timeout=timer)  # whichever is greater
         self._deleteUploadRequest(rid)
 
-    def watch(self, tid, timeout=60, poll=5):
+    def watch(self, tid, timeout=None, poll=5):
         """watch a task ID and return when it finishes or fails"""
+        if timeout is None:
+            timeout = self.timeout
         log.info('waiting up to %s seconds for task %s...' % (timeout, tid))
         curr = 0
         while curr < timeout:
@@ -943,7 +958,7 @@ class Pulp(object):
             repo = repo.replace("pulp:repository:", "")
             return "Importing content to repo %s" % (repo)
 
-    def watch_tasks(self, task_ids, timeout=60, poll=5):
+    def watch_tasks(self, task_ids, timeout=None, poll=5):
         """
         Waits for all supplied task ids to complete. Doesn't wait for other
         tasks if at least one fails, just cancel everything running and raise
@@ -954,6 +969,9 @@ class Pulp(object):
         failed = False
         results = {}
         failed_tasks = []
+
+        if timeout is None:
+            timeout = self.timeout
         if running:
             log.debug("Waiting on the following %d Pulp tasks: %s" % (len(running), ",".join(sorted(running))))
         while running:
