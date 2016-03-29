@@ -1,6 +1,6 @@
 Name:		dockpulp
 Version:	1.18
-Release:	1%{?dist}
+Release:	2%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
 Group:		Applications/System
@@ -48,6 +48,10 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Tue Mar 29 2016 Brendan Reilly <breilly@redhat.com> 1.18-2
+- Bumping version (breilly@redhat.com)
+- Protected bit on repos can now be set (breilly@redhat.com)
+
 * Wed Mar 16 2016 Brendan Reilly <breilly@redhat.com> 1.17-2
 - Made timeout on pulp waits configurable, new default is 180s
   (breilly@redhat.com)
