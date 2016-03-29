@@ -139,6 +139,20 @@ def find_directive(prefix, arguments):
     print 'Available directives:\n'
     list_directives(prefix)
 
+def get_bool_from_string(string):
+    """
+    Return bool based on string
+    """
+    if isinstance(string, bool):
+        return string
+    if string.lower() in ['t', 'true']:
+        return True
+    if string.lower() in ['f', 'false']:
+        return False
+    log.error("Could not convert %s to bool" % string)
+    log.error("Accepted strings are t, true, f, false")
+    sys.exit(1)
+
 def _test_repo(dpo, dockerid, redirect, pulp_imgs):
     """confirm we can reach crane and get data back from it"""
     # manual: curl --insecure https://registry.access.stage.redhat.com/v1/repositories/rhel6/rhel/images
@@ -324,7 +338,9 @@ def do_clone(bopts, bargs):
     log.info('cloning %s repo to %s' % (args[0], repoid))
     oldinfo = p.listRepos(args[0], content=True)[0]
     newrepo = p.createRepo(repoid, oldinfo['redirect'],
-                        desc=oldinfo['description'], title=oldinfo['title'], productline=productid)
+                        desc=oldinfo['description'], title=oldinfo['title'], 
+                           protected=get_bool_from_string(oldinfo['protected']), 
+                           productline=productid)
     log.info('cloning content in %s to %s' % (args[0], repoid))
     if len(oldinfo['images']) > 0:
         for img in oldinfo['images'].keys():
@@ -392,6 +408,8 @@ def do_create(bopts, bargs):
     parser.add_option('-l', '--library', help='create a "library"-level repo',
         default=False, action='store_true')
     parser.add_option('-t', '--title', help='set the title for the repo')
+    parser.add_option('-p', '--protected', help='set the protected bit to true for the repo',
+        default=False, action='store_true')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     url = None
@@ -418,7 +436,7 @@ def do_create(bopts, bargs):
         if not url.startswith('/content'):
             parser.error('the content-url needs to start with /content')
 
-    p.createRepo(repoid, url, desc=opts.description, title=opts.title, productline=productid)
+    p.createRepo(repoid, url, desc=opts.description, title=opts.title, protected=opts.protected, productline=productid)
     log.info('repository created')
 
 def do_delete(bopts, bargs):
@@ -716,6 +734,8 @@ def do_update(bopts, bargs):
         help='set the docker ID (name) for this repo')
     parser.add_option('-r', '--redirect', help='set the redirect URL')
     parser.add_option('-t', '--title', help='set the title (short desc)')
+    parser.add_option('-p', '--protected', 
+        help='set the protected bit. Accepts (t, true, True) for True, (f, false, False) for False')
     opts, args = parser.parse_args(bargs)
     if len(args) < 1:
         parser.error('You must specify a repo ID (not the docker name)')
@@ -729,6 +749,8 @@ def do_update(bopts, bargs):
         updates['redirect-url'] = opts.redirect
     if opts.title:
         updates['display_name'] = opts.title
+    if opts.protected:
+        updates['protected'] = get_bool_from_string(opts.protected)
     for repo in args:
         p.updateRepo(repo, updates)
         log.info('repo successfully updated')

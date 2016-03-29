@@ -371,7 +371,7 @@ class Pulp(object):
             return tasks
 
     def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None,
-                   distributors=True, prefix_with="redhat-", productline=None):
+                   protected=False, distributors=True, prefix_with="redhat-", productline=None):
         """
         create a docker repository in pulp, an id and a description is required
         """
@@ -416,7 +416,7 @@ class Pulp(object):
             for distributor in stuff['distributors']:
                 try:
                     if distributor['distributor_type_id'] == 'docker_distributor_web':
-                        distributor['distributor_config']['protected'] = False
+                        distributor['distributor_config']['protected'] = protected
                         distributor['distributor_config']['repo-registry-id'] = registry_id
                         distributor['distributor_config']['redirect-url'] = rurl
                 except KeyError:
@@ -809,7 +809,7 @@ class Pulp(object):
         for distributorkey in validdistributorkeys:
             delta['distributor_configs'][distributorkey] = {}
         # we intentionally ignore everything else
-        valid = ('redirect-url', 'repo-registry-id', 'description', 'display_name', 'tag')
+        valid = ('redirect-url', 'protected', 'repo-registry-id', 'description', 'display_name', 'tag')
         for u in update.keys():
             if u not in valid:
                 log.warning('ignoring %s, not sure how to update' % u)
