@@ -503,6 +503,26 @@ class Pulp(object):
         else:
             return parents
 
+    def getImageIdsExist(self, iids=[]):
+        """
+        Return a list of layers already uploaded to the server
+        """
+
+        data = json.dumps({
+            'criteria': {
+                'filters' : {
+                    'unit' : {
+                        'image_id': {"$in": iids}
+                    }
+                },
+            },
+        })
+        log.debug('checking imageids %s', ', '.join(iids))
+        log.debug(data)
+        result = self._post('/pulp/api/v2/repositories/%s/search/units/' % HIDDEN, data=data)
+        log.debug(result)
+        return [c['metadata']['image_id'] for c in result]
+
     def getRepos(self, rids, fields=None):
         """
         Return list of repo objects with given IDs

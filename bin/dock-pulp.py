@@ -479,6 +479,18 @@ def do_empty(bopts, bargs):
             log.info('no images to remove')
         log.info('%s emptied' % repo)
 
+def do_imageids(bopts, bargs):
+    """
+    dock-pulp imageids [options] image-id
+    List all layers existing on server"""
+    parser = OptionParser(usage=do_imageids.__doc__)
+    opts, args = parser.parse_args(bargs)
+    if len(args) == 0:
+        parser.error('You must provide an image ID(s)')
+    p = pulp_login(bopts)
+    result = p.getImageIdsExist(args)
+    log.info(result)
+
 def do_list(bopts, bargs):
     """
     dock-pulp list [options] [repo-id...]
