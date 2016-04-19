@@ -170,6 +170,8 @@ class Pulp(object):
             self.timeout
         except AttributeError:
             self.timeout = 180
+        if self.timeout is None:
+            self.timeout = 180
 
     def _set_bool(self, attrs):
         for key, boolean in attrs:
