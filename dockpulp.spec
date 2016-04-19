@@ -1,6 +1,6 @@
 Name:		dockpulp
-Version:	1.18
-Release:	2%{?dist}
+Version:	1.19
+Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
 Group:		Applications/System
@@ -48,6 +48,10 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Tue Apr 19 2016 Brendan Reilly <breilly@redhat.com> 1.19-1
+- Added extra error check for timeout (breilly@redhat.com)
+- Return of a list of uploaded imageids (vrutkovs@redhat.com)
+
 * Tue Mar 29 2016 Brendan Reilly <breilly@redhat.com> 1.18-2
 - Bumping version (breilly@redhat.com)
 - Protected bit on repos can now be set (breilly@redhat.com)
