@@ -292,6 +292,27 @@ class Pulp(object):
 
     # public methods start here, alphabetically
 
+    def associate(self, dist_type, dist_id, repo, config={}):
+        """
+        Associate a distributor with a repo
+        """
+
+        if not config:
+            config = {}
+
+        data =  {
+                      "distributor_id": dist_id,
+                      "distributor_type_id": dist_type,
+                      "distributor_config": config,
+                      "auto_publish": "True"
+                }
+
+        log.debug(data)
+
+        result = self._post('/pulp/api/v2/repositories/%s/distributors/' % repo,
+            data=json.dumps(data))
+        return result
+
     def cleanOrphans(self):
         """
         Remove orphaned docker content
@@ -435,6 +456,13 @@ class Pulp(object):
         """
         log.info('deleting repo: %s' % id)
         tid = self._delete('/pulp/api/v2/repositories/%s/' % id)
+        self.watch(tid)
+
+    def disassociate(self, dist_id, repo):
+        """
+        Disassociate a distributor associated with a repo
+        """
+        tid = self._delete('/pulp/api/v2/repositories/%s/distributors/%s/' % (repo, dist_id))
         self.watch(tid)
 
     def dump(self, pretty=False):
@@ -603,7 +631,7 @@ class Pulp(object):
             r = {
                 'id': blob['id'],
                 'description': blob['description'],
-                'title': blob['display_name']
+                'title': blob['display_name'],
             }
 
             try:
@@ -630,6 +658,15 @@ class Pulp(object):
                     r['redirect'] = None
             else:
                 r['redirect'] = None
+
+            if blob['distributors']:
+                dists = []
+                for distributor in blob['distributors']:
+                    dists.append(distributor['id'])
+                r['distributors'] = ', '.join(dists)
+
+            else:
+                r['distributors'] = None
 
             if content:
                 data = {
