@@ -317,22 +317,14 @@ def do_ancestry(bopts, bargs):
 
 def do_associate(bopts, bargs):
     """
-    dock-pulp associate [options] distributor-type-id distributor-id repo-id
+    dock-pulp associate [options distributor-id repo-id
     Associate a distributor with a repo"""
     parser = OptionParser(usage=do_associate.__doc__)
-    parser.add_option('-c', '--config', help='specify the distributor config. \"{ \'key1\': \'val1\' }\"')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
-    if len(args) != 3:
-        parser.error('You must provide the distributor type, distributor name, and repo id')
-    if opts.config:
-        try:
-            opts.config = ast.literal_eval(opts.config)
-        except SyntaxError:
-            log.error('Incorrect format')
-            log.error('Submit configs in this format: \"{ \'key1\': \'val1\' }\"')
-            exit(1)
-    result = p.associate(args[0], args[1], args[2], opts.config)
+    if len(args) != 2:
+        parser.error('You must provide the distributor name and repo id')
+    result = p.associate(args[0], args[1])
     log.info("Created distributor: %s", result['id'])
 
 def do_clone(bopts, bargs):

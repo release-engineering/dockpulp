@@ -292,20 +292,15 @@ class Pulp(object):
 
     # public methods start here, alphabetically
 
-    def associate(self, dist_type, dist_id, repo, config={}):
+    def associate(self, dist_id, repo):
         """
         Associate a distributor with a repo
         """
-
-        if not config:
-            config = {}
-
-        data =  {
-                      "distributor_id": dist_id,
-                      "distributor_type_id": dist_type,
-                      "distributor_config": config,
-                      "auto_publish": "True"
-                }
+        try:
+            data = self.distributorconf[dist_id]
+        except KeyError:
+            log.error("Distributor not listed in dockpulpdistributors.json")
+            exit(1)
 
         log.debug(data)
 
