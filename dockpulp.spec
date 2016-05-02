@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.19
+Version:	1.20
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -48,6 +48,10 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Mon May 02 2016 Brendan Reilly <breilly@redhat.com> 1.20-1
+- Added in support for distributor interactions (breilly@redhat.com)
+- Added in support for distributor interactions (breilly@redhat.com)
+
 * Tue Apr 19 2016 Brendan Reilly <breilly@redhat.com> 1.19-1
 - Added extra error check for timeout (breilly@redhat.com)
 - Return of a list of uploaded imageids (vrutkovs@redhat.com)
