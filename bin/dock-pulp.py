@@ -21,6 +21,7 @@ import requests
 import shutil
 import sys
 import logging
+import ast
 
 try:
     # Python 2.6 and earlier
@@ -314,6 +315,18 @@ def do_ancestry(bopts, bargs):
     for ancestor in ancestors:
         log.info(ancestor)
 
+def do_associate(bopts, bargs):
+    """
+    dock-pulp associate [options distributor-id repo-id
+    Associate a distributor with a repo"""
+    parser = OptionParser(usage=do_associate.__doc__)
+    opts, args = parser.parse_args(bargs)
+    p = pulp_login(bopts)
+    if len(args) != 2:
+        parser.error('You must provide the distributor name and repo id')
+    result = p.associate(args[0], args[1])
+    log.info("Created distributor: %s", result['id'])
+
 def do_clone(bopts, bargs):
     """
     dock-pulp clone [options] repo-id new-product-line new-image-name
@@ -457,6 +470,17 @@ def do_delete(bopts, bargs):
             for img in repoinfo['images'].keys():
                 log.info('    %s', img)
             log.info('Layers still exist in redhat-everything')
+
+def do_disassociate(bopts, bargs):
+    """
+    dock-pulp disassociate [options] distributor-id repo-id
+    Disassociate a distributor from a repo"""
+    parser = OptionParser(usage=do_disassociate.__doc__)
+    opts, args = parser.parse_args(bargs)
+    p = pulp_login(bopts)
+    if len(args) != 2:
+        parser.error('You must provide the distributor name and repo id')
+    p.disassociate(args[0], args[1])
 
 def do_empty(bopts, bargs):
     """
