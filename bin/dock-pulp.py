@@ -154,14 +154,34 @@ def get_bool_from_string(string):
     log.error("Accepted strings are t, true, f, false")
     sys.exit(1)
 
-def _test_repo(dpo, dockerid, redirect, pulp_imgs):
+def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, certs=None):
     """confirm we can reach crane and get data back from it"""
     # manual: curl --insecure https://registry.access.stage.redhat.com/v1/repositories/rhel6/rhel/images
     #         curl --insecure https://registry.access.stage.redhat.com/v1/repositories/rhel6.6/images
     url = dpo.registry + '/v1/repositories/' + dockerid + '/images'
     log.info('  Testing Pulp and Crane data')
     log.debug('  contacting %s' % url)
-    answer = requests.get(url, verify=False)
+    if protected:
+        log.info('  Repo is protected, trying certs')
+        answer = requests.get(url, verify=False)
+        if answer.content != 'Not Found':
+            log.warning('  Crane not reporting 404 - possibly unprotected?')
+        if certs is None:
+            log.error('  Must provide a cert to test protected repos, skipping')
+            return False
+        for cert in certs:
+            try:
+                answer = requests.get(url, verify=cert)
+            except requests.exceptions.SSLError:
+                log.error('  Invalid cert path: %s' % cert)
+                exit(1)
+            if answer.content != 'Not Found':
+                break
+        if answer.content == 'Not Found':
+            log.error('  All certs were invalid')
+            exit(1)
+    else:
+        answer = requests.get(url, verify=False)
     log.debug('  crane content: %s' % answer.content)
     log.debug('  status code: %s' % answer.status_code)
     if answer.content == 'Not Found':
@@ -369,6 +389,7 @@ def do_confirm(bopts, bargs):
     dock-pulp confirm [options] [repo-id...]
     Confirm all images are reachable. Accepts globs!"""
     parser = OptionParser(usage=do_clone.__doc__)
+    parser.add_option('-c', '--certs', help='a comma separated list of certs to use if a repo is protected')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     rids = None
@@ -386,10 +407,12 @@ def do_confirm(bopts, bargs):
                 rids.append(arg)
     repos = p.listRepos(repos=rids, content=True)
     errors = 0
+    if opts.certs:
+        certs = opts.certs.split(',')
     for repo in repos:
         log.info('Testing %s' % repo['id'])
         imgs = repo['images'].keys()
-        if not _test_repo(p, repo['docker-id'], repo['redirect'], imgs):
+        if not _test_repo(p, repo['docker-id'], repo['redirect'], imgs, repo['protected'], certs):
             errors += 1
     log.info('Testing complete... %s error(s)' % errors)
     if errors >= 1:
