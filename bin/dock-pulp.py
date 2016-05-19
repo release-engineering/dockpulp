@@ -167,25 +167,29 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, certs=None):
         answer = requests.get(url, verify=False)
         if answer.content != 'Not Found':
             log.warning('  Crane not reporting 404 - possibly unprotected?')
-            log.debug('  crane content: %s' % answer.content)
-            log.debug('  status code: %s' % answer.status_code)
-            response = answer.content
-        else:
-            if certs is None:
-                log.error('  Must provide a cert to test protected repos, skipping')
-                return False
-            # Have to use subprocess/curl here, as requests currently does not support encrypted keys
-            answer = {}
-            crequest = []
-            crequest.append('curl')
-            crequest.append('--silent')
-            crequest.extend(certs)
-            log.debug('  calling crane with %s' % crequest.append(url))
-            try:
-                response = subprocess.call(crequest.append(url))
-            except subprocess.CalledProcessError,e:
-                log.error('  curl failed with error code %s' % str(e).split(' ')[-1])
-                return False
+
+        if certs is None:
+            log.error('  Must provide a cert to test protected repos, skipping')
+            return False
+        # Have to use subprocess/curl here, as requests currently does not support encrypted keys
+        answer = {}
+        certs.insert(0, '--silent')
+        certs.insert(0, '-L') 
+        certs.insert(0, 'curl')
+
+        # Setting up a curl arg just to grab response codes here
+        crequest = 'curl -sLI -w "%{http_code}" -o /dev/null'
+        crequest = crequest.split(" ")
+        crequest.extend(certs[1:])
+
+        certs.append(url)
+        log.debug('  calling crane with %s' % certs)
+        try:
+            response = subprocess.check_output(certs)
+        except subprocess.CalledProcessError,e:
+            log.error('  curl failed with error code %s' % str(e).split(' ')[-1])
+            return False
+        certs.pop()
     else:
         answer = requests.get(url, verify=False)
         log.debug('  crane content: %s' % answer.content)
@@ -229,12 +233,14 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, certs=None):
                 url = redirect + '/' + img + '/' + ext
                 log.debug('  reaching for %s' % url)
                 if protected:
+                    crequest.append(url)
                     try:
-                        response = subprocess.check_output(crequest.append(url))
-                        log.debug('   image exists')
+                        response = subprocess.check_output(crequest)
+                        log.debug('   got back a %s' % response)
                     except subprocess.CalledProcessError:
                         log.debug('   image unavailable')
                         missing.add(img)
+                    crequest.pop()
                 else:
                     with closing(requests.get(url, verify=False, stream=True)) as answer:
                         log.debug('    got back a %s' % answer.status_code)
@@ -261,12 +267,14 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, certs=None):
                 urlv2 = filerurl + '/pulp/docker/v2/' + reponame + '/' + img + '/' + ext
                 log.debug('  reaching for %s' % urlv1)
                 if protected:
+                    crequest.append(urlv1)
                     try:
-                        response = subprocess.check_output(crequest.append(urlv1))
+                        response = subprocess.check_output(crequest)
                         log.debug('   image exists')
                     except subprocess.CalledProcessError:
                         log.debug('   image unavailable')
                         missing.add(img)
+                    crequest.pop(urlv1)
                 else:
                     with closing(requests.get(urlv1, verify=False, stream=True)) as answer:
                         log.debug('    got back a %s' % answer.status_code)
@@ -274,12 +282,14 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, certs=None):
                             missingv1.add(img)
                 log.debug('  reaching for %s' % urlv2)
                 if protected:
+                    crequest.append(urlv2)
                     try:
-                        response = subprocess.check_output(crequest.append(urlv2))
+                        response = subprocess.check_output(crequest)
                         log.debug('   image exists')
                     except subprocess.CalledProcessError:
                         log.debug('   image unavailable')
                         missing.add(img)
+                    crequest.pop(urlv2)
                 else:
                     with closing(requests.get(urlv2, verify=False, stream=True)) as answer:
                         log.debug('    got back a %s' % answer.status_code)
@@ -310,11 +320,15 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, certs=None):
         url = dpo.registry + '/v1/images/' + img + '/json'
         log.debug('  reaching for %s' % url)
         if protected:
+            certs.append(url)
             try:
-                response = subprocess.call(crequest.append(url))
+                log.debug(certs)
+                response = subprocess.check_output(certs)
+                log.debug(response)
             except subprocess.CalledProcessError,e:
                 log.error('  curl failed with error code %s' % str(e).split(' ')[-1])
                 return False
+            certs.pop()
         else:
             answer = requests.get(url, verify=False)
             log.debug('  crane content: %s' % answer.content)
@@ -340,11 +354,13 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, certs=None):
             url = dpo.registry + '/v1/images/' + img + '/json'
             log.debug('  reaching for %s' % url)
             if protected:
+                certs.append(url)
                 try:
-                    response = subprocess.call(crequest.append(url))
+                    response = subprocess.check_output(certs)
                 except subprocess.CalledProcessError,e:
                     log.error('  curl failed with error code %s' % str(e).split(' ')[-1])
                     return False
+                certs.pop()
             else:
                 answer = requests.get(url, verify=False)
                 log.debug('  crane content: %s' % answer.content)
@@ -436,9 +452,9 @@ def do_confirm(bopts, bargs):
     dock-pulp confirm [options] [repo-id...]
     Confirm all images are reachable. Accepts globs!"""
     parser = OptionParser(usage=do_clone.__doc__)
-    parser.add_option('-c', '--cert', help='A cert used to authenticate protected repositories')
-    parser.add_option('-k', '--key', help='A key used to authenticate protected repositories')
-    parser.add_option('--ca', help='A ca cert used to authenticate protected repositories')
+    parser.add_option('-c', '--cert', action='store', help='A cert used to authenticate protected repositories')
+    parser.add_option('-k', '--key', action='store', help='A key used to authenticate protected repositories')
+    parser.add_option('--ca', action='store', help='A ca cert used to authenticate protected repositories')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     rids = None
@@ -467,7 +483,7 @@ def do_confirm(bopts, bargs):
         certs.append('--cacert')
         certs.append(opts.ca)
     if certs == []:
-        certs == None
+        certs = None
     for repo in repos:
         log.info('Testing %s' % repo['id'])
         imgs = repo['images'].keys()
