@@ -22,6 +22,7 @@ import shutil
 import sys
 import logging
 import ast
+import subprocess
 
 try:
     # Python 2.6 and earlier
@@ -154,24 +155,54 @@ def get_bool_from_string(string):
     log.error("Accepted strings are t, true, f, false")
     sys.exit(1)
 
-def _test_repo(dpo, dockerid, redirect, pulp_imgs):
+def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, certs=None):
     """confirm we can reach crane and get data back from it"""
     # manual: curl --insecure https://registry.access.stage.redhat.com/v1/repositories/rhel6/rhel/images
     #         curl --insecure https://registry.access.stage.redhat.com/v1/repositories/rhel6.6/images
     url = dpo.registry + '/v1/repositories/' + dockerid + '/images'
     log.info('  Testing Pulp and Crane data')
     log.debug('  contacting %s' % url)
-    answer = requests.get(url, verify=False)
-    log.debug('  crane content: %s' % answer.content)
-    log.debug('  status code: %s' % answer.status_code)
-    if answer.content == 'Not Found':
+    if protected:
+        log.info('  Repo is protected, trying certs')
+        answer = requests.get(url, verify=False)
+        if answer.content != 'Not Found':
+            log.warning('  Crane not reporting 404 - possibly unprotected?')
+
+        if certs is None:
+            log.error('  Must provide a cert to test protected repos, skipping')
+            return False
+        # Have to use subprocess/curl here, as requests currently does not support encrypted keys
+        answer = {}
+        certs.insert(0, '--silent')
+        certs.insert(0, '-L') 
+        certs.insert(0, 'curl')
+
+        # Setting up a curl arg just to grab response codes here
+        crequest = 'curl -sLI -w "%{http_code}" -o /dev/null'
+        crequest = crequest.split(" ")
+        crequest.extend(certs[1:])
+
+        certs.append(url)
+        log.debug('  calling crane with %s' % certs)
+        try:
+            response = subprocess.check_output(certs)
+        except subprocess.CalledProcessError,e:
+            log.error('  curl failed with error code %s' % str(e).split(' ')[-1])
+            return False
+        certs.pop()
+    else:
+        answer = requests.get(url, verify=False)
+        log.debug('  crane content: %s' % answer.content)
+        log.debug('  status code: %s' % answer.status_code)
+        response = answer.content
+    if response == 'Not Found':
         log.error('  Crane returned a 404')
-        sys.exit(1)
+        return False
     try:
-        j = json.loads(answer.content)
+        j = json.loads(response)
     except ValueError, ve:
         log.error('  Crane did not return json')
-        sys.exit(1)
+        return False
     p_imgs = set(pulp_imgs)
     c_imgs = set([i['id'] for i in j])
     log.debug('  crane images: %s' % c_imgs)
@@ -201,10 +232,20 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs):
             for ext in ('json', 'ancestry', 'layer'):
                 url = redirect + '/' + img + '/' + ext
                 log.debug('  reaching for %s' % url)
-                with closing(requests.get(url, verify=False, stream=True)) as answer:
-                    log.debug('    got back a %s' % answer.status_code)
-                    if answer.status_code != 200:
+                if protected:
+                    crequest.append(url)
+                    try:
+                        response = subprocess.check_output(crequest)
+                        log.debug('   got back a %s' % response)
+                    except subprocess.CalledProcessError:
+                        log.debug('   image unavailable')
                         missing.add(img)
+                    crequest.pop()
+                else:
+                    with closing(requests.get(url, verify=False, stream=True)) as answer:
+                        log.debug('    got back a %s' % answer.status_code)
+                        if answer.status_code != 200:
+                            missing.add(img)
         if len(missing) > 0:
             log.error('  Could not reach images:')
             log.error('    ' + ', '.join(missing))
@@ -225,15 +266,35 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs):
                 urlv1 = filerurl + '/pulp/docker/v1/' + reponame + '/' + img + '/' + ext
                 urlv2 = filerurl + '/pulp/docker/v2/' + reponame + '/' + img + '/' + ext
                 log.debug('  reaching for %s' % urlv1)
-                with closing(requests.get(urlv1, verify=False, stream=True)) as answer:
-                    log.debug('    got back a %s' % answer.status_code)
-                    if answer.status_code != 200:
-                        missingv1.add(img)
+                if protected:
+                    crequest.append(urlv1)
+                    try:
+                        response = subprocess.check_output(crequest)
+                        log.debug('   image exists')
+                    except subprocess.CalledProcessError:
+                        log.debug('   image unavailable')
+                        missing.add(img)
+                    crequest.pop(urlv1)
+                else:
+                    with closing(requests.get(urlv1, verify=False, stream=True)) as answer:
+                        log.debug('    got back a %s' % answer.status_code)
+                        if answer.status_code != 200:
+                            missingv1.add(img)
                 log.debug('  reaching for %s' % urlv2)
-                with closing(requests.get(urlv2, verify=False, stream=True)) as answer:
-                    log.debug('    got back a %s' % answer.status_code)
-                    if answer.status_code != 200:
-                        missingv2.add(img)
+                if protected:
+                    crequest.append(urlv2)
+                    try:
+                        response = subprocess.check_output(crequest)
+                        log.debug('   image exists')
+                    except subprocess.CalledProcessError:
+                        log.debug('   image unavailable')
+                        missing.add(img)
+                    crequest.pop(urlv2)
+                else:
+                    with closing(requests.get(urlv2, verify=False, stream=True)) as answer:
+                        log.debug('    got back a %s' % answer.status_code)
+                        if answer.status_code != 200:
+                            missingv2.add(img)
         if len(missingv1) > 0 and len(missingv2) > 0:
             log.error('  Could not reach v1 or v2 images:')
             log.error('    ' + 'v1:' + ', '.join(missingv1))
@@ -258,17 +319,29 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs):
     for img in craneimages:
         url = dpo.registry + '/v1/images/' + img + '/json'
         log.debug('  reaching for %s' % url)
-        answer = requests.get(url, verify=False)
-        log.debug('  crane content: %s' % answer.content)
-        log.debug('  status code: %s' % answer.status_code)
-        if answer.content == 'Not Found':
+        if protected:
+            certs.append(url)
+            try:
+                log.debug(certs)
+                response = subprocess.check_output(certs)
+                log.debug(response)
+            except subprocess.CalledProcessError,e:
+                log.error('  curl failed with error code %s' % str(e).split(' ')[-1])
+                return False
+            certs.pop()
+        else:
+            answer = requests.get(url, verify=False)
+            log.debug('  crane content: %s' % answer.content)
+            log.debug('  status code: %s' % answer.status_code)
+            response = answer.content
+        if response == 'Not Found':
             log.error('  Crane returned a 404')
-            sys.exit(1)
+            return False
         try:
-            j = json.loads(answer.content)
+            j = json.loads(response)
         except ValueError, ve:
             log.error('  Crane did not return json')
-            sys.exit(1)
+            return False
         try:
             parents.append(j['parent'])
         except KeyError:
@@ -280,17 +353,27 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs):
         for img in imgs:
             url = dpo.registry + '/v1/images/' + img + '/json'
             log.debug('  reaching for %s' % url)
-            answer = requests.get(url, verify=False)
-            log.debug('  crane content: %s' % answer.content)
-            log.debug('  status code: %s' % answer.status_code)
-            if answer.content == 'Not Found':
+            if protected:
+                certs.append(url)
+                try:
+                    response = subprocess.check_output(certs)
+                except subprocess.CalledProcessError,e:
+                    log.error('  curl failed with error code %s' % str(e).split(' ')[-1])
+                    return False
+                certs.pop()
+            else:
+                answer = requests.get(url, verify=False)
+                log.debug('  crane content: %s' % answer.content)
+                log.debug('  status code: %s' % answer.status_code)
+                response = answer.content
+            if response == 'Not Found':
                 log.error('  Crane returned a 404 on parent image %s' % img)
-                sys.exit(1)
+                return False
             try:
-                j = json.loads(answer.content)
+                j = json.loads(response)
             except ValueError, ve:
                 log.error('  Crane did not return json on parent image %s' % img)
-                sys.exit(1)
+                return False
             try:
                 parents.append(j['parent'])
             except KeyError:
@@ -317,7 +400,7 @@ def do_ancestry(bopts, bargs):
 
 def do_associate(bopts, bargs):
     """
-    dock-pulp associate [options distributor-id repo-id
+    dock-pulp associate [options] distributor-id repo-id
     Associate a distributor with a repo"""
     parser = OptionParser(usage=do_associate.__doc__)
     opts, args = parser.parse_args(bargs)
@@ -369,6 +452,9 @@ def do_confirm(bopts, bargs):
     dock-pulp confirm [options] [repo-id...]
     Confirm all images are reachable. Accepts globs!"""
     parser = OptionParser(usage=do_clone.__doc__)
+    parser.add_option('-c', '--cert', action='store', help='A cert used to authenticate protected repositories')
+    parser.add_option('-k', '--key', action='store', help='A key used to authenticate protected repositories')
+    parser.add_option('--ca', action='store', help='A ca cert used to authenticate protected repositories')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     rids = None
@@ -386,10 +472,22 @@ def do_confirm(bopts, bargs):
                 rids.append(arg)
     repos = p.listRepos(repos=rids, content=True)
     errors = 0
+    certs = []
+    if opts.cert:
+        certs.append('--cert')
+        certs.append(opts.cert)
+    if opts.key:
+        certs.append('--key')
+        certs.append(opts.key)
+    if opts.ca:
+        certs.append('--cacert')
+        certs.append(opts.ca)
+    if certs == []:
+        certs = None
     for repo in repos:
         log.info('Testing %s' % repo['id'])
         imgs = repo['images'].keys()
-        if not _test_repo(p, repo['docker-id'], repo['redirect'], imgs):
+        if not _test_repo(p, repo['docker-id'], repo['redirect'], imgs, repo['protected'], certs):
             errors += 1
     log.info('Testing complete... %s error(s)' % errors)
     if errors >= 1:
