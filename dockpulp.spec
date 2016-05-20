@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.20
+Version:	1.21
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -48,6 +48,11 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Fri May 20 2016 Brendan Reilly <breilly@redhat.com> 1.21-1
+- Confirm can now be provided certs, ca certs, and keys to check protected
+  repositories. (breilly@redhat.com)
+- Fixed typo (breilly@redhat.com)
+
 * Mon May 02 2016 Brendan Reilly <breilly@redhat.com> 1.20-1
 - Added in support for distributor interactions (breilly@redhat.com)
 - Added in support for distributor interactions (breilly@redhat.com)
