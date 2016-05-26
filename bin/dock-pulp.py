@@ -42,10 +42,14 @@ formatter = logging.Formatter("%(levelname)-9s %(message)s")
 sh.setFormatter(formatter)
 log.addHandler(sh)
 
+silent = logging.StreamHandler(sys.stdout)
+silformatter = logging.Formatter("")
+silent.setFormatter(silformatter)
+
 def main():
     usage = """CLI for Pulp instances providing Docker content
 
-_%prog [options] directive [directive-options]"""
+%prog [options] directive [directive-options]"""
     parser = OptionParser(usage=usage)
     parser.disable_interspersed_args()
     parser.add_option('-C', '--cert', default=False,
@@ -162,48 +166,41 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, k
     result = {}
     result['error'] = False
     url = dpo.registry + '/v1/repositories/' + dockerid + '/images'
-    if not silent:
-        log.info('  Testing Pulp and Crane data')
-        log.debug('  contacting %s' % url)
+    log.info('  Testing Pulp and Crane data')
+    log.debug('  contacting %s' % url)
     if protected:
-        if not silent:
-            log.info('  Repo is protected, trying certs')
+        log.info('  Repo is protected, trying certs')
         answer = requests.get(url, verify=False)
         if answer.content != 'Not Found':
-            if not silent:
-                log.warning('  Crane not reporting 404 - possibly unprotected?')
+            log.warning('  Crane not reporting 404 - possibly unprotected?')
         if cert is None and key is None:
-            if not silent:
-                log.error('  Must provide a cert to test protected repos, skipping')
-                return False
+            log.error('  Must provide a cert to test protected repos, skipping')
             result['error'] = True
             return result
+
     try:
         answer = requests.get(url, verify=False, cert=(cert,key))
     except requests.exceptions.SSLError:
-        if not silent:
-            log.error('  Request failed due to invalid cert or key')
-            return False
+        log.error('  Request failed due to invalid cert or key')
         result['error'] = True
         return result
-    if not silent:
-        log.debug('  crane content: %s' % answer.content)
-        log.debug('  status code: %s' % answer.status_code)
+
+
+    log.debug('  crane content: %s' % answer.content)
+    log.debug('  status code: %s' % answer.status_code)
     response = answer.content
     if response == 'Not Found':
-        if not silent:
-            log.error('  Crane returned a 404')
-            return False
+        log.error('  Crane returned a 404')
         result['error'] = True
         return result
+
     try:
         j = json.loads(response)
     except ValueError, ve:
-        if not silent:
-            log.error('  Crane did not return json')
-            return False
+        log.error('  Crane did not return json')
         result['error'] = True
         return result
+        
     p_imgs = set(pulp_imgs)
     c_imgs = set([i['id'] for i in j])
 
@@ -216,9 +213,9 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, k
     result['in_pulp_not_crane'] = pdiff
     result['in_crane_not_pulp'] = cdiff
 
-    if not silent:
-        log.debug('  crane images: %s' % c_imgs)
-        log.debug('  pulp images: %s' % p_imgs)
+
+    log.debug('  crane images: %s' % c_imgs)
+    log.debug('  pulp images: %s' % p_imgs)
     same = True
     for p_img in p_imgs:
         if p_img not in c_imgs:
@@ -230,19 +227,15 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, k
         pdiff = ', '.join((p_imgs - c_imgs))
         cdiff = ', '.join((c_imgs - p_imgs))
         
-        if not silent:
-            log.error('  Pulp images and Crane images are not the same:')
-            if len(pdiff) > 0:
-                log.error('    In Pulp but not Crane: ' + pdiff)
-            if len(cdiff) > 0:
-                log.error('    In Crane but not Pulp: ' + cdiff)
-            return False
-
+        log.error('  Pulp images and Crane images are not the same:')
+        if len(pdiff) > 0:
+            log.error('    In Pulp but not Crane: ' + pdiff)
+        if len(cdiff) > 0:
+            log.error('    In Crane but not Pulp: ' + cdiff)
         result['error'] = True
         return result
-
-    if not silent:
-        log.info('  Pulp and Crane data reconciled correctly, testing content')
+                    
+    log.info('  Pulp and Crane data reconciled correctly, testing content')
 
     # Testing for redirect, only need to check one url per image
     if redirect:
@@ -251,22 +244,19 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, k
         for img in pulp_imgs:
             for ext in ('json', 'ancestry', 'layer'):
                 url = redirect + '/' + img + '/' + ext
-                if not silent:
-                    log.debug('  reaching for %s' % url)
+                log.debug('  reaching for %s' % url)
                 try:
                     with closing(requests.get(url, verify=False, stream=True, cert=(cert,key))) as answer:
-                        if not silent:
-                            log.debug('    got back a %s' % answer.status_code)
+                        log.debug('    got back a %s' % answer.status_code)
                         if answer.status_code != 200:
                             missing.add(img)
                         else:
                             reachable.add(img)
                 except requests.exceptions.SSLError:
-                    if not silent:
-                        log.error('  Request failed due to invalid cert or key')
-                        return False
+                    log.error('  Request failed due to invalid cert or key')
                     result['error'] = True
                     return result
+
         missing = list(missing)
         missing.sort()
         reachable = list(reachable)
@@ -274,16 +264,12 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, k
         result['missing_layers'] = missing
         result['reachable_layers'] = reachable
         if len(missing) > 0:
-            if not silent:
-                log.error('  Could not reach images:')
-                log.error('    ' + ', '.join(missing))
-                return False
-
+            log.error('  Could not reach images:')
+            log.error('    ' + ', '.join(missing))
             result['error'] = True
             return result
 
-        if not silent:
-            log.info('  All images are reachable, testing Crane ancestry')
+        log.info('  All images are reachable, testing Crane ancestry')
 
     # Testing for default pulp redirect, requires checking both v1 and v2 urls
     else:
@@ -300,39 +286,31 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, k
                 urlv1 = filerurl + '/pulp/docker/v1/' + reponame + '/' + img + '/' + ext
                 urlv2 = filerurl + '/pulp/docker/v2/' + reponame + '/' + img + '/' + ext
 
-                if not silent:
-                    log.debug('  reaching for %s' % urlv1)
+                log.debug('  reaching for %s' % urlv1)
 
                 try:
                     with closing(requests.get(urlv1, verify=False, stream=True, cert=(cert,key))) as answer:
-                        if not silent:
-                            log.debug('    got back a %s' % answer.status_code)
+                        log.debug('    got back a %s' % answer.status_code)
                         if answer.status_code != 200:
                             missingv1.add(img)
                         else:
                             reachablev1.add(img)
                 except requests.exceptions.SSLError:
-                    if not silent:
-                        log.error('  Request failed due to invalid cert or key')
-                        return False
+                    log.error('  Request failed due to invalid cert or key')
                     result['error'] = True
                     return result
 
-                if not silent:
-                    log.debug('  reaching for %s' % urlv2)
+                log.debug('  reaching for %s' % urlv2)
 
                 try:
                     with closing(requests.get(urlv2, verify=False, stream=True, cert=(cert,key))) as answer:
-                        if not silent:
-                            log.debug('    got back a %s' % answer.status_code)
+                        log.debug('    got back a %s' % answer.status_code)
                         if answer.status_code != 200:
                             missingv2.add(img)
                         else:
                             reachablev2.add(img)
                 except requests.exceptions.SSLError:
-                    if not silent:
-                        log.error('  Request failed due to invalid cert or key')
-                        return False
+                    log.error('  Request failed due to invalid cert or key')
                     result['error'] = True
                     return result
 
@@ -349,63 +327,62 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, k
         result['missing_layers_v2'] = missingv2
         result['reachable_layers_v2'] = reachablev2
 
-        if not silent:
-            if len(missingv1) > 0 and len(missingv2) > 0:
-                log.error('  Could not reach v1 or v2 images:')
-                log.error('    ' + 'v1:' + ', '.join(missingv1))
-                log.error('    ' + 'v2:' + ', '.join(missingv2))
-                return False
-            elif len(missingv1) > 0:
-                log.info('  v2 images are reachable, tests pass.')
-                log.error('  Could not reach v1 images:')
-                log.error('    ' + ', '.join(missingv1))
-                return False
-            elif len(missingv2) > 0:
-                log.info('  v1 images are reachable, tests pass.')
-                log.error('  Could not reach v2 images:')
-                log.error('    ' + ', '.join(missingv2))
-                return False
+        if len(missingv1) > 0 and len(missingv2) > 0:
+            log.error('  Could not reach v1 or v2 images:')
+            log.error('    ' + 'v1:' + ', '.join(missingv1))
+            log.error('    ' + 'v2:' + ', '.join(missingv2))
+            result['error'] = True
+            return result
+        elif len(missingv1) > 0:
+            log.info('  v2 images are reachable, tests pass.')
+            log.error('  Could not reach v1 images:')
+            log.error('    ' + ', '.join(missingv1))
+            result['error'] = True
+            return result
+        elif len(missingv2) > 0:
+            log.info('  v1 images are reachable, tests pass.')
+            log.error('  Could not reach v2 images:')
+            log.error('    ' + ', '.join(missingv2))
+            result['error'] = True
+            return result
         
-        if not silent:
-            log.info('  All images are reachable, testing Crane ancestry')
+        log.info('  All images are reachable, testing Crane ancestry')
 
     # Testing all parent images in Crane. If one is down, docker pull will fail
     craneimages = list(c_imgs)
     parents = []
     for img in craneimages:
         url = dpo.registry + '/v1/images/' + img + '/json'
-        if not silent:
-            log.debug('  reaching for %s' % url)
+        log.debug('  reaching for %s' % url)
         try:
             answer = requests.get(url, verify=False, cert=(cert,key))
         except requests.exceptions.SSLError:
-            if not silent:
-                log.error('  Request failed due to invalid cert or key')
-                return False
+            log.error('  Request failed due to invalid cert or key')
             result['error'] = True
             return result
 
-        if not silent:
-            log.debug('  crane content: %s' % answer.content)
-            log.debug('  status code: %s' % answer.status_code)
+        log.debug('  crane content: %s' % answer.content)
+        log.debug('  status code: %s' % answer.status_code)
         response = answer.content
         if response == 'Not Found':
-            if not silent:
-                log.error('  Crane returned a 404')
-                return False
-            continue
+            log.error('  Crane returned a 404')
+            result['error'] = True
+            if silent:
+                continue
+            return result
         try:
             j = json.loads(response)
         except ValueError, ve:
-            if not silent:
-                log.error('  Crane did not return json')
-                return False
-            continue
+            log.error('  Crane did not return json')
+            result['error'] = True
+            if silent:
+                continue
+            return result
+
         try:
             parents.append(j['parent'])
         except KeyError:
-            if not silent:
-                log.debug('  Image has no parent: %s' % img)
+            log.debug('  Image has no parent: %s' % img)
 
     while parents:
         missing = set([])
@@ -413,47 +390,43 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, k
         parents = []
         for img in imgs:
             url = dpo.registry + '/v1/images/' + img + '/json'
-            if not silent:
-                log.debug('  reaching for %s' % url)
+            log.debug('  reaching for %s' % url)
             try:
                 answer = requests.get(url, verify=False, cert=(cert,key))
             except requests.exceptions.SSLError:
-                if not silent:
-                    log.error('  Request failed due to invalid cert or key')
-                    return False
+                log.error('  Request failed due to invalid cert or key')
                 result['error'] = True
                 return result
 
-            if not silent:
-                log.debug('  crane content: %s' % answer.content)
-                log.debug('  status code: %s' % answer.status_code)
+            log.debug('  crane content: %s' % answer.content)
+            log.debug('  status code: %s' % answer.status_code)
             response = answer.content
             if response == 'Not Found':
-                if not silent:
-                    log.error('  Crane returned a 404 on parent image %s' % img)
-                    return False
-                missing.add(img)
-                continue
+                log.error('  Crane returned a 404 on parent image %s' % img)
+                result['error'] = True
+                if silent:
+                    missing.add(img)
+                    continue
+                return result
             try:
                 j = json.loads(response)
             except ValueError, ve:
-                if not silent:
-                    log.error('  Crane did not return json on parent image %s' % img)
-                    return False
-                continue
+                log.error('  Crane did not return json on parent image %s' % img)
+                result['error'] = True
+                if silent:
+                    continue
+                return result
+                
             try:
                 parents.append(j['parent'])
             except KeyError:
-                if not silent:
-                    log.debug('  Image has no parent: %s' % img)
+                log.debug('  Image has no parent: %s' % img)
     
-    if silent:
-        missing = list(missing)
-        missing.sort()
-        result['missing_ancestor_layers'] = missing
-        return result
     log.info('  All ancestors reachable, tests pass')
-    return True
+    missing = list(missing)
+    missing.sort()
+    result['missing_ancestor_layers'] = missing
+    return result
 
 # all DO commands follow this line in alphabetical order
 
@@ -531,6 +504,10 @@ def do_confirm(bopts, bargs):
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     rids = None
+    if opts.silent:
+        log.removeHandler(sh)
+        log.addHandler(dockpulp.NullHandler())
+
     if len(args) > 0:
         rids = []
         for arg in args:
@@ -547,18 +524,20 @@ def do_confirm(bopts, bargs):
     errors = 0
     repoids = {}
     for repo in repos:
-        if not opts.silent:
-            log.info('Testing %s' % repo['id'])
+        log.info('Testing %s' % repo['id'])
         imgs = repo['images'].keys()
         response = _test_repo(p, repo['docker-id'], repo['redirect'], imgs, repo['protected'], opts.cert, opts.key, opts.silent)
         if opts.silent:
             repoids[repo['id']] = response
-        elif not response:
+        elif response['error']:
             errors += 1
+
+    log.info('Testing complete... %s error(s)' % errors)
+
     if opts.silent:
-        print repoids
-    else:
-        log.info('Testing complete... %s error(s)' % errors)
+        log.addHandler(silent)
+        log.info(repoids)
+    
     if errors >= 1:
         sys.exit(1)
 
