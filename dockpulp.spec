@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.21
+Version:	1.22
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -48,6 +48,12 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Fri May 27 2016 Brendan Reilly <breilly@redhat.com> 1.22-1
+- Removed extraneous bool checks for silent output (breilly@redhat.com)
+- Removed need for curl in confirm function, now accepts cert and key and uses
+  python requests. Added in machine readable output for confirm as a --silent
+  option. (breilly@redhat.com)
+
 * Fri May 20 2016 Brendan Reilly <breilly@redhat.com> 1.21-1
 - Confirm can now be provided certs, ca certs, and keys to check protected
   repositories. (breilly@redhat.com)
