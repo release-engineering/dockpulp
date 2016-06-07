@@ -496,11 +496,11 @@ def do_clone(bopts, bargs):
 def do_confirm(bopts, bargs):
     """
     dock-pulp confirm [options] [repo-id...]
-    Confirm all images are reachable. Accepts globs!"""
-    parser = OptionParser(usage=do_clone.__doc__)
+    Confirm all images are reachable. Accepts regex!"""
+    parser = OptionParser(usage=do_confirm.__doc__)
     parser.add_option('-c', '--cert', action='store', help='A cert used to authenticate protected repositories')
     parser.add_option('-k', '--key', action='store', help='A key used to authenticate protected repositories')
-    parser.add_option('-s', '--silent', action='store_true', default=False, help='Return confirm output in machine readable form.')
+    parser.add_option('-s', '--silent', action='store_true', default=False, help='Return confirm output in machine readable form')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     rids = None
@@ -514,7 +514,7 @@ def do_confirm(bopts, bargs):
             if '*' in arg or '?' in arg:
                 results = p.searchRepos(arg)
                 if len(results) == 0:
-                    log.warning('Glob did not match anything')
+                    log.warning('Regex did not match anything')
                     return
                 else:
                     rids.extend(results)
@@ -664,7 +664,7 @@ def do_imageids(bopts, bargs):
 def do_list(bopts, bargs):
     """
     dock-pulp list [options] [repo-id...]
-    List one or more repositories. Accepts globs!"""
+    List one or more repositories. Accepts regex!"""
     parser = OptionParser(usage=do_list.__doc__)
     parser.add_option('-c', '--content', default=False, action='store_true',
         help='also return information about images in a repository')
@@ -680,7 +680,7 @@ def do_list(bopts, bargs):
             if '*' in arg or '?' in arg:
                 results = p.searchRepos(arg)
                 if len(results) == 0:
-                    log.warning('Glob did not match anything')
+                    log.warning('Regex did not match anything')
                     return
                 else:
                     rids.extend(results)
@@ -748,7 +748,7 @@ def do_json(bopts, bargs):
 def do_release(bopts, bargs):
     """
     dock-pulp release [options] [repo-id...]
-    Publish pulp configurations to Crane, making them live. Accepts globs!"""
+    Publish pulp configurations to Crane, making them live. Accepts regex!"""
     parser = OptionParser(usage=do_release.__doc__)
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
@@ -762,7 +762,7 @@ def do_release(bopts, bargs):
             if '*' in arg or '?' in arg:
                 results = p.searchRepos(arg)
                 if len(results) == 0:
-                    log.warning('Glob did not match anything')
+                    log.warning('Regex did not match anything')
                     return
                 else:
                     rids.extend(results)
