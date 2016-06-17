@@ -698,7 +698,7 @@ def do_list(bopts, bargs):
                 else:
                     log.info('%s = %s' % (k, v))
         if opts.content:
-            log.info('image details:')
+            log.info('v1 image details:')
             if len(repo['images'].keys()) == 0:
                 log.info('  No images')
             else:
@@ -709,6 +709,34 @@ def do_list(bopts, bargs):
                         (img, ', '.join(repo['images'][img])))
                 #for id, tags in repo['images'].items():
                 #    log.info('  %s (tags: %s)' % (id, ', '.join(tags)))
+            log.info('')
+            log.info('v2 manifest details:')
+            if len(repo['manifests'].keys()) == 0:
+                log.info('  No manifests')
+            else:
+                manifests = repo['manifests'].keys()
+                manifests.sort()
+                output = {}
+                for manifest in manifests:
+                    layer = tuple(repo['manifests'][manifest]['layers'])
+
+                    try: 
+                        output[layer]
+                    except KeyError:
+                        output[layer] = {}
+
+                    output[layer][manifest] = repo['manifests'][manifest]['tag']
+                    
+                images = output.keys()
+                for image in images:
+                    log.info('')
+                    manifests = output[image].keys()
+                    for manifest in manifests:
+                        log.info('  Digest: %s  Tag: %s' %
+                            (manifest, output[image][manifest]))
+                    log.info('    Layers: ')
+                    for layer in image:
+                        log.info('      %s' % layer)
         if opts.details or opts.content:
             log.info('')
 

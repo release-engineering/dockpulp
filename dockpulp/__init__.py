@@ -41,7 +41,8 @@ except ImportError:
 import errors
 import imgutils
 
-C_TYPE = 'docker_image'         # pulp content type identifier for docker
+V2_C_TYPE = 'docker_manifest'
+V1_C_TYPE = 'docker_image'         # pulp content type identifier for docker
 HIDDEN = 'redhat-everything'    # ID of a "hidden" repository for RCM
 DEFAULT_CONFIG_FILE = '/etc/dockpulp.conf'
 DEFAULT_DISTRIBUTORS_FILE = '/etc/dockpulpdistributors.json'
@@ -313,7 +314,7 @@ class Pulp(object):
         Remove orphaned docker content
         """
         raise error.DockPulpError('Removing docker orphans not implemented in Pulp 2.4')
-        #tid = self._delete('/pulp/api/v2/content/orphans/%s/' % C_TYPE)
+        #tid = self._delete('/pulp/api/v2/content/orphans/%s/' % V1_C_TYPE)
         #self.watch(tid)
 
     def cleanUploadRequests(self):
@@ -331,7 +332,7 @@ class Pulp(object):
         data = {
             'source_repo_id': source,
             'criteria': {
-                'type_ids' : [C_TYPE],
+                'type_ids' : [V1_C_TYPE],
                 'filters' : {
                     'unit' : {
                         'image_id': img
@@ -597,7 +598,7 @@ class Pulp(object):
         return a list of orphaned content
         """
         log.debug('getting list of orphaned docker_images')
-        return self._get('/pulp/api/v2/content/orphans/%s/' % C_TYPE)
+        return self._get('/pulp/api/v2/content/orphans/%s/' % V1_C_TYPE)
 
     def listRepos(self, repos=None, content=False):
         """
@@ -664,9 +665,10 @@ class Pulp(object):
                 r['distributors'] = None
 
             if content:
+                # get v1 first
                 data = {
                     'criteria': {
-                        'type_ids': [C_TYPE],
+                        'type_ids': [V1_C_TYPE],
                         'filters': {
                             'unit': {}
                         }
@@ -690,6 +692,28 @@ class Pulp(object):
                             log.warning(
                                 '%s here but not in repo!' % tag['image_id'])
                         r['images'][tag['image_id']].sort()
+                data = {
+                    'criteria': {
+                        'type_ids': [V2_C_TYPE],
+                        'filters': {
+                            'unit': {}
+                        }
+                    }
+                }
+                log.debug('getting image information with request:')
+                log.debug(pprint.pformat(data))
+                manifests = self._post(
+                    '/pulp/api/v2/repositories/%s/search/units/' % blob['id'],
+                    data=json.dumps(data))
+                r['manifests'] = {}
+                for manifest in manifests:
+                    fs_layers = manifest['metadata']['fs_layers']
+                    layers = []
+                    for layer in fs_layers:
+                        layers.append(layer['blob_sum'])
+                    r['manifests'][manifest['metadata']['digest']] = {}
+                    r['manifests'][manifest['metadata']['digest']]['tag'] = manifest['metadata']['tag']
+                    r['manifests'][manifest['metadata']['digest']]['layers'] = layers
             clean.append(r)
             clean.sort()
         return clean
@@ -760,7 +784,7 @@ class Pulp(object):
         """
         data = {
             'criteria': {
-                'type_ids' : [C_TYPE],
+                'type_ids' : [V1_C_TYPE],
                 'filters' : {
                     'unit' : {
                         'image_id': img
@@ -932,7 +956,7 @@ class Pulp(object):
         iid = imgutils.get_id(image)
         data = {
             # type_id is from pulp_docker.common.constants.IMAGE_TYPE_ID
-            'unit_type_id': C_TYPE,
+            'unit_type_id': V1_C_TYPE,
             'upload_id': rid,
             'unit_key': {'image_id': iid},
             'unit_metadata': {
