@@ -547,12 +547,13 @@ def do_copy(bopts, bargs):
     Copy an image from one repo to another"""
     # TODO: copy over ancestors too
     parser = OptionParser(usage=do_copy.__doc__)
+    parser.add_option('-s', '--source', help='specify a source repo to copy from')
     opts, args = parser.parse_args(bargs)
     if len(args) < 2:
         parser.error('You must provide a destination repository and image-id')
     p = pulp_login(bopts)
     for img in args[1:]:
-        p.copy(args[0], img)
+        p.copy(args[0], img, opts.source)
         log.info('copying successful')
 
 def do_create(bopts, bargs):

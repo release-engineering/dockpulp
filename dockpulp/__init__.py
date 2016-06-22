@@ -42,6 +42,8 @@ import errors
 import imgutils
 
 V2_C_TYPE = 'docker_manifest'
+V2_BLOB = 'docker_blob'
+V2_TAG = 'docker_tag'
 V1_C_TYPE = 'docker_image'         # pulp content type identifier for docker
 HIDDEN = 'redhat-everything'    # ID of a "hidden" repository for RCM
 DEFAULT_CONFIG_FILE = '/etc/dockpulp.conf'
@@ -329,18 +331,37 @@ class Pulp(object):
         """
         Copy an image from one repo to another
         """
-        data = {
-            'source_repo_id': source,
-            'criteria': {
-                'type_ids' : [V1_C_TYPE],
-                'filters' : {
-                    'unit' : {
-                        'image_id': img
+        
+        if img.startswith("sha256:"):
+
+            data = {
+                'source_repo_id': source,
+                'criteria': {
+                    'type_ids' : [V2_C_TYPE, V2_BLOB, V2_TAG],
+                    'filters' : {
+                        'unit': {
+                            "$or": [{'digest': img}, {'manifest_digest': img}]
+                        }
                     }
-                }
-            },
-            'override_config': {}
-        }
+                },
+                'override_config': {}
+            }
+            
+        else:
+
+            data = {
+                'source_repo_id': source,
+                'criteria': {
+                    'type_ids' : [V1_C_TYPE],
+                    'filters' : {
+                        'unit' : {
+                            'image_id': img
+                        }
+                    }
+                },
+                'override_config': {}
+            }
+
         log.debug('copy request we are sending:')
         log.debug(pprint.pformat(data))
         log.info('copying %s from %s to %s' % (img, source, drepo))
@@ -700,11 +721,12 @@ class Pulp(object):
                         }
                     }
                 }
-                log.debug('getting image information with request:')
+                log.debug('getting manifest information with request:')
                 log.debug(pprint.pformat(data))
                 manifests = self._post(
                     '/pulp/api/v2/repositories/%s/search/units/' % blob['id'],
                     data=json.dumps(data))
+ 
                 r['manifests'] = {}
                 for manifest in manifests:
                     fs_layers = manifest['metadata']['fs_layers']
@@ -830,17 +852,15 @@ class Pulp(object):
         log.setLevel(logging.DEBUG)
 
     def syncRepo(self, env=None, repo=None, config_file=DEFAULT_CONFIG_FILE,
-                 prefix_with="redhat-", feed=None, upstream_name=None,
-                 basic_auth_username=None, basic_auth_password=None,
-                 ssl_validation=None):
+                 prefix_with="redhat-", feed=None, basic_auth_username=None, 
+                 basic_auth_password=None, ssl_validation=None):
         """sync repo"""
 
         if not repo.startswith(prefix_with):
             repo = prefix_with + repo
 
-        if not upstream_name:
-            repoinfo = self.listRepos(repo, True)
-            upstream_name = repoinfo[0]['docker-id']
+        repoinfo = self.listRepos(repo, True)
+        upstream_name = repoinfo[0]['docker-id']
             
         if not feed:
             self._getRepo(env, config_file)
