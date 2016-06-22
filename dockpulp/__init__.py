@@ -804,18 +804,35 @@ class Pulp(object):
         """
         Remove an image from a repo
         """
-        data = {
-            'criteria': {
-                'type_ids' : [V1_C_TYPE],
-                'filters' : {
-                    'unit' : {
-                        'image_id': img
+        if img.startswith("sha256:"):
+
+            data = {
+                'criteria': {
+                    'type_ids' : [V2_C_TYPE, V2_BLOB, V2_TAG],
+                    'filters' : {
+                        'unit': {
+                            "$or": [{'digest': img}, {'manifest_digest': img}]
+                        }
                     }
-                }
-            },
-            'limit': 1,
-            'override_config': {}
-        }
+                },
+                'limit': 1,
+                'override_config': {}
+            }
+            
+        else:
+
+            data = {
+                'criteria': {
+                    'type_ids' : [V1_C_TYPE],
+                    'filters' : {
+                        'unit' : {
+                            'image_id': img
+                        }
+                    }
+                },
+                'limit': 1,
+                'override_config': {}
+            }
         log.debug('removal request we are sending:')
         log.debug(pprint.pformat(data))
         log.info('removing %s from %s' % (img, repo))
