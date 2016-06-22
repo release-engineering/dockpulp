@@ -553,7 +553,10 @@ def do_copy(bopts, bargs):
         parser.error('You must provide a destination repository and image-id')
     p = pulp_login(bopts)
     for img in args[1:]:
-        p.copy(args[0], img, opts.source)
+        if opts.source:
+            p.copy(args[0], img, opts.source)
+        else:
+            p.copy(args[0], img)    
         log.info('copying successful')
 
 def do_create(bopts, bargs):
@@ -860,22 +863,10 @@ def do_sync(bopts, bargs):
     env = args[0]
     repo = args[1]
 
-    repoinfo = p.syncRepo(env, repo, bopts.config_file)
-    repoinfo = repoinfo[0]
+    imgs, manifests = p.syncRepo(env, repo, bopts.config_file)
 
-    if len(repoinfo['images'].keys()) == 0:
-        oldimgs = []
-    else:
-        oldimgs = repoinfo['images'].keys() 
-
-    repoinfo = p.listRepos(repo, True)
-    repoinfo = repoinfo[0]
-    newimgs = repoinfo['images'].keys()
-    imgs = list(set(newimgs) - set(oldimgs))
-    imgs.sort()
-
-    log.info(repoinfo['id'])
-    log.info('-' * len(repoinfo['id']))    
+    log.info(repo)
+    log.info('-' * len(repo))    
     log.info('synced images:')
 
     if len(imgs) == 0:
@@ -883,9 +874,14 @@ def do_sync(bopts, bargs):
     else:
         for img in imgs:
             log.info(img)
-        for img in imgs:
-            p.copy('redhat-everything', img, repo)
-    log.info('') 
+    log.info('')
+
+    if len(manifests) == 0:
+        log.info('  No new manifests')
+    else:
+        for manifest in manifests:
+            log.info(manifest)
+    log.info('')
 
 def do_tag(bopts, bargs):
     """
