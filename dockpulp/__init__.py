@@ -893,7 +893,8 @@ class Pulp(object):
                     'feed': feed,
                     'upstream_name': upstream_name,
                     'basic_auth_username': basic_auth_username,
-                    'basic_auth_password': basic_auth_password
+                    'basic_auth_password': basic_auth_password,
+                    'enabled_v1': True
                 }
             }
         else:
@@ -902,6 +903,7 @@ class Pulp(object):
                     'ssl_validation': ssl_validation,
                     'feed': feed,
                     'upstream_name': upstream_name,
+                    'enabled_v1': True
                 }
             }
 
@@ -911,7 +913,36 @@ class Pulp(object):
             data=json.dumps(data))
         self.watch(tid)
 
-        return repoinfo
+        # Need to maintain HIDDEN
+        repoinfo = repoinfo[0]
+
+        if len(repoinfo['images'].keys()) == 0:
+            oldimgs = []
+        else:
+            oldimgs = repoinfo['images'].keys()
+            
+        if len(repoinfo['manifests'].keys()) == 0:
+            oldmanifests = []
+        else:
+            oldmanifests = repoinfo['manifests'].keys()
+
+        repoinfo = self.listRepos(repo, True)
+        repoinfo = repoinfo[0]
+
+        newimgs = repoinfo['images'].keys()
+        imgs = list(set(newimgs) - set(oldimgs))
+        imgs.sort()
+
+        newmanifests = repoinfo['manifests'].keys()
+        manifests = list(set(newmanifests) - set(oldmanifests))
+        manifests.sort()
+
+        for img in imgs:
+            self.copy(HIDDEN, img, repo)
+        for manifest in manifests:
+            self.copy(HIDDEN, manifest, repo)
+
+        return (imgs, manifests)
 
     def updateRepo(self, rid, update):
         """
