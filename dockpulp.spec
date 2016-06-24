@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.22
+Version:	1.23
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -48,6 +48,16 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Fri Jun 24 2016 Brendan Reilly <breilly@redhat.com> 1.23-1
+- Updated sync to always copy new images and manifests to HIDDEN repo
+  (breilly@redhat.com)
+- Updated remove to work with v2 manifests (breilly@redhat.com)
+- Removed upstream_name parameter (breilly@redhat.com)
+- Updated copy to work with v2 manifests and blobs (breilly@redhat.com)
+- Updated sync to allow auth (breilly@redhat.com)
+- Added v2 support for dockpulp list (breilly@redhat.com)
+- Fixed some typos regarding regex/glob (breilly@redhat.com)
+
 * Fri May 27 2016 Brendan Reilly <breilly@redhat.com> 1.22-1
 - Removed extraneous bool checks for silent output (breilly@redhat.com)
 - Removed need for curl in confirm function, now accepts cert and key and uses
