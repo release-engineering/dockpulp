@@ -428,6 +428,133 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, k
     result['missing_ancestor_layers'] = missing
     return result
 
+def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, protected=False, cert=None, key=None, silent=False):
+    """confirm we can reach crane and get data back from it"""
+    result = {}
+    result['error'] = False
+    url = dpo.registry + '/v2/' + dockerid + '/manifests'
+    log.info('  Testing Pulp and Crane manifests')
+    log.debug('  contacting %s' % url)
+    c_manifests = []
+    if protected:
+        log.info('  Repo is protected, trying certs')
+        answer = requests.get(url, verify=False)
+        if answer.content != 'Not Found':
+            log.warning('  Crane not reporting 404 - possibly unprotected?')
+        if cert is None and key is None:
+            log.error('  Must provide a cert to test protected repos, skipping')
+            result['error'] = True
+            return result
+
+    try:
+        for manifest in pulp_manifests:
+            answer = requests.get(url + '/' + manifest, verify=False, cert=(cert,key))
+            log.debug('  crane content: %s' % answer.content)
+            log.debug('  status code: %s' % answer.status_code)
+            if answer.status_code == 200:
+                c_manifests.append(manifest)
+
+    except requests.exceptions.SSLError:
+        log.error('  Request failed due to invalid cert or key')
+        result['error'] = True
+        return result
+        
+    p_manifests = set(pulp_manifests)
+    c_manifests = set(c_manifests)
+
+    pdiff = p_manifests - c_manifests
+    cdiff = c_manifests - p_manifests
+    pdiff = list(pdiff)
+    pdiff.sort()
+    cdiff = list(cdiff)
+    cdiff.sort()
+    result['manifests_in_pulp_not_crane'] = pdiff
+    result['manifests_in_crane_not_pulp'] = cdiff
+
+
+    log.debug('  crane manifests: %s' % c_manifests)
+    log.debug('  pulp manifests: %s' % p_manifests)
+    same = True
+    for p_manifest in p_manifests:
+        if p_manifest not in c_manifests:
+            same = False
+    for c_manifest in c_manifests:
+        if c_manifest not in p_manifests:
+            same = False
+    if not same:
+        pdiff = ', '.join((p_manifests - c_manifests))
+        cdiff = ', '.join((c_manifests - p_manifests))
+        
+        log.error('  Pulp manifests and Crane manifests are not the same:')
+        if len(pdiff) > 0:
+            log.error('    In Pulp but not Crane: ' + pdiff)
+        if len(cdiff) > 0:
+            log.error('    In Crane but not Pulp: ' + cdiff)
+        result['error'] = True
+        return result
+                    
+    result['reachable_manifests'] = pulp_manifests
+
+    log.info('  Pulp and Crane manifests reconciled correctly, testing blobs')
+
+    url = dpo.registry + '/v2/' + dockerid + '/blobs/'
+    log.info('  Testing Pulp and Crane blobs')
+    log.debug('  contacting %s' % url)
+    c_blobs = []
+
+    try:
+        for blob in pulp_blobs:
+            answer = requests.head(url + '/' + blob, verify=False, 
+                                   cert=(cert,key), allow_redirects=True)
+            log.debug('  crane content: %s' % answer.content)
+            log.debug('  status code: %s' % answer.status_code)
+            if answer.status_code == 200:
+                c_blobs.append(blob)
+
+    except requests.exceptions.SSLError:
+        log.error('  Request failed due to invalid cert or key')
+        result['error'] = True
+        return result
+        
+    p_blobs = set(pulp_blobs)
+    c_blobs = set(c_blobs)
+
+    pdiff = p_blobs - c_blobs
+    cdiff = c_blobs - p_blobs
+    pdiff = list(pdiff)
+    pdiff.sort()
+    cdiff = list(cdiff)
+    cdiff.sort()
+    result['blobs_in_pulp_not_crane'] = pdiff
+    result['blobs_in_crane_not_pulp'] = cdiff
+
+
+    log.debug('  crane blobs: %s' % c_blobs)
+    log.debug('  pulp blobs: %s' % p_blobs)
+    same = True
+    for p_blob in p_blobs:
+        if p_blob not in c_blobs:
+            same = False
+    for c_blob in c_blobs:
+        if c_blob not in p_blobs:
+            same = False
+    if not same:
+        pdiff = ', '.join((p_blobs - c_blobs))
+        cdiff = ', '.join((c_blobs - p_blobs))
+        
+        log.error('  Pulp blobs and Crane blobs are not the same:')
+        if len(pdiff) > 0:
+            log.error('    In Pulp but not Crane: ' + pdiff)
+        if len(cdiff) > 0:
+            log.error('    In Crane but not Pulp: ' + cdiff)
+        result['error'] = True
+        return result
+
+    result['reachable_blobs'] = pulp_blobs
+    log.info('  Pulp and Crane blobs reconciled correctly')
+
+    return result
+
 # all DO commands follow this line in alphabetical order
 
 def do_ancestry(bopts, bargs):
@@ -501,12 +628,18 @@ def do_confirm(bopts, bargs):
     parser.add_option('-c', '--cert', action='store', help='A cert used to authenticate protected repositories')
     parser.add_option('-k', '--key', action='store', help='A key used to authenticate protected repositories')
     parser.add_option('-s', '--silent', action='store_true', default=False, help='Return confirm output in machine readable form')
+    parser.add_option('--v1', action='store_true', default=False, help='Only report v1 output')
+    parser.add_option('--v2', action='store_true', default=False, help='Only report v2 output')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     rids = None
     if opts.silent:
         log.removeHandler(sh)
         log.addHandler(dockpulp.NullHandler())
+
+    if not opts.v1 and not opts.v2:
+        opts.v1 = True
+        opts.v2 = True
 
     if len(args) > 0:
         rids = []
@@ -525,12 +658,26 @@ def do_confirm(bopts, bargs):
     repoids = {}
     for repo in repos:
         log.info('Testing %s' % repo['id'])
+        repoids[repo['id']] = {}
         imgs = repo['images'].keys()
-        response = _test_repo(p, repo['docker-id'], repo['redirect'], imgs, repo['protected'], opts.cert, opts.key, opts.silent)
-        if opts.silent:
-            repoids[repo['id']] = response
-        elif response['error']:
-            errors += 1
+        manifests = repo['manifests'].keys()
+        blobs = []
+        for manifest in manifests:
+            blobs.extend(repo['manifests'][manifest]['layers'])
+        # reduce duplicate blobs 
+        blobs = list(set(blobs))
+        if opts.v1:
+            response = _test_repo(p, repo['docker-id'], repo['redirect'], imgs, repo['protected'], opts.cert, opts.key, opts.silent)
+            if opts.silent:
+                repoids[repo['id']].update(response)
+            elif response['error']:
+                errors += 1
+        if opts.v2:
+            response = _test_repoV2(p, repo['docker-id'], repo['redirect'], manifests, blobs, repo['protected'], opts.cert, opts.key, opts.silent)
+            if opts.silent:
+                repoids[repo['id']].update(response)
+            elif response['error']:
+                errors += 1
 
     log.info('Testing complete... %s error(s)' % errors)
 
