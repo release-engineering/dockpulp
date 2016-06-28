@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.23
+Version:	1.24
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -48,6 +48,10 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Tue Jun 28 2016 Brendan Reilly <breilly@redhat.com> 1.24-1
+- Cleaned up confirm, added check for tags in pulp/crane (breilly@redhat.com)
+- Updated confirm for v2 manifests and blobs (breilly@redhat.com)
+
 * Fri Jun 24 2016 Brendan Reilly <breilly@redhat.com> 1.23-1
 - Updated sync to always copy new images and manifests to HIDDEN repo
   (breilly@redhat.com)
