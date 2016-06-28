@@ -232,13 +232,12 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, k
                     
     log.info('  Pulp and Crane data reconciled correctly, testing content')
 
-    # Testing for redirect
     if not redirect:
         reponame = 'redhat-' + dockerid.replace('/', '-')
         redirect = dpo.url + '/pulp/docker/v1/' + reponame
 
-    missing = set([])
-    reachable = set([])
+    missing = set()
+    reachable = set()
     for img in pulp_imgs:
         for ext in ('json', 'ancestry', 'layer'):
             url = redirect + '/' + img + '/' + ext
@@ -306,7 +305,7 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, k
             log.debug('  Image has no parent: %s' % img)
 
     while parents:
-        missing = set([])
+        missing = set()
         imgs = parents
         parents = []
         for img in imgs:
@@ -356,7 +355,7 @@ def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
     url = dpo.registry + '/v2/' + dockerid + '/manifests'
     log.info('  Testing Pulp and Crane manifests')
     log.debug('  contacting %s', url)
-    c_manifests = set([])
+    c_manifests = set()
     if protected:
         log.info('  Repo is protected, trying certs')
         answer = requests.get(url, verify=False)
@@ -404,7 +403,7 @@ def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
     url = dpo.registry + '/v2/' + dockerid + '/blobs/'
     log.info('  Testing Pulp and Crane blobs')
     log.debug('  contacting %s', url)
-    c_blobs = set([])
+    c_blobs = set()
 
     try:
         for blob in pulp_blobs:
@@ -949,8 +948,8 @@ def do_sync(bopts, bargs):
     dock-pulp sync [options] <env to sync from> repo-id
     Sync a repo from one environment to another"""
     parser = OptionParser(usage=do_sync.__doc__)
-    parser.add_option('-p', '--password', default=None, help='specify a password')
-    parser.add_option('-u', '--username', default=None, help='specify a username')
+    parser.add_option('-p', '--password', help='specify a password')
+    parser.add_option('-u', '--username', help='specify a username')
     opts, args = parser.parse_args(bargs)
     if len(args) < 2:
         parser.error('You must provide an environment to sync from and a repo id')
