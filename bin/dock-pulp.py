@@ -485,7 +485,7 @@ def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
         pdiff = ', '.join((p_tags - c_tags))
         cdiff = ', '.join((c_tags - p_tags))
         
-        log.error('  Pulp images and Crane tags are not the same:')
+        log.error('  Pulp tags and Crane tags are not the same:')
         if pdiff:
             log.error('    In Pulp but not Crane: ' + pdiff)
         if cdiff:
@@ -949,6 +949,8 @@ def do_sync(bopts, bargs):
     dock-pulp sync [options] <env to sync from> repo-id
     Sync a repo from one environment to another"""
     parser = OptionParser(usage=do_sync.__doc__)
+    parser.add_option('-p', '--password', default=None, help='specify a password')
+    parser.add_option('-u', '--username', default=None, help='specify a username')
     opts, args = parser.parse_args(bargs)
     if len(args) < 2:
         parser.error('You must provide an environment to sync from and a repo id')
@@ -956,7 +958,8 @@ def do_sync(bopts, bargs):
     env = args[0]
     repo = args[1]
 
-    imgs, manifests = p.syncRepo(env, repo, bopts.config_file)
+    imgs, manifests = p.syncRepo(env, repo, bopts.config_file, basic_auth_username=opts.username, 
+                                 basic_auth_password=opts.password)
 
     log.info(repo)
     log.info('-' * len(repo))    
