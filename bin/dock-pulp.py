@@ -789,7 +789,7 @@ def do_list(bopts, bargs):
             log.info('-' * len(repo['id']))
         if opts.details:
             for k, v in repo.items():
-                if k in ('id', 'images'):
+                if k in ('id', 'images', 'manifests'):
                     continue
                 else:
                     log.info('%s = %s' % (k, v))
