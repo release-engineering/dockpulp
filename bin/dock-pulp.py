@@ -428,6 +428,156 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, k
     result['missing_ancestor_layers'] = missing
     return result
 
+def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags, protected=False, cert=None, key=None, silent=False):
+    """confirm we can reach crane and get data back from it"""
+    result = {}
+    result['error'] = False
+    url = dpo.registry + '/v2/' + dockerid + '/manifests'
+    log.info('  Testing Pulp and Crane manifests')
+    log.debug('  contacting %s', url)
+    c_manifests = set([])
+    if protected:
+        log.info('  Repo is protected, trying certs')
+        answer = requests.get(url, verify=False)
+        if answer.status_code != requests.codes.not_found:
+            log.warning('  Crane not reporting 404 - possibly unprotected?')
+        if cert is None and key is None:
+            log.error('  Must provide a cert to test protected repos, skipping')
+            result['error'] = True
+            return result
+
+    try:
+        for manifest in pulp_manifests:
+            answer = requests.get(url + '/' + manifest, verify=False, cert=(cert,key))
+            log.debug('  crane content: %s', answer.content)
+            log.debug('  status code: %s', answer.status_code)
+            if answer.status_code == requests.codes.ok:
+                c_manifests.add(manifest)
+
+    except requests.exceptions.SSLError:
+        log.error('  Request failed due to invalid cert or key')
+        result['error'] = True
+        return result
+        
+    p_manifests = set(pulp_manifests)
+
+    pdiff = p_manifests - c_manifests
+    pdiff = list(pdiff)
+    pdiff.sort()
+    result['manifests_in_pulp_not_crane'] = pdiff
+
+    log.debug('  crane manifests: %s', c_manifests)
+    log.debug('  pulp manifests: %s', p_manifests)
+
+    if pdiff:
+        pdiff = ', '.join((p_manifests - c_manifests))
+        log.error('  Pulp manifests and Crane manifests are not the same:')
+        log.error('    In Pulp but not Crane: %s', pdiff)
+        result['error'] = True
+        return result
+                    
+    result['reachable_manifests'] = pulp_manifests
+
+    log.info('  Pulp and Crane manifests reconciled correctly, testing blobs')
+
+    url = dpo.registry + '/v2/' + dockerid + '/blobs/'
+    log.info('  Testing Pulp and Crane blobs')
+    log.debug('  contacting %s', url)
+    c_blobs = set([])
+
+    try:
+        for blob in pulp_blobs:
+            answer = requests.head(url + blob, verify=False, 
+                                   cert=(cert,key), allow_redirects=True)
+            log.debug('  status code: %s', answer.status_code)
+            if answer.status_code == requests.codes.ok:
+                c_blobs.add(blob)
+
+    except requests.exceptions.SSLError:
+        log.error('  Request failed due to invalid cert or key')
+        result['error'] = True
+        return result
+        
+    p_blobs = set(pulp_blobs)
+    pdiff = p_blobs - c_blobs
+    pdiff = list(pdiff)
+    pdiff.sort()
+    result['blobs_in_pulp_not_crane'] = pdiff
+
+    log.debug('  crane blobs: %s', c_blobs)
+    log.debug('  pulp blobs: %s', p_blobs)
+
+    if pdiff:
+        pdiff = ', '.join((p_blobs - c_blobs))
+        log.error('  Pulp blobs and Crane blobs are not the same:')
+        log.error('    In Pulp but not Crane: ' + pdiff)
+        result['error'] = True
+        return result
+
+    result['reachable_blobs'] = pulp_blobs
+
+    log.info('  Pulp and Crane blobs reconciled correctly, testing tags')
+
+    url = dpo.registry + '/v2/' + dockerid + '/tags/list'
+    log.info('  Testing Pulp and Crane tags')
+    log.debug('  contacting %s', url)
+
+    try:
+        answer = requests.get(url, verify=False, cert=(cert,key))
+    except requests.exceptions.SSLError:
+        log.error('  Request failed due to invalid cert or key')
+        result['error'] = True
+        return result
+
+    log.debug('  crane content: %s', answer.content)
+    log.debug('  status code: %s', answer.status_code)
+    if answer.status_code == requests.codes.not_found:
+        log.error('  Crane returned a 404')
+        result['error'] = True
+        return result
+
+    response = answer.content
+
+    try:
+        j = json.loads(response)
+    except ValueError, ve:
+        log.error('  Crane did not return tag information')
+        result['error'] = True
+        return result
+        
+    p_tags = set(pulp_tags)
+    c_tags = set(j['tags'])
+
+    pdiff = p_tags - c_tags
+    cdiff = c_tags - p_tags
+    pdiff = list(pdiff)
+    pdiff.sort()
+    cdiff = list(cdiff)
+    cdiff.sort()
+    result['tags_in_pulp_not_crane'] = pdiff
+    result['tags_in_crane_not_pulp'] = cdiff
+
+    log.debug('  crane tags: %s', c_tags)
+    log.debug('  pulp tags: %s', p_tags)
+
+    if pdiff or cdiff:
+        pdiff = ', '.join((p_tags - c_tags))
+        cdiff = ', '.join((c_tags - p_tags))
+        
+        log.error('  Pulp images and Crane tags are not the same:')
+        if pdiff:
+            log.error('    In Pulp but not Crane: ' + pdiff)
+        if cdiff:
+            log.error('    In Crane but not Pulp: ' + cdiff)
+        result['error'] = True
+        return result
+
+    result['reachable_tags'] = pulp_tags
+
+    log.info('  Pulp and Crane tags reconciled correctly, all content reachable')
+
+    return result
+
 # all DO commands follow this line in alphabetical order
 
 def do_ancestry(bopts, bargs):
@@ -501,12 +651,18 @@ def do_confirm(bopts, bargs):
     parser.add_option('-c', '--cert', action='store', help='A cert used to authenticate protected repositories')
     parser.add_option('-k', '--key', action='store', help='A key used to authenticate protected repositories')
     parser.add_option('-s', '--silent', action='store_true', default=False, help='Return confirm output in machine readable form')
+    parser.add_option('--v1', action='store_true', default=False, help='Only report v1 output')
+    parser.add_option('--v2', action='store_true', default=False, help='Only report v2 output')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     rids = None
     if opts.silent:
         log.removeHandler(sh)
         log.addHandler(dockpulp.NullHandler())
+
+    if not opts.v1 and not opts.v2:
+        opts.v1 = True
+        opts.v2 = True
 
     if len(args) > 0:
         rids = []
@@ -525,12 +681,28 @@ def do_confirm(bopts, bargs):
     repoids = {}
     for repo in repos:
         log.info('Testing %s' % repo['id'])
+        repoids[repo['id']] = {}
         imgs = repo['images'].keys()
-        response = _test_repo(p, repo['docker-id'], repo['redirect'], imgs, repo['protected'], opts.cert, opts.key, opts.silent)
-        if opts.silent:
-            repoids[repo['id']] = response
-        elif response['error']:
-            errors += 1
+        manifests = repo['manifests'].keys()
+        blobs = []
+        tags = []
+        for manifest in manifests:
+            blobs.extend(repo['manifests'][manifest]['layers'])
+            tags.append(repo['manifests'][manifest]['tag'])
+        # reduce duplicate blobs 
+        blobs = list(set(blobs))
+        if opts.v1:
+            response = _test_repo(p, repo['docker-id'], repo['redirect'], imgs, repo['protected'], opts.cert, opts.key, opts.silent)
+            if opts.silent:
+                repoids[repo['id']].update(response)
+            elif response['error']:
+                errors += 1
+        if opts.v2:
+            response = _test_repoV2(p, repo['docker-id'], repo['redirect'], manifests, blobs, tags, repo['protected'], opts.cert, opts.key, opts.silent)
+            if opts.silent:
+                repoids[repo['id']].update(response)
+            elif response['error']:
+                errors += 1
 
     log.info('Testing complete... %s error(s)' % errors)
 
