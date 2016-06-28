@@ -48,6 +48,7 @@ V1_C_TYPE = 'docker_image'         # pulp content type identifier for docker
 HIDDEN = 'redhat-everything'    # ID of a "hidden" repository for RCM
 DEFAULT_CONFIG_FILE = '/etc/dockpulp.conf'
 DEFAULT_DISTRIBUTORS_FILE = '/etc/dockpulpdistributors.json'
+PREFIX = 'redhat-'
 
 # Setup our logger
 # Null logger to avoid spurious messages, add a handler in app code
@@ -411,7 +412,7 @@ class Pulp(object):
             return tasks
 
     def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None,
-                   protected=False, distributors=True, prefix_with="redhat-", productline=None):
+                   protected=False, distributors=True, prefix_with=PREFIX, productline=None):
         """
         create a docker repository in pulp, an id and a description is required
         """
@@ -569,6 +570,12 @@ class Pulp(object):
         result = self._post('/pulp/api/v2/repositories/%s/search/units/' % HIDDEN, data=data)
         log.debug(result)
         return [c['metadata']['image_id'] for c in result]
+
+    def getPrefix(self):
+        """
+        Returns repository prefix
+        """
+        return PREFIX
 
     def getRepos(self, rids, fields=None):
         """
@@ -869,7 +876,7 @@ class Pulp(object):
         log.setLevel(logging.DEBUG)
 
     def syncRepo(self, env=None, repo=None, config_file=DEFAULT_CONFIG_FILE,
-                 prefix_with="redhat-", feed=None, basic_auth_username=None, 
+                 prefix_with=PREFIX, feed=None, basic_auth_username=None, 
                  basic_auth_password=None, ssl_validation=None):
         """sync repo"""
 
