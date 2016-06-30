@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.24
+Version:	1.25
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -48,6 +48,20 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Thu Jun 30 2016 Brendan Reilly <breilly@redhat.com> 1.25-1
+- Bumped version for new build (breilly@redhat.com)
+- Merge pull request #63 from twaugh/version-attribute (breilly@redhat.com)
+- Cleaned up do_list code (breilly@redhat.com)
+- Added history option to list (breilly@redhat.com)
+- Set __version__ attribute in dockpulp module (twaugh@redhat.com)
+- Updated list output to be more technically correct (breilly@redhat.com)
+- Bugfix for extraneous list manifest print (breilly@redhat.com)
+- Added prefix getter to pulp object (breilly@redhat.com)
+- Cleaned up code (breilly@redhat.com)
+- Added password and username option to sync, fixed typo (breilly@redhat.com)
+- Confirm now uses the right default pulp redirect for repos without a redirect
+  set (breilly@redhat.com)
+
 * Tue Jun 28 2016 Brendan Reilly <breilly@redhat.com> 1.24-1
 - Cleaned up confirm, added check for tags in pulp/crane (breilly@redhat.com)
 - Updated confirm for v2 manifests and blobs (breilly@redhat.com)
