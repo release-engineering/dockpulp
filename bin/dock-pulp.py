@@ -766,6 +766,8 @@ def do_list(bopts, bargs):
         help='also return information about images in a repository')
     parser.add_option('-d', '--details', default=False, action='store_true',
         help='show details (not content) about each repository')
+    parser.add_option('--history', default=False, action='store_true',
+        help='show v1 compatibility history')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     if len(args) == 0:
@@ -782,7 +784,7 @@ def do_list(bopts, bargs):
                     rids.extend(results)
             else:
                 rids.append(arg)
-        repos = p.listRepos(repos=rids, content=opts.content)
+        repos = p.listRepos(repos=rids, content=opts.content, history=opts.history)
     for repo in repos:
         log.info(repo['id'])
         if opts.details or opts.content:
@@ -793,7 +795,7 @@ def do_list(bopts, bargs):
                     continue
                 else:
                     log.info('%s = %s' % (k, v))
-        if opts.content:
+        if opts.content or opts.history:
             log.info('v1 image details:')
             if len(repo['images'].keys()) == 0:
                 log.info('  No images')
@@ -821,19 +823,40 @@ def do_list(bopts, bargs):
                     except KeyError:
                         output[layer] = {}
 
-                    output[layer][manifest] = repo['manifests'][manifest]['tag']
+                    try:
+                        output[layer][manifest]
+                    except KeyError:
+                        output[layer][manifest] = {}
+
+                    output[layer][manifest]['tag'] = repo['manifests'][manifest]['tag']
                     
+                    if opts.history:
+                        output[layer][manifest]['id'] = repo['manifests'][manifest]['v1id']
+                        output[layer][manifest]['parent'] = repo['manifests'][manifest]['v1parent']
+                                                    
                 images = output.keys()
                 for image in images:
                     log.info('')
                     manifests = output[image].keys()
+                    tagoutput = []
                     for manifest in manifests:
                         log.info('  Manifest: %s  Tag: %s' %
-                            (manifest, output[image][manifest]))
+                                 (manifest, output[image][manifest]['tag']))
+                        tagoutput.append(output[image][manifest]['tag'])
                     log.info('    Blobs: ')
                     for layer in image:
                         log.info('      %s' % layer)
-        if opts.details or opts.content:
+                    if opts.history:
+                        tagoutput.sort()
+                        if output[image][manifests[0]]['id'] or output[image][manifests[0]]['parent']:
+                            log.info('    v1Compatibility:')
+                            if output[image][manifests[0]]['id']:
+                                log.info('      %s (tags: %s)' % (output[image][manifests[0]]['id'], 
+                                                                  ', '.join(tagoutput)))
+                            if output[image][manifests[0]]['parent']:
+                                log.info('      %s (tags: )' % (output[image][manifests[0]]['parent']))
+
+        if opts.details or opts.content or opts.history:
             log.info('')
 
 def do_login(bopts, bargs):

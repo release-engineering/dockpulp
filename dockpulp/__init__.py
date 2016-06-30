@@ -628,7 +628,7 @@ class Pulp(object):
         log.debug('getting list of orphaned docker_images')
         return self._get('/pulp/api/v2/content/orphans/%s/' % V1_C_TYPE)
 
-    def listRepos(self, repos=None, content=False):
+    def listRepos(self, repos=None, content=False, history=False):
         """
         Return information about pulp repositories
         If repos is a string or list of strings, treat them as repo IDs
@@ -692,7 +692,7 @@ class Pulp(object):
             else:
                 r['distributors'] = None
 
-            if content:
+            if content or history:
                 # get v1 first
                 data = {
                     'criteria': {
@@ -728,12 +728,13 @@ class Pulp(object):
                         }
                     }
                 }
+
                 log.debug('getting manifest information with request:')
                 log.debug(pprint.pformat(data))
                 manifests = self._post(
                     '/pulp/api/v2/repositories/%s/search/units/' % blob['id'],
                     data=json.dumps(data))
- 
+                log.debug(pprint.pformat(data))
                 r['manifests'] = {}
                 for manifest in manifests:
                     fs_layers = manifest['metadata']['fs_layers']
@@ -743,6 +744,31 @@ class Pulp(object):
                     r['manifests'][manifest['metadata']['digest']] = {}
                     r['manifests'][manifest['metadata']['digest']]['tag'] = manifest['metadata']['tag']
                     r['manifests'][manifest['metadata']['digest']]['layers'] = layers
+                if history:
+                    for manifest in r['manifests'].keys():
+                        data = self._get('/pulp/docker/v2/%s/manifests/%s' % (blob['id'], manifest))
+                        
+                        # Unsure if all v2 images will have v1 history
+                        try:
+                            hist = json.loads(data['history'][0]['v1Compatibility'])
+                        except KeyError:
+                            log.debug("%s has no v1 history information, skipping", manifest)
+                            r['manifests'][manifest]['v1parent'] = None
+                            r['manifests'][manifest]['v1id'] = None
+                            continue
+
+                        try:
+                            r['manifests'][manifest]['v1parent'] = hist['parent']
+                        except KeyError:
+                            log.debug("%s has no v1 history parent information", manifest)
+                            r['manifests'][manifest]['v1parent'] = None
+
+                        try:
+                            r['manifests'][manifest]['v1id'] = hist['id']
+                        except KeyError:
+                            log.debug("%s has no v1 history id information", manifest)
+                            r['manifests'][manifest]['v1id'] = None
+
             clean.append(r)
             clean.sort()
         return clean
