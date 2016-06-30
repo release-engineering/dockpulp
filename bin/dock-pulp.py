@@ -766,6 +766,8 @@ def do_list(bopts, bargs):
         help='also return information about images in a repository')
     parser.add_option('-d', '--details', default=False, action='store_true',
         help='show details (not content) about each repository')
+    parser.add_option('--history', default=False, action='store_true',
+        help='show v1 compatibility history')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     if len(args) == 0:
@@ -782,7 +784,7 @@ def do_list(bopts, bargs):
                     rids.extend(results)
             else:
                 rids.append(arg)
-        repos = p.listRepos(repos=rids, content=opts.content)
+        repos = p.listRepos(repos=rids, content=opts.content, history=opts.history)
     for repo in repos:
         log.info(repo['id'])
         if opts.details or opts.content:
@@ -792,8 +794,8 @@ def do_list(bopts, bargs):
                 if k in ('id', 'images', 'manifests'):
                     continue
                 else:
-                    log.info('%s = %s' % (k, v))
-        if opts.content:
+                    log.info('%s = %s', k, v)
+        if opts.content or opts.history:
             log.info('v1 image details:')
             if len(repo['images'].keys()) == 0:
                 log.info('  No images')
@@ -801,8 +803,8 @@ def do_list(bopts, bargs):
                 imgs = repo['images'].keys()
                 imgs.sort()
                 for img in imgs:
-                    log.info('  %s (tags: %s)' %
-                        (img, ', '.join(repo['images'][img])))
+                    log.info('  %s (tags: %s)', 
+                             img, ', '.join(repo['images'][img]))
                 #for id, tags in repo['images'].items():
                 #    log.info('  %s (tags: %s)' % (id, ', '.join(tags)))
             log.info('')
@@ -816,24 +818,37 @@ def do_list(bopts, bargs):
                 for manifest in manifests:
                     layer = tuple(repo['manifests'][manifest]['layers'])
 
-                    try: 
-                        output[layer]
-                    except KeyError:
-                        output[layer] = {}
+                    output.setdefault(layer, {})
+                    output[layer].setdefault(manifest, {})
 
-                    output[layer][manifest] = repo['manifests'][manifest]['tag']
+                    output[layer][manifest]['tag'] = repo['manifests'][manifest]['tag']
                     
+                    if opts.history:
+                        output[layer][manifest]['id'] = repo['manifests'][manifest]['v1id']
+                        output[layer][manifest]['parent'] = repo['manifests'][manifest]['v1parent']
+                                                    
                 images = output.keys()
                 for image in images:
                     log.info('')
                     manifests = output[image].keys()
+                    tagoutput = []
                     for manifest in manifests:
-                        log.info('  Digest: %s  Tag: %s' %
-                            (manifest, output[image][manifest]))
-                    log.info('    Layers: ')
+                        log.info('  Manifest: %s  Tag: %s', manifest, output[image][manifest]['tag'])
+                        tagoutput.append(output[image][manifest]['tag'])
+                    log.info('    Blobs: ')
                     for layer in image:
-                        log.info('      %s' % layer)
-        if opts.details or opts.content:
+                        log.info('      %s', layer)
+                    if opts.history:
+                        tagoutput.sort()
+                        if output[image][manifests[0]]['id'] or output[image][manifests[0]]['parent']:
+                            log.info('    v1Compatibility:')
+                            if output[image][manifests[0]]['id']:
+                                log.info('      %s (tags: %s)', output[image][manifests[0]]['id'], 
+                                                                  ', '.join(tagoutput))
+                            if output[image][manifests[0]]['parent']:
+                                log.info('      %s (tags: )', output[image][manifests[0]]['parent'])
+
+        if opts.details or opts.content or opts.history:
             log.info('')
 
 def do_login(bopts, bargs):
