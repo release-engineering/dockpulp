@@ -41,6 +41,8 @@ except ImportError:
 import errors
 import imgutils
 
+__version__ = "1.24"
+
 V2_C_TYPE = 'docker_manifest'
 V2_BLOB = 'docker_blob'
 V2_TAG = 'docker_tag'

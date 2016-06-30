@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import sys
 from setuptools import setup, Command
+from dockpulp import __version__ as dockpulp_version
 
 def _simplejson_on_python26():
     if (sys.version_info[0] > 2 or
@@ -14,7 +15,7 @@ install_requires.extend(_simplejson_on_python26())
 
 setup(
     name = "dockpulp",
-    version = "1.24",
+    version = dockpulp_version,
     author = "Jay Greguske",
     author_email = "jgregusk@redhat.com",
     description = ("ReST API Client to Pulp for manipulating docker images"),
