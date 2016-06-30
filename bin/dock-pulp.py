@@ -828,9 +828,9 @@ def do_list(bopts, bargs):
                     log.info('')
                     manifests = output[image].keys()
                     for manifest in manifests:
-                        log.info('  Digest: %s  Tag: %s' %
+                        log.info('  Manifest: %s  Tag: %s' %
                             (manifest, output[image][manifest]))
-                    log.info('    Layers: ')
+                    log.info('    Blobs: ')
                     for layer in image:
                         log.info('      %s' % layer)
         if opts.details or opts.content:
