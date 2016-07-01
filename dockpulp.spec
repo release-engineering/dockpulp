@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.25
+Version:	1.26
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -48,6 +48,14 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Fri Jul 01 2016 Brendan Reilly <breilly@redhat.com> 1.26-1
+- Bumped version for new build (breilly@redhat.com)
+- Updated ancestry call to avoid index error (breilly@redhat.com)
+- Fixed logging for python <2.7 (breilly@redhat.com)
+- Clarified dry run output (breilly@redhat.com)
+- Added v2 support to hidden repo recreate script (breilly@redhat.com)
+- Wrote script to restore hidden repo if parity is lost (breilly@redhat.com)
+
 * Thu Jun 30 2016 Brendan Reilly <breilly@redhat.com> 1.25-1
 - Bumped version for new build (breilly@redhat.com)
 - Merge pull request #63 from twaugh/version-attribute (breilly@redhat.com)
