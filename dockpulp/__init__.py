@@ -546,6 +546,7 @@ class Pulp(object):
             log.info('missing parent layer %s', iid)
             log.info('skipping layer')
             return parents
+        img['metadata'].setdefault('parent_id', None)
         par = img['metadata']['parent_id']
         if par is not None:
             parents.append(par)
