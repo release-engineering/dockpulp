@@ -82,7 +82,7 @@ def recreate(dpo, jfile, test=False):
             continue
         for img in repo['images'].keys():
             if test:
-                log.info('  Would have copied %s from %s to hidden repo', img, repo['id'])
+                log.info('  Would have copied image %s from %s to hidden repo', img, repo['id'])
             else:
                 p.copy(dockpulp.HIDDEN, img, source=repo['id'])
 
@@ -91,7 +91,7 @@ def recreate(dpo, jfile, test=False):
 
         for manifest in repo['manifests'].keys():
             if test:
-                log.info('  Would have copied %s from %s to hidden repo', manifest, repo['id'])
+                log.info('  Would have copied manifest %s from %s to hidden repo', manifest, repo['id'])
             else:
                 p.copy(dockpulp.HIDDEN, manifest, source=repo['id'])
 
