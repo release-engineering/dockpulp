@@ -18,6 +18,7 @@ from optparse import OptionParser
 import os.path
 import requests
 import sys
+import logging
 
 try:
     # Python 2.6 and earlier
@@ -31,7 +32,11 @@ except ImportError:
 
 import dockpulp
 
-log = dockpulp.setup_logger(dockpulp.log)
+log = dockpulp.log
+sh = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter("%(levelname)-9s %(message)s")
+sh.setFormatter(formatter)
+log.addHandler(sh)
 
 def get_opts():
     usage="""%prog [options] environment config.json
