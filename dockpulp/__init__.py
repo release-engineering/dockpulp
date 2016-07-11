@@ -949,7 +949,6 @@ class Pulp(object):
             data=json.dumps(data))
         self.watch(tid)
 
-        # Need to maintain HIDDEN
         repoinfo = repoinfo[0]
 
         if len(repoinfo['images'].keys()) == 0:
@@ -973,10 +972,12 @@ class Pulp(object):
         manifests = list(set(newmanifests) - set(oldmanifests))
         manifests.sort()
 
-        for img in imgs:
-            self.copy(HIDDEN, img, repo)
-        for manifest in manifests:
-            self.copy(HIDDEN, manifest, repo)
+        # Need to maintain HIDDEN
+        if repo != HIDDEN:
+            for img in imgs:
+                self.copy(HIDDEN, img, repo)
+            for manifest in manifests:
+                self.copy(HIDDEN, manifest, repo)
 
         return (imgs, manifests)
 
