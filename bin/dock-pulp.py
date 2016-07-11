@@ -165,6 +165,9 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, k
     #         curl --insecure https://registry.access.stage.redhat.com/v1/repositories/rhel6.6/images
     result = {}
     result['error'] = False
+    if not pulp_imgs:
+        log.info('  No v1 content to test')
+        return result
     url = dpo.registry + '/v1/repositories/' + dockerid + '/images'
     log.info('  Testing Pulp and Crane data')
     log.debug('  contacting %s', url)
@@ -352,6 +355,9 @@ def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
     """confirm we can reach crane and get data back from it"""
     result = {}
     result['error'] = False
+    if not pulp_manifests:
+        log.info('  No v2 content to test')
+        return result
     url = dpo.registry + '/v2/' + dockerid + '/manifests'
     log.info('  Testing Pulp and Crane manifests')
     log.debug('  contacting %s', url)
@@ -598,6 +604,7 @@ def do_confirm(bopts, bargs):
                 rids.append(arg)
     repos = p.listRepos(repos=rids, content=True)
     errors = 0
+    errorids = {}
     repoids = {}
     for repo in repos:
         log.info('Testing %s' % repo['id'])
@@ -614,13 +621,18 @@ def do_confirm(bopts, bargs):
         if opts.v1:
             response = _test_repo(p, repo['docker-id'], repo['redirect'], imgs, repo['protected'], opts.cert, opts.key, opts.silent)
             if opts.silent:
+                errorids[repo['id']] = False
                 repoids[repo['id']].update(response)
+                if response['error']:
+                    errorids[repo['id']] = True
             elif response['error']:
                 errors += 1
         if opts.v2:
             response = _test_repoV2(p, repo['docker-id'], repo['redirect'], manifests, blobs, tags, repo['protected'], opts.cert, opts.key, opts.silent)
             if opts.silent:
                 repoids[repo['id']].update(response)
+                if errorids[repo['id']]:
+                    repoids[repo['id']]['error'] = True
             elif response['error']:
                 errors += 1
 
