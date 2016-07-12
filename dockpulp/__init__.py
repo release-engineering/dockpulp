@@ -373,6 +373,30 @@ class Pulp(object):
             data=json.dumps(data))
         self.watch(tid)
 
+    def copy_filters(self, drepo, source=HIDDEN, filters={}, v1=True, v2=True):
+        """Copy an contnet from one repo to another according to filters"""
+
+        type_ids = []
+        if v1:
+            type_ids.append(V1_C_TYPE)
+        if v2:
+            type_ids.extend([V2_C_TYPE, V2_BLOB, V2_TAG])
+        data = {
+            'source_repo_id': source,
+            'criteria': {
+                'type_ids': type_ids,
+                'filters': filters,
+            },
+            'override_config': {}
+        }
+        log.debug('copy request we are sending:')
+        log.debug(pprint.pformat(data))
+        log.info('copying from %s to %s' % (source, drepo))
+        tid = self._post(
+            '/pulp/api/v2/repositories/%s/actions/associate/' % drepo,
+            data=json.dumps(data))
+        self.watch(tid)
+
     """
     """
     def crane(self, repos=[], wait=True, skip=False):

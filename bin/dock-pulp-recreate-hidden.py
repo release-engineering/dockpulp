@@ -85,20 +85,18 @@ def recreate(dpo, jfile, test=False):
     for repo in repos:
         if repo['id'] == dockpulp.HIDDEN:
             continue
-        for img in repo['images'].keys():
-            if test:
-                log.info('  Would have copied image %s from %s to hidden repo', img, repo['id'])
-            else:
-                p.copy(dockpulp.HIDDEN, img, source=repo['id'])
+        if test:
+            log.info('  Would have copied images from %s to hidden repo', repo['id'])
+        else:
+            p.copy_filters(dockpulp.HIDDEN, source=repo['id'], v2=False)
 
         # set default in case env has no v2 content
         repo.setdefault('manifests', {})
 
-        for manifest in repo['manifests'].keys():
-            if test:
-                log.info('  Would have copied manifest %s from %s to hidden repo', manifest, repo['id'])
-            else:
-                p.copy(dockpulp.HIDDEN, manifest, source=repo['id'])
+        if test:
+            log.info('  Would have copied manifests from %s to hidden repo', repo['id'])
+        else:
+            p.copy_filters(dockpulp.HIDDEN, source=repo['id'], v1=False)
 
     log.info('Hidden repo recreated.')
 
