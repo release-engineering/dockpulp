@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.26
+Version:	1.27
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -48,6 +48,19 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Tue Jul 12 2016 Brendan Reilly <breilly@redhat.com> 1.27-1
+- Bumping version for new build (breilly@redhat.com)
+- history will now skip over hidden repo, missing manifests
+  (breilly@redhat.com)
+- Added skip fast forward option (breilly@redhat.com)
+- Allowed upstream name arg for syncs (breilly@redhat.com)
+- Merge pull request #67 from twaugh/sync-to-hidden (breilly@redhat.com)
+- Confirm does not test if there is no v1 or v2 content. Fixed issue with
+  silent output not reporting v1 error if v2 content is fine.
+  (breilly@redhat.com)
+- syncRepo: no need to copy to hidden repo if it was sync destination
+  (twaugh@redhat.com)
+
 * Fri Jul 01 2016 Brendan Reilly <breilly@redhat.com> 1.26-1
 - Bumped version for new build (breilly@redhat.com)
 - Updated ancestry call to avoid index error (breilly@redhat.com)
