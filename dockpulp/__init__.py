@@ -747,9 +747,21 @@ class Pulp(object):
                     r['manifests'][manifest['metadata']['digest']] = {}
                     r['manifests'][manifest['metadata']['digest']]['tag'] = manifest['metadata']['tag']
                     r['manifests'][manifest['metadata']['digest']]['layers'] = layers
+
                 if history:
+                    if r['id'] == HIDDEN:
+                        log.warning("Hidden repo does not have history info, skipping")
+                        clean.append(r)
+                        clean.sort()
+                        continue
                     for manifest in r['manifests'].keys():
-                        data = self._get('/pulp/docker/v2/%s/manifests/%s' % (blob['id'], manifest))
+                        try:
+                            data = self._get('/pulp/docker/v2/%s/manifests/%s' % (blob['id'], manifest))
+                        except errors.DockPulpError:
+                            log.warning("Manifest unreachable, skipping %s", manifest)
+                            r['manifests'][manifest]['v1parent'] = None
+                            r['manifests'][manifest]['v1id'] = None
+                            continue
                         
                         # Unsure if all v2 images will have v1 history
                         try:

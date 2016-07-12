@@ -835,7 +835,7 @@ def do_list(bopts, bargs):
 
                     output[layer][manifest]['tag'] = repo['manifests'][manifest]['tag']
                     
-                    if opts.history:
+                    if opts.history and not repo['id'] == dockpulp.HIDDEN:
                         output[layer][manifest]['id'] = repo['manifests'][manifest]['v1id']
                         output[layer][manifest]['parent'] = repo['manifests'][manifest]['v1parent']
                                                     
@@ -850,7 +850,7 @@ def do_list(bopts, bargs):
                     log.info('    Blobs: ')
                     for layer in image:
                         log.info('      %s', layer)
-                    if opts.history:
+                    if opts.history and not repo['id'] == dockpulp.HIDDEN:
                         tagoutput.sort()
                         if output[image][manifests[0]]['id'] or output[image][manifests[0]]['parent']:
                             log.info('    v1Compatibility:')
