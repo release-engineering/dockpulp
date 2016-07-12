@@ -906,14 +906,15 @@ class Pulp(object):
 
     def syncRepo(self, env=None, repo=None, config_file=DEFAULT_CONFIG_FILE,
                  prefix_with=PREFIX, feed=None, basic_auth_username=None, 
-                 basic_auth_password=None, ssl_validation=None):
+                 basic_auth_password=None, ssl_validation=None, upstream_name=None):
         """sync repo"""
 
         if not repo.startswith(prefix_with):
             repo = prefix_with + repo
 
         repoinfo = self.listRepos(repo, True)
-        upstream_name = repoinfo[0]['docker-id']
+        if not upstream_name:
+            upstream_name = repoinfo[0]['docker-id']
             
         if not feed:
             self._getRepo(env, config_file)

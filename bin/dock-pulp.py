@@ -977,6 +977,7 @@ def do_sync(bopts, bargs):
     parser = OptionParser(usage=do_sync.__doc__)
     parser.add_option('-p', '--password', help='specify a password')
     parser.add_option('-u', '--username', help='specify a username')
+    parser.add_option('--upstream', help='specify an upstream name docker id to sync from')
     opts, args = parser.parse_args(bargs)
     if len(args) < 2:
         parser.error('You must provide an environment to sync from and a repo id')
@@ -985,7 +986,7 @@ def do_sync(bopts, bargs):
     repo = args[1]
 
     imgs, manifests = p.syncRepo(env, repo, bopts.config_file, basic_auth_username=opts.username, 
-                                 basic_auth_password=opts.password)
+                                 basic_auth_password=opts.password, upstream_name=opts.upstream)
 
     log.info(repo)
     log.info('-' * len(repo))    
