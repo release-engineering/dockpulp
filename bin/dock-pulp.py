@@ -901,6 +901,8 @@ def do_release(bopts, bargs):
     dock-pulp release [options] [repo-id...]
     Publish pulp configurations to Crane, making them live. Accepts regex!"""
     parser = OptionParser(usage=do_release.__doc__)
+    parser.add_option('-s', '--skip-fast-forward', default=False, action='store_true',
+        dest="skip", help='use skip fast forward for release')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     if p.env == 'prod':
@@ -919,7 +921,7 @@ def do_release(bopts, bargs):
                     rids.extend(results)
             else:
                 rids.append(arg)
-        p.crane(repos=rids)
+        p.crane(repos=rids, skip=opts.skip)
     log.info('pulp configuration(s) successfully exported')
 
 def do_remove(bopts, bargs):

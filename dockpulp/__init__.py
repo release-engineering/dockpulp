@@ -375,7 +375,7 @@ class Pulp(object):
 
     """
     """
-    def crane(self, repos=[], wait=True):
+    def crane(self, repos=[], wait=True, skip=False):
         """
         Export pulp configuration to crane for one or more repositories
         """
@@ -397,7 +397,7 @@ class Pulp(object):
             for key in distributorkeys:
                 log.info('updating distributor: %s' % key)
                 url = '/pulp/api/v2/repositories/%s/actions/publish/' % repo
-                kwds={"data": json.dumps({'id': key})}
+                kwds={"data": json.dumps({'id': key, 'skip_fast_forward': skip})}
                 if not wait:
                     results.append(pool.apply_async(self._request,
                                                     args=("post", url,),
