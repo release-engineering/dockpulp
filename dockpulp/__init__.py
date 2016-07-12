@@ -375,7 +375,7 @@ class Pulp(object):
 
     """
     """
-    def crane(self, repos=[], wait=True):
+    def crane(self, repos=[], wait=True, skip=False):
         """
         Export pulp configuration to crane for one or more repositories
         """
@@ -397,7 +397,7 @@ class Pulp(object):
             for key in distributorkeys:
                 log.info('updating distributor: %s' % key)
                 url = '/pulp/api/v2/repositories/%s/actions/publish/' % repo
-                kwds={"data": json.dumps({'id': key})}
+                kwds={"data": json.dumps({'id': key, 'skip_fast_forward': skip})}
                 if not wait:
                     results.append(pool.apply_async(self._request,
                                                     args=("post", url,),
@@ -747,9 +747,21 @@ class Pulp(object):
                     r['manifests'][manifest['metadata']['digest']] = {}
                     r['manifests'][manifest['metadata']['digest']]['tag'] = manifest['metadata']['tag']
                     r['manifests'][manifest['metadata']['digest']]['layers'] = layers
+
                 if history:
+                    if r['id'] == HIDDEN:
+                        log.warning("Hidden repo does not have history info, skipping")
+                        clean.append(r)
+                        clean.sort()
+                        continue
                     for manifest in r['manifests'].keys():
-                        data = self._get('/pulp/docker/v2/%s/manifests/%s' % (blob['id'], manifest))
+                        try:
+                            data = self._get('/pulp/docker/v2/%s/manifests/%s' % (blob['id'], manifest))
+                        except errors.DockPulpError:
+                            log.warning("Manifest unreachable, skipping %s", manifest)
+                            r['manifests'][manifest]['v1parent'] = None
+                            r['manifests'][manifest]['v1id'] = None
+                            continue
                         
                         # Unsure if all v2 images will have v1 history
                         try:

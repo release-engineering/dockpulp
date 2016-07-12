@@ -835,7 +835,7 @@ def do_list(bopts, bargs):
 
                     output[layer][manifest]['tag'] = repo['manifests'][manifest]['tag']
                     
-                    if opts.history:
+                    if opts.history and not repo['id'] == dockpulp.HIDDEN:
                         output[layer][manifest]['id'] = repo['manifests'][manifest]['v1id']
                         output[layer][manifest]['parent'] = repo['manifests'][manifest]['v1parent']
                                                     
@@ -850,7 +850,7 @@ def do_list(bopts, bargs):
                     log.info('    Blobs: ')
                     for layer in image:
                         log.info('      %s', layer)
-                    if opts.history:
+                    if opts.history and not repo['id'] == dockpulp.HIDDEN:
                         tagoutput.sort()
                         if output[image][manifests[0]]['id'] or output[image][manifests[0]]['parent']:
                             log.info('    v1Compatibility:')
@@ -901,6 +901,8 @@ def do_release(bopts, bargs):
     dock-pulp release [options] [repo-id...]
     Publish pulp configurations to Crane, making them live. Accepts regex!"""
     parser = OptionParser(usage=do_release.__doc__)
+    parser.add_option('-s', '--skip-fast-forward', default=False, action='store_true',
+        dest="skip", help='use skip fast forward for release')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     if p.env == 'prod':
@@ -919,7 +921,7 @@ def do_release(bopts, bargs):
                     rids.extend(results)
             else:
                 rids.append(arg)
-        p.crane(repos=rids)
+        p.crane(repos=rids, skip=opts.skip)
     log.info('pulp configuration(s) successfully exported')
 
 def do_remove(bopts, bargs):
