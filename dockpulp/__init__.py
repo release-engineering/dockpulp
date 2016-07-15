@@ -718,11 +718,11 @@ class Pulp(object):
                     for tag in tags:
                         try:
                             r['images'][tag['image_id']].append(tag['tag'])
+                            r['images'][tag['image_id']].sort()
                         except KeyError:
                             log.warning('stale scratch pad data found!')
                             log.warning(
                                 '%s here but not in repo!' % tag['image_id'])
-                        r['images'][tag['image_id']].sort()
                 data = {
                     'criteria': {
                         'type_ids': [V2_C_TYPE],
