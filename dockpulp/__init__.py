@@ -959,26 +959,20 @@ class Pulp(object):
         if not ssl_validation:
             ssl_validation = False
 
+        data = {
+            'override_config': {
+                'ssl_validation': ssl_validation,
+                'feed': feed,
+                'upstream_name': upstream_name,
+                'enable_v1': True,
+            }
+        }
+
         if basic_auth_username and basic_auth_password:
-            data = {
-                'override_config': {
-                    'ssl_validation': ssl_validation,
-                    'feed': feed,
-                    'upstream_name': upstream_name,
-                    'basic_auth_username': basic_auth_username,
-                    'basic_auth_password': basic_auth_password,
-                    'enabled_v1': True
-                }
-            }
-        else:
-            data = {
-                'override_config': {
-                    'ssl_validation': ssl_validation,
-                    'feed': feed,
-                    'upstream_name': upstream_name,
-                    'enabled_v1': True
-                }
-            }
+            data['override_config'].update({
+                'basic_auth_username': basic_auth_username,
+                'basic_auth_password': basic_auth_password,
+            })
 
         log.info('Syncing from %s' % feed)
         log.info('Syncing repo %s' % repo)
