@@ -470,7 +470,12 @@ def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
         log.error('  Crane did not return tag information')
         result['error'] = True
         return result
-        
+
+    if j['name'] != dockerid:
+        log.error('  Crane returned tag information for wrong repository')
+        result['error'] = True
+        return result
+
     p_tags = set(pulp_tags)
     c_tags = set(j['tags'])
 
