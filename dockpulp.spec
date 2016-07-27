@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.27
+Version:	1.28
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -48,6 +48,15 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Wed Jul 27 2016 Brendan Reilly <breilly@redhat.com> 1.28-1
+- bumped version for release (breilly@redhat.com)
+- confirm: verify 'name' key in manifest (twaugh@redhat.com)
+- confirm: test 'name' from tags/list (twaugh@redhat.com)
+- Merge pull request #73 from twaugh/sync-enable-v1 (breilly@redhat.com)
+- copy_filters: new method, used by recreate-hidden script (jluza@redhat.com)
+- sync: fix enable_v1 setting (twaugh@redhat.com)
+- listRepos: avoid traceback on stale scratch pad data (twaugh@redhat.com)
+
 * Tue Jul 12 2016 Brendan Reilly <breilly@redhat.com> 1.27-1
 - Bumping version for new build (breilly@redhat.com)
 - history will now skip over hidden repo, missing manifests
