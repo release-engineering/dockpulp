@@ -372,6 +372,7 @@ def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
             result['error'] = True
             return result
 
+    result['crane_manifests_incorrectly_named'] = []
     try:
         for manifest in pulp_manifests:
             answer = requests.get(url + '/' + manifest, verify=False, cert=(cert,key))
@@ -379,6 +380,13 @@ def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
             log.debug('  status code: %s', answer.status_code)
             if answer.status_code == requests.codes.ok:
                 c_manifests.add(manifest)
+
+            manifest_name = answer.json()['name']
+            if manifest_name != dockerid:
+                log.error('  Incorrect name (%s) in manifest: %s',
+                          manifest_name, manifest)
+                result['error'] = True
+                result['crane_manifests_incorrectly_named'].append(manifest)
 
     except requests.exceptions.SSLError:
         log.error('  Request failed due to invalid cert or key')
@@ -623,10 +631,10 @@ def do_confirm(bopts, bargs):
             tags.append(repo['manifests'][manifest]['tag'])
         # reduce duplicate blobs 
         blobs = list(set(blobs))
+        errorids[repo['id']] = False
         if opts.v1:
             response = _test_repo(p, repo['docker-id'], repo['redirect'], imgs, repo['protected'], opts.cert, opts.key, opts.silent)
             if opts.silent:
-                errorids[repo['id']] = False
                 repoids[repo['id']].update(response)
                 if response['error']:
                     errorids[repo['id']] = True
