@@ -968,6 +968,10 @@ def do_remove(bopts, bargs):
     images = p.listRepos(repos=args[0], content=True)[0]['images']
     for img in args[1:]:
         p.remove(args[0], img)
+    if args[0] == dockpulp.HIDDEN:
+        log.info('removed images')
+        sys.exit(0)
+
     log.info('calculating unneeded layers')
     images = p.listRepos(repos=args[0], content=True)[0]['images']
     tagged_images = set([i for i in images.keys() if len(images[i]) > 0])
