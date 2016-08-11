@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.28
+Version:	1.29
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -48,6 +48,14 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Thu Aug 11 2016 Brendan Reilly <breilly@redhat.com> 1.29-1
+- Added dock-pulp-recreate-hidden to dockpulp.spec (breilly@redhat.com)
+- Bumping version for release (breilly@redhat.com)
+- confirm: choose whether to check v2 content based on /v2/ response
+  (twaugh@redhat.com)
+- CLI: 'remove' should not calculate unneeded layers for hidden repo
+  (twaugh@redhat.com)
+
 * Wed Jul 27 2016 Brendan Reilly <breilly@redhat.com> 1.28-1
 - bumped version for release (breilly@redhat.com)
 - confirm: verify 'name' key in manifest (twaugh@redhat.com)
