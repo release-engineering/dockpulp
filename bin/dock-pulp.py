@@ -599,9 +599,10 @@ def do_confirm(bopts, bargs):
         log.removeHandler(sh)
         log.addHandler(dockpulp.NullHandler())
 
+    auto = 'auto'
     if not opts.v1 and not opts.v2:
         opts.v1 = True
-        opts.v2 = True
+        opts.v2 = auto  # auto, based on /v2/ response from crane
 
     if len(args) > 0:
         rids = []
@@ -640,6 +641,14 @@ def do_confirm(bopts, bargs):
                     errorids[repo['id']] = True
             elif response['error']:
                 errors += 1
+        if opts.v2 == auto:
+            log.debug('  Checking whether v2 is supported by crane')
+            opts.v2 = requests.get(p.registry + '/v2/', verify=False).ok
+            if opts.v2:
+                log.debug('  /v2/ response ok, will check v2')
+            else:
+                log.debug('  /v2/ response not ok, will skip v2')
+
         if opts.v2:
             response = _test_repoV2(p, repo['docker-id'], repo['redirect'], manifests, blobs, tags, repo['protected'], opts.cert, opts.key, opts.silent)
             if opts.silent:
