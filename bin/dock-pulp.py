@@ -378,8 +378,10 @@ def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
             answer = requests.get(url + '/' + manifest, verify=False, cert=(cert,key))
             log.debug('  crane content: %s', answer.content)
             log.debug('  status code: %s', answer.status_code)
-            if answer.status_code == requests.codes.ok:
-                c_manifests.add(manifest)
+            if not answer.ok:
+                continue
+
+            c_manifests.add(manifest)
 
             manifest_name = answer.json()['name']
             if manifest_name != dockerid:
@@ -424,7 +426,7 @@ def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
             answer = requests.head(url + blob, verify=False, 
                                    cert=(cert,key), allow_redirects=True)
             log.debug('  status code: %s', answer.status_code)
-            if answer.status_code == requests.codes.ok:
+            if answer.ok:
                 c_blobs.add(blob)
 
     except requests.exceptions.SSLError:
@@ -465,8 +467,8 @@ def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
 
     log.debug('  crane content: %s', answer.content)
     log.debug('  status code: %s', answer.status_code)
-    if answer.status_code == requests.codes.not_found:
-        log.error('  Crane returned a 404')
+    if not answer.ok:
+        log.error('  Crane returned error')
         result['error'] = True
         return result
 
