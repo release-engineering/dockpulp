@@ -98,7 +98,8 @@ def get_versions(md):
     vers = {}
     for data in md:
         image_id = data.get('id', data.get('Id'))
-        vers[image_id] = data['docker_version']
+        if 'docker_version' in data.keys():
+            vers[image_id] = data['docker_version']
     return vers
 
 def check_repo(tarfile_path):
