@@ -425,7 +425,8 @@ class Pulp(object):
                 except KeyError:
                     pass
 
-                override['skip_fast_forward'] = skip
+                if skip:
+                    override['skip_fast_forward'] = skip
                 log.info('updating distributor: %s' % dist_id)
                 url = '/pulp/api/v2/repositories/%s/actions/publish/' % repo
                 kwds={"data": json.dumps({'id': dist_id, 'override_config': override})}
