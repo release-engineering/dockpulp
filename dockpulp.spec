@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.30
+Version:	1.31
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -48,6 +48,10 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Tue Aug 23 2016 Brendan Reilly <breilly@redhat.com> 1.31-1
+- Only add skip fast forward if true (breilly@redhat.com)
+- Added release order for distributors (breilly@redhat.com)
+
 * Thu Aug 18 2016 Brendan Reilly <breilly@redhat.com> 1.30-1
 - Bumping version for release (breilly@redhat.com)
 
