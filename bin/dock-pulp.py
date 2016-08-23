@@ -804,6 +804,8 @@ def do_list(bopts, bargs):
         help='show details (not content) about each repository')
     parser.add_option('--history', default=False, action='store_true',
         help='show v1 compatibility history')
+    parser.add_option('-m', '--manifests', default=False, action='store_true',
+        help='only list manifests and their tags, no blobs')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     if len(args) == 0:
@@ -871,9 +873,10 @@ def do_list(bopts, bargs):
                     for manifest in manifests:
                         log.info('  Manifest: %s  Tag: %s', manifest, output[image][manifest]['tag'])
                         tagoutput.append(output[image][manifest]['tag'])
-                    log.info('    Blobs: ')
-                    for layer in image:
-                        log.info('      %s', layer)
+                    if not opts.manifests:
+                        log.info('    Blobs: ')
+                        for layer in image:
+                            log.info('      %s', layer)
                     if opts.history and not repo['id'] == dockpulp.HIDDEN:
                         tagoutput.sort()
                         if output[image][manifests[0]]['id'] or output[image][manifests[0]]['parent']:
