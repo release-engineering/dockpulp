@@ -103,7 +103,7 @@ class RequestsHttpCaller(object):
                     warnings.simplefilter("ignore")
                 answer = c(url, **kwargs)
 
-        except requests.exceptions.SSLError, se:            
+        except requests.exceptions.SSLError, se:
             if not self.verify:
                 raise errors.DockPulpLoginError(
                     'Expired or bad certificate, please re-login')
@@ -187,7 +187,7 @@ class Pulp(object):
                     return True
                 elif boolean == "no":
                     return False
-        raise errors.DockPulpConfigError('Redirect must be \'yes\' or \'no\'')    
+        raise errors.DockPulpConfigError('Redirect must be \'yes\' or \'no\'')
 
     def _set_cert(self, attrs):
         for key, cert_path in attrs:
@@ -315,13 +315,13 @@ class Pulp(object):
             data=json.dumps(data))
         return result
 
-    def cleanOrphans(self):
+    def cleanOrphans(self, content_type=V1_C_TYPE):
         """
-        Remove orphaned docker content
+        Remove orphaned docker content of given type
         """
-        raise error.DockPulpError('Removing docker orphans not implemented in Pulp 2.4')
-        #tid = self._delete('/pulp/api/v2/content/orphans/%s/' % V1_C_TYPE)
-        #self.watch(tid)
+        log.debug('Removing docker orphans not implemented in Pulp 2.4')
+        tid = self._delete('/pulp/api/v2/content/orphans/%s/' % content_type)
+        self.watch(tid)
 
     def cleanUploadRequests(self):
         """
@@ -335,7 +335,7 @@ class Pulp(object):
         """
         Copy an image from one repo to another
         """
-        
+
         if img.startswith("sha256:"):
 
             data = {
@@ -350,7 +350,7 @@ class Pulp(object):
                 },
                 'override_config': {}
             }
-            
+
         else:
 
             data = {
@@ -464,7 +464,7 @@ class Pulp(object):
                 registry_id = repo_id.replace('redhat-', '').replace('-', '/', 1)
 
         rurl = url
-        if rurl and not rurl.startswith('http'): 
+        if rurl and not rurl.startswith('http'):
             rurl = self.cdnhost + url
         if not desc:
             desc = 'No description'
@@ -657,12 +657,12 @@ class Pulp(object):
     def isRedirect(self):
         return self.redirect
 
-    def listOrphans(self):
+    def listOrphans(self, content_type=V1_C_TYPE):
         """
-        return a list of orphaned content
+        return a list of orphaned content of given type
         """
-        log.debug('getting list of orphaned docker_images')
-        return self._get('/pulp/api/v2/content/orphans/%s/' % V1_C_TYPE)
+        log.debug('getting list of orphaned %s' % content_type)
+        return self._get('/pulp/api/v2/content/orphans/%s/' % content_type)
 
     def listRepos(self, repos=None, content=False, history=False):
         """
@@ -795,7 +795,7 @@ class Pulp(object):
                             r['manifests'][manifest]['v1parent'] = None
                             r['manifests'][manifest]['v1id'] = None
                             continue
-                        
+
                         # Unsure if all v2 images will have v1 history
                         try:
                             hist = json.loads(data['history'][0]['v1Compatibility'])
@@ -899,7 +899,7 @@ class Pulp(object):
                 'limit': 1,
                 'override_config': {}
             }
-            
+
         else:
 
             data = {
@@ -950,7 +950,7 @@ class Pulp(object):
         log.setLevel(logging.DEBUG)
 
     def syncRepo(self, env=None, repo=None, config_file=DEFAULT_CONFIG_FILE,
-                 prefix_with=PREFIX, feed=None, basic_auth_username=None, 
+                 prefix_with=PREFIX, feed=None, basic_auth_username=None,
                  basic_auth_password=None, ssl_validation=None, upstream_name=None):
         """sync repo"""
 
@@ -960,7 +960,7 @@ class Pulp(object):
         repoinfo = self.listRepos(repo, True)
         if not upstream_name:
             upstream_name = repoinfo[0]['docker-id']
-            
+
         if not feed:
             self._getRepo(env, config_file)
             feed = self.syncenv
@@ -995,7 +995,7 @@ class Pulp(object):
             oldimgs = []
         else:
             oldimgs = repoinfo['images'].keys()
-            
+
         if len(repoinfo['manifests'].keys()) == 0:
             oldmanifests = []
         else:

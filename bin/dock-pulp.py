@@ -204,7 +204,7 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, k
         log.error('  Crane did not return json')
         result['error'] = True
         return result
-        
+
     p_imgs = set(pulp_imgs)
     c_imgs = set([i['id'] for i in j])
 
@@ -224,7 +224,7 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, k
     if pdiff or cdiff:
         pdiff = ', '.join((p_imgs - c_imgs))
         cdiff = ', '.join((c_imgs - p_imgs))
-        
+
         log.error('  Pulp images and Crane images are not the same:')
         if pdiff:
             log.error('    In Pulp but not Crane: ' + pdiff)
@@ -232,7 +232,7 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, k
             log.error('    In Crane but not Pulp: ' + cdiff)
         result['error'] = True
         return result
-                    
+
     log.info('  Pulp and Crane data reconciled correctly, testing content')
 
     if not redirect:
@@ -339,12 +339,12 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, k
                 if silent:
                     continue
                 return result
-                
+
             try:
                 parents.append(j['parent'])
             except KeyError:
                 log.debug('  Image has no parent: %s' % img)
-    
+
     log.info('  All ancestors reachable, tests pass')
     missing = list(missing)
     missing.sort()
@@ -394,7 +394,7 @@ def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
         log.error('  Request failed due to invalid cert or key')
         result['error'] = True
         return result
-        
+
     p_manifests = set(pulp_manifests)
 
     pdiff = p_manifests - c_manifests
@@ -411,7 +411,7 @@ def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
         log.error('    In Pulp but not Crane: %s', pdiff)
         result['error'] = True
         return result
-                    
+
     result['reachable_manifests'] = pulp_manifests
 
     log.info('  Pulp and Crane manifests reconciled correctly, testing blobs')
@@ -423,7 +423,7 @@ def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
 
     try:
         for blob in pulp_blobs:
-            answer = requests.head(url + blob, verify=False, 
+            answer = requests.head(url + blob, verify=False,
                                    cert=(cert,key), allow_redirects=True)
             log.debug('  status code: %s', answer.status_code)
             if answer.ok:
@@ -433,7 +433,7 @@ def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
         log.error('  Request failed due to invalid cert or key')
         result['error'] = True
         return result
-        
+
     p_blobs = set(pulp_blobs)
     pdiff = p_blobs - c_blobs
     pdiff = list(pdiff)
@@ -504,7 +504,7 @@ def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
     if pdiff or cdiff:
         pdiff = ', '.join((p_tags - c_tags))
         cdiff = ', '.join((c_tags - p_tags))
-        
+
         log.error('  Pulp tags and Crane tags are not the same:')
         if pdiff:
             log.error('    In Pulp but not Crane: ' + pdiff)
@@ -571,8 +571,8 @@ def do_clone(bopts, bargs):
     log.info('cloning %s repo to %s' % (args[0], repoid))
     oldinfo = p.listRepos(args[0], content=True)[0]
     newrepo = p.createRepo(repoid, oldinfo['redirect'],
-                        desc=oldinfo['description'], title=oldinfo['title'], 
-                           protected=get_bool_from_string(oldinfo['protected']), 
+                        desc=oldinfo['description'], title=oldinfo['title'],
+                           protected=get_bool_from_string(oldinfo['protected']),
                            productline=productid)
     log.info('cloning content in %s to %s' % (args[0], repoid))
     if len(oldinfo['images']) > 0:
@@ -632,7 +632,7 @@ def do_confirm(bopts, bargs):
         for manifest in manifests:
             blobs.extend(repo['manifests'][manifest]['layers'])
             tags.append(repo['manifests'][manifest]['tag'])
-        # reduce duplicate blobs 
+        # reduce duplicate blobs
         blobs = list(set(blobs))
         errorids[repo['id']] = False
         if opts.v1:
@@ -665,7 +665,7 @@ def do_confirm(bopts, bargs):
     if opts.silent:
         log.addHandler(silent)
         log.info(repoids)
-    
+
     if errors >= 1:
         sys.exit(1)
 
@@ -684,7 +684,7 @@ def do_copy(bopts, bargs):
         if opts.source:
             p.copy(args[0], img, opts.source)
         else:
-            p.copy(args[0], img)    
+            p.copy(args[0], img)
         log.info('copying successful')
 
 def do_create(bopts, bargs):
@@ -718,7 +718,7 @@ def do_create(bopts, bargs):
             parser.error('You need a product line (rhel6, openshift3, etc), image name and a content-url')
         elif ( len(args) != 2 and len(args) != 3 ) and not p.isRedirect():
             parser.error('You need a product line (rhel6, openshift3, etc) and image name')
-        productid = args[0] 
+        productid = args[0]
         repoid = 'redhat-%s-%s' % (args[0], args[1])
         if len(args) == 3:
             url = args[2]
@@ -839,7 +839,7 @@ def do_list(bopts, bargs):
                 imgs = repo['images'].keys()
                 imgs.sort()
                 for img in imgs:
-                    log.info('  %s (tags: %s)', 
+                    log.info('  %s (tags: %s)',
                              img, ', '.join(repo['images'][img]))
                 #for id, tags in repo['images'].items():
                 #    log.info('  %s (tags: %s)' % (id, ', '.join(tags)))
@@ -858,11 +858,11 @@ def do_list(bopts, bargs):
                     output[layer].setdefault(manifest, {})
 
                     output[layer][manifest]['tag'] = repo['manifests'][manifest]['tag']
-                    
+
                     if opts.history and not repo['id'] == dockpulp.HIDDEN:
                         output[layer][manifest]['id'] = repo['manifests'][manifest]['v1id']
                         output[layer][manifest]['parent'] = repo['manifests'][manifest]['v1parent']
-                                                    
+
                 images = output.keys()
                 for image in images:
                     log.info('')
@@ -879,7 +879,7 @@ def do_list(bopts, bargs):
                         if output[image][manifests[0]]['id'] or output[image][manifests[0]]['parent']:
                             log.info('    v1Compatibility:')
                             if output[image][manifests[0]]['id']:
-                                log.info('      %s (tags: %s)', output[image][manifests[0]]['id'], 
+                                log.info('      %s (tags: %s)', output[image][manifests[0]]['id'],
                                                                   ', '.join(tagoutput))
                             if output[image][manifests[0]]['parent']:
                                 log.info('      %s (tags: )', output[image][manifests[0]]['parent'])
@@ -948,6 +948,34 @@ def do_release(bopts, bargs):
         p.crane(repos=rids, skip=opts.skip)
     log.info('pulp configuration(s) successfully exported')
 
+def do_orphans(bopts, bargs):
+    """
+    dock-pulp orphans [--remove]
+    List orphaned content with option to remove it"""
+    parser = OptionParser(usage=do_orphans.__doc__)
+    parser.add_option('-r', '--remove', default=False, action='store_true',
+        help='Remove all orphaned content. USE WITH CAUTION')
+    opts, args = parser.parse_args(bargs)
+    p = pulp_login(bopts)
+
+    for content_type in (dockpulp.V1_C_TYPE,
+                         dockpulp.V2_C_TYPE,
+                         dockpulp.V2_BLOB):
+        orphans = p.listOrphans(content_type)
+        pretty_content_type = content_type.replace('_', ' ') + 's'
+        log.info('Orphan %s:' % pretty_content_type)
+
+        if len(orphans) == 0:
+            log.info('  No orphans found')
+        for orphan in orphans:
+            display_id = orphan.get('image_id') or orphan.get('digest')
+            log.info('  %s' % display_id)
+
+        if opts.remove:
+            log.info('removing all orphaned %s' % pretty_content_type)
+            p.cleanOrphans(content_type)
+            log.info('Orphaned %s removed' % pretty_content_type)
+
 def do_remove(bopts, bargs):
     """
     dock-pulp remove [options] repo-id image-id [image-id...]
@@ -961,6 +989,7 @@ def do_remove(bopts, bargs):
         help='Remove all orphaned content. USE WITH CAUTION')
     opts, args = parser.parse_args(bargs)
     if opts.list_orphans:
+        log.warning('DEPRECATED: Use dock-pulp orphans instead.')
         p = pulp_login(bopts)
         orphans = p.listOrphans()
         log.info('Orphan docker images:')
@@ -1001,7 +1030,7 @@ def do_remove(bopts, bargs):
     log.info('removed images and unneeded layers')
 
 def do_sync(bopts, bargs):
-    """                                                                          
+    """
     dock-pulp sync [options] <env to sync from> repo-id
     Sync a repo from one environment to another"""
     parser = OptionParser(usage=do_sync.__doc__)
@@ -1015,11 +1044,11 @@ def do_sync(bopts, bargs):
     env = args[0]
     repo = args[1]
 
-    imgs, manifests = p.syncRepo(env, repo, bopts.config_file, basic_auth_username=opts.username, 
+    imgs, manifests = p.syncRepo(env, repo, bopts.config_file, basic_auth_username=opts.username,
                                  basic_auth_password=opts.password, upstream_name=opts.upstream)
 
     log.info(repo)
-    log.info('-' * len(repo))    
+    log.info('-' * len(repo))
     log.info('synced images:')
 
     if len(imgs) == 0:
@@ -1094,7 +1123,7 @@ def do_update(bopts, bargs):
         help='set the docker ID (name) for this repo')
     parser.add_option('-r', '--redirect', help='set the redirect URL')
     parser.add_option('-t', '--title', help='set the title (short desc)')
-    parser.add_option('-p', '--protected', 
+    parser.add_option('-p', '--protected',
         help='set the protected bit. Accepts (t, true, True) for True, (f, false, False) for False')
     opts, args = parser.parse_args(bargs)
     if len(args) < 1:
