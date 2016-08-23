@@ -41,7 +41,7 @@ except ImportError:
 import errors
 import imgutils
 
-__version__ = "1.30"
+__version__ = "1.31"
 
 V2_C_TYPE = 'docker_manifest'
 V2_BLOB = 'docker_blob'
@@ -149,7 +149,8 @@ class Pulp(object):
                                ('registries', "_set_env_attr", "registry"),
                                ('filers', "_set_env_attr", "cdnhost"),
                                ('redirect', "_set_bool", "redirect"),
-                               ('distributors', "_set_env_attr", "distributors"))
+                               ('distributors', "_set_env_attr", "distributors"),
+                               ('release_order', "_set_env_attr", "release_order"))
     OPTIONAL_CONF_SECTIONS = (('certificates', "_set_cert", None),
                               ('chunk_size', "_set_int_attr", "chunk_size"),
                               ('timeout', "_set_int_attr", "timeout"))
@@ -412,16 +413,24 @@ class Pulp(object):
             pool = multiprocessing.Pool()
 
         for repo in repos:
-            distributorkeys = []
-            disturl = '/pulp/api/v2/repositories/%s/distributors/' % repo
-            log.debug("calling %s", disturl)
-            blob = self._get(disturl)
-            for did in blob:
-                distributorkeys.append(did['id'])
-            for key in distributorkeys:
-                log.info('updating distributor: %s' % key)
+            releasekeys = self.release_order.strip().split(",")
+            distributors = []
+            for key in releasekeys:
+                distributors.append(self.distributorconf[key])
+            for distributor in distributors:
+                dist_id = distributor['distributor_id']
+                override = {}
+                try:
+                    override = distributor['override_config']
+                except KeyError:
+                    pass
+
+                if skip:
+                    override['skip_fast_forward'] = skip
+                log.info('updating distributor: %s' % dist_id)
                 url = '/pulp/api/v2/repositories/%s/actions/publish/' % repo
-                kwds={"data": json.dumps({'id': key, 'skip_fast_forward': skip})}
+                kwds={"data": json.dumps({'id': dist_id, 'override_config': override})}
+                log.debug('sending %s' % kwds)
                 if not wait:
                     results.append(pool.apply_async(self._request,
                                                     args=("post", url,),
