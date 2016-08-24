@@ -872,7 +872,8 @@ def do_list(bopts, bargs):
                     tagoutput = []
                     for manifest in manifests:
                         log.info('  Manifest: %s  Tag: %s', manifest, output[image][manifest]['tag'])
-                        tagoutput.append(output[image][manifest]['tag'])
+                        if ' (active)' in output[image][manifest]['tag']:
+                            tagoutput.append(output[image][manifest]['tag'].replace(' (active)', ''))
                     if not opts.manifests:
                         log.info('    Blobs: ')
                         for layer in image:
