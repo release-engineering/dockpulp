@@ -771,6 +771,23 @@ class Pulp(object):
                     '/pulp/api/v2/repositories/%s/search/units/' % blob['id'],
                     data=json.dumps(data))
                 log.debug(pprint.pformat(data))
+
+                data = {
+                    'criteria': {
+                        'type_ids': [V2_TAG],
+                        'filters': {
+                            'unit': {}
+                        }
+                    }
+                }
+
+                log.debug('getting tag information with request:')
+                log.debug(pprint.pformat(data))
+                tags = self._post(
+                    '/pulp/api/v2/repositories/%s/search/units/' % blob['id'],
+                    data=json.dumps(data))
+                log.debug(pprint.pformat(data))
+
                 r['manifests'] = {}
                 for manifest in manifests:
                     fs_layers = manifest['metadata']['fs_layers']
@@ -780,6 +797,9 @@ class Pulp(object):
                     r['manifests'][manifest['metadata']['digest']] = {}
                     r['manifests'][manifest['metadata']['digest']]['tag'] = manifest['metadata']['tag']
                     r['manifests'][manifest['metadata']['digest']]['layers'] = layers
+
+                for tag in tags:
+                    r['manifests'][tag['metadata']['manifest_digest']]['tag'] += ' (active)'
 
                 if history:
                     if r['id'] == HIDDEN:
