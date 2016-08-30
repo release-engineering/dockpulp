@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.31
+Version:	1.32
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -48,6 +48,14 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Tue Aug 30 2016 Brendan Reilly <breilly@redhat.com> 1.32-1
+- Bumping version for release (breilly@redhat.com)
+- Cleaned up history output (breilly@redhat.com)
+- Added --manifests option for cleaner list output (breilly@redhat.com)
+- Tags that can be pulled are now marked as 'active' (breilly@redhat.com)
+- Merge pull request #82 from lcarva/clean-orphans (breilly@redhat.com)
+- Display and remove v1 and v2 orphaned content (lucarval@redhat.com)
+
 * Tue Aug 23 2016 Brendan Reilly <breilly@redhat.com> 1.31-1
 - Only add skip fast forward if true (breilly@redhat.com)
 - Added release order for distributors (breilly@redhat.com)
