@@ -852,6 +852,7 @@ def do_list(bopts, bargs):
             else:
                 manifests = repo['manifests'].keys()
                 manifests.sort()
+                tags = repo['tags']
                 output = {}
                 for manifest in manifests:
                     layer = tuple(repo['manifests'][manifest]['layers'])
@@ -859,7 +860,14 @@ def do_list(bopts, bargs):
                     output.setdefault(layer, {})
                     output[layer].setdefault(manifest, {})
 
-                    output[layer][manifest]['tag'] = repo['manifests'][manifest]['tag']
+                    tag = repo['manifests'][manifest]['tag']
+                    output[layer][manifest]['tag'] = tag
+                    if tags[tag] == manifest:
+                        active_marker = ' (active)'
+                    else:
+                        active_marker = ''
+
+                    output[layer][manifest]['active'] = active_marker
 
                     if opts.history and not repo['id'] == dockpulp.HIDDEN:
                         output[layer][manifest]['id'] = repo['manifests'][manifest]['v1id']
@@ -871,9 +879,11 @@ def do_list(bopts, bargs):
                     manifests = output[image].keys()
                     tagoutput = []
                     for manifest in manifests:
-                        log.info('  Manifest: %s  Tag: %s', manifest, output[image][manifest]['tag'])
-                        if ' (active)' in output[image][manifest]['tag']:
-                            tagoutput.append(output[image][manifest]['tag'].replace(' (active)', ''))
+                        tag = output[image][manifest]['tag']
+                        is_active = output[image][manifest]['active']
+                        log.info('  Manifest: %s  Tag: %s%s', manifest, tag, is_active)
+                        if is_active:
+                            tagoutput.append(tag)
                     if not opts.manifests:
                         log.info('    Blobs: ')
                         for layer in image:
