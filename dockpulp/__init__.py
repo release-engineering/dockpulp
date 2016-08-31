@@ -798,8 +798,9 @@ class Pulp(object):
                     r['manifests'][manifest['metadata']['digest']]['tag'] = manifest['metadata']['tag']
                     r['manifests'][manifest['metadata']['digest']]['layers'] = layers
 
+                r['tags'] = {}
                 for tag in tags:
-                    r['manifests'][tag['metadata']['manifest_digest']]['tag'] += ' (active)'
+                    r['tags'][tag['metadata']['name']] = tag['metadata']['manifest_digest']
 
                 if history:
                     if r['id'] == HIDDEN:
