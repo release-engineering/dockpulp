@@ -729,21 +729,23 @@ class Pulp(object):
                 r['distributors'] = None
 
             if content or history:
-                # get v1 first
+                # Fetch all content in a single request
                 data = {
                     'criteria': {
-                        'type_ids': [V1_C_TYPE],
+                        'type_ids': [V1_C_TYPE, V2_C_TYPE, V2_BLOB, V2_TAG],
                         'filters': {
                             'unit': {}
                         }
                     }
                 }
-                log.debug('getting image information with request:')
+                log.debug('getting unit information with request:')
                 log.debug(pprint.pformat(data))
-                imgs = self._post(
+                units = self._post(
                     '/pulp/api/v2/repositories/%s/search/units/' % blob['id'],
                     data=json.dumps(data))
                 r['images'] = {}
+                imgs = [unit for unit in units
+                        if unit['unit_type_id'] == V1_C_TYPE]
                 for img in imgs:
                     r['images'][img['metadata']['image_id']] = []
                 if blob['scratchpad'].has_key('tags'):
@@ -756,47 +758,39 @@ class Pulp(object):
                             log.warning('stale scratch pad data found!')
                             log.warning(
                                 '%s here but not in repo!' % tag['image_id'])
-                data = {
-                    'criteria': {
-                        'type_ids': [V2_C_TYPE],
-                        'filters': {
-                            'unit': {}
-                        }
-                    }
-                }
+                manifests = [unit for unit in units
+                             if unit['unit_type_id'] == V2_C_TYPE]
 
-                log.debug('getting manifest information with request:')
-                log.debug(pprint.pformat(data))
-                manifests = self._post(
-                    '/pulp/api/v2/repositories/%s/search/units/' % blob['id'],
-                    data=json.dumps(data))
-                log.debug(pprint.pformat(data))
+                v2_blobs = {}  # digest -> seen reference?
+                for unit in units:
+                    if unit['unit_type_id'] == V2_BLOB:
+                        v2_blobs[unit['metadata']['digest']] = False
 
-                data = {
-                    'criteria': {
-                        'type_ids': [V2_TAG],
-                        'filters': {
-                            'unit': {}
-                        }
-                    }
-                }
-
-                log.debug('getting tag information with request:')
-                log.debug(pprint.pformat(data))
-                tags = self._post(
-                    '/pulp/api/v2/repositories/%s/search/units/' % blob['id'],
-                    data=json.dumps(data))
-                log.debug(pprint.pformat(data))
+                tags = [unit for unit in units
+                        if unit['unit_type_id'] == V2_TAG]
 
                 r['manifests'] = {}
                 for manifest in manifests:
                     fs_layers = manifest['metadata']['fs_layers']
                     layers = []
                     for layer in fs_layers:
-                        layers.append(layer['blob_sum'])
+                        blob_sum = layer['blob_sum']
+                        if blob_sum in v2_blobs:
+                            v2_blobs[blob_sum] = True
+                            layers.append(blob_sum)
+                        else:
+                            log.warning('manifest %s references blob %s '
+                                        'but this is not present',
+                                        manifest['metadata']['digest'],
+                                        blob_sum)
+
                     r['manifests'][manifest['metadata']['digest']] = {}
                     r['manifests'][manifest['metadata']['digest']]['tag'] = manifest['metadata']['tag']
                     r['manifests'][manifest['metadata']['digest']]['layers'] = layers
+
+                for v2_blob, seen_ref in v2_blobs.items():
+                    if not seen_ref:
+                        log.warning("unreferenced blob present: %s", v2_blob)
 
                 r['tags'] = {}
                 for tag in tags:
