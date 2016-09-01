@@ -862,10 +862,13 @@ def do_list(bopts, bargs):
 
                     tag = repo['manifests'][manifest]['tag']
                     output[layer][manifest]['tag'] = tag
-                    if tags[tag] == manifest:
-                        active_marker = ' (active)'
-                    else:
-                        active_marker = ''
+
+                    active_marker = ''
+                    # Is there a docker_tag unit for this name?
+                    if tag in tags:
+                        # Does it reference this manifest?
+                        if tags[tag] == manifest:
+                            active_marker = ' (active)'
 
                     output[layer][manifest]['active'] = active_marker
 
