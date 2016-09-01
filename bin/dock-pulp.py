@@ -373,6 +373,7 @@ def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
             return result
 
     result['crane_manifests_incorrectly_named'] = []
+    blobs_to_test = set()
     try:
         for manifest in pulp_manifests:
             answer = requests.get(url + '/' + manifest, verify=False, cert=(cert,key))
@@ -383,7 +384,13 @@ def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
 
             c_manifests.add(manifest)
 
-            manifest_name = answer.json()['name']
+            manifest_json = answer.json()
+
+            # Find out which blobs it references
+            for fs_layer in manifest_json['fsLayers']:
+                blobs_to_test.add(fs_layer['blobSum'])
+
+            manifest_name = manifest_json['name']
             if manifest_name != dockerid:
                 log.error('  Incorrect name (%s) in manifest: %s',
                           manifest_name, manifest)
@@ -417,12 +424,12 @@ def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
     log.info('  Pulp and Crane manifests reconciled correctly, testing blobs')
 
     url = dpo.registry + '/v2/' + dockerid + '/blobs/'
-    log.info('  Testing Pulp and Crane blobs')
+    log.info('  Testing expected and available blobs')
     log.debug('  contacting %s', url)
     c_blobs = set()
 
     try:
-        for blob in pulp_blobs:
+        for blob in blobs_to_test:
             answer = requests.head(url + blob, verify=False,
                                    cert=(cert,key), allow_redirects=True)
             log.debug('  status code: %s', answer.status_code)
@@ -434,25 +441,25 @@ def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
         result['error'] = True
         return result
 
-    p_blobs = set(pulp_blobs)
+    p_blobs = set(blobs_to_test)
     pdiff = p_blobs - c_blobs
     pdiff = list(pdiff)
     pdiff.sort()
     result['blobs_in_pulp_not_crane'] = pdiff
 
-    log.debug('  crane blobs: %s', c_blobs)
-    log.debug('  pulp blobs: %s', p_blobs)
+    log.debug('  available blobs: %s', c_blobs)
+    log.debug('  expected blobs: %s', p_blobs)
 
     if pdiff:
         pdiff = ', '.join((p_blobs - c_blobs))
-        log.error('  Pulp blobs and Crane blobs are not the same:')
-        log.error('    In Pulp but not Crane: ' + pdiff)
+        log.error('  Expected blobs and available blobs are not the same:')
+        log.error('    Expected but not available: ' + pdiff)
         result['error'] = True
         return result
 
     result['reachable_blobs'] = pulp_blobs
 
-    log.info('  Pulp and Crane blobs reconciled correctly, testing tags')
+    log.info('  Expected and available blobs reconciled correctly, testing tags')
 
     url = dpo.registry + '/v2/' + dockerid + '/tags/list'
     log.info('  Testing Pulp and Crane tags')
