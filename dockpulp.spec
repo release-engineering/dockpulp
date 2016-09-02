@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.33
+Version:	1.34
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -48,6 +48,13 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Fri Sep 02 2016 Brendan Reilly <breilly@redhat.com> 1.34-1
+- Bumped version for release (breilly@redhat.com)
+- Updated tito.props (breilly@redhat.com)
+- Report missing v2 blobs (twaugh@redhat.com)
+- Do not assume there is a docker_tag unit for each manifest's tag name
+  (twaugh@redhat.com)
+
 * Wed Aug 31 2016 Brendan Reilly <breilly@redhat.com> 1.33-1
 - Bumping version for release (breilly@redhat.com)
 - Fix confirm errors caused by '(active)' changes (twaugh@redhat.com)
