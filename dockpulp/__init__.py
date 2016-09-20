@@ -403,7 +403,7 @@ class Pulp(object):
 
     """
     """
-    def crane(self, repos=[], wait=True, skip=False):
+    def crane(self, repos=[], wait=True, skip=False, force_refresh=False):
         """
         Export pulp configuration to crane for one or more repositories
         """
@@ -430,6 +430,8 @@ class Pulp(object):
 
                 if skip:
                     override['skip_fast_forward'] = skip
+                if force_refresh:
+                    override['force_refresh'] = force_refresh
                 log.info('updating distributor: %s' % dist_id)
                 url = '/pulp/api/v2/repositories/%s/actions/publish/' % repo
                 kwds = {"data": json.dumps({'id': dist_id, 'override_config': override})}

@@ -969,6 +969,9 @@ def do_release(bopts, bargs):
     parser = OptionParser(usage=do_release.__doc__)
     parser.add_option('-s', '--skip-fast-forward', default=False, action='store_true',
                       dest="skip", help='use skip fast forward for release')
+    parser.add_option('-r', '--force-refresh', default=False, action='store_true',
+                      dest="force_refresh", help='removes extra content on filer that is not in pulp')
+
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     if p.env == 'prod':
@@ -987,7 +990,7 @@ def do_release(bopts, bargs):
                     rids.extend(results)
             else:
                 rids.append(arg)
-        p.crane(repos=rids, skip=opts.skip)
+        p.crane(repos=rids, skip=opts.skip, force_refresh=opts.force_refresh)
     log.info('pulp configuration(s) successfully exported')
 
 
