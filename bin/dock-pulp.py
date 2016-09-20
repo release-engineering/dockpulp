@@ -971,7 +971,6 @@ def do_release(bopts, bargs):
                       dest="skip", help='use skip fast forward for release')
     parser.add_option('-r', '--force-refresh', default=False, action='store_true',
                       dest="force_refresh", help='removes extra content on filer that is not in pulp')
-
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     if p.env == 'prod':
