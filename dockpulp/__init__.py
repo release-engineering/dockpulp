@@ -52,6 +52,7 @@ DEFAULT_CONFIG_FILE = '/etc/dockpulp.conf'
 DEFAULT_DISTRIBUTORS_FILE = '/etc/dockpulpdistributors.json'
 PREFIX = 'redhat-'
 
+
 # Setup our logger
 # Null logger to avoid spurious messages, add a handler in app code
 class NullHandler(logging.Handler):
@@ -66,6 +67,7 @@ log.setLevel(logging.INFO)
 # Add the null handler
 h = NullHandler()
 log.addHandler(h)
+
 
 class RequestsHttpCaller(object):
     def __init__(self, url):
@@ -124,7 +126,7 @@ class RequestsHttpCaller(object):
             self._error(answer.status_code, url)
         elif answer.status_code == 202:
             log.info('Pulp spawned a subtask: %s' %
-                r['spawned_tasks'][0]['task_id'])
+                     r['spawned_tasks'][0]['task_id'])
             # TODO: blindly takes the first task only
             return r['spawned_tasks'][0]['task_id']
         return r
@@ -142,6 +144,7 @@ class RequestsHttpCaller(object):
     def _delete(self, api, **kwargs):
         return self._request('delete', api, **kwargs)
     """
+
 
 class Pulp(object):
     #                           section, process function, target attribute
@@ -163,7 +166,7 @@ class Pulp(object):
         The constructor sets up the remote hostname given an environment.
         Accepts shorthand, or full hostnames.
         """
-        self.certificate = None # set in login()
+        self.certificate = None  # set in login()
         self.key = None
         self.env = env
         self.load_configuration(config_file)
@@ -259,7 +262,7 @@ class Pulp(object):
                 raise errors.DockPulpConfigError('Missing section: %s' % sect)
             if not conf.has_option(sect, env):
                 raise errors.DockPulpConfigError('%s section is missing %s' %
-                    (sect, env))
+                                                 (sect, env))
 
         self.syncenv = conf.get('registries', env)
 
@@ -268,7 +271,7 @@ class Pulp(object):
         log.debug('getting tag data...')
         params = {'details': True}
         rinfo = self._get('/pulp/api/v2/repositories/%s/' % repo,
-             params=params)
+                          params=params)
         if rinfo['scratchpad'].has_key('tags'):
             return rinfo['scratchpad']['tags']
         else:
@@ -312,7 +315,7 @@ class Pulp(object):
         log.debug(data)
 
         result = self._post('/pulp/api/v2/repositories/%s/distributors/' % repo,
-            data=json.dumps(data))
+                            data=json.dumps(data))
         return result
 
     def cleanOrphans(self, content_type=V1_C_TYPE):
@@ -341,8 +344,8 @@ class Pulp(object):
             data = {
                 'source_repo_id': source,
                 'criteria': {
-                    'type_ids' : [V2_C_TYPE, V2_BLOB, V2_TAG],
-                    'filters' : {
+                    'type_ids': [V2_C_TYPE, V2_BLOB, V2_TAG],
+                    'filters': {
                         'unit': {
                             "$or": [{'digest': img}, {'manifest_digest': img}]
                         }
@@ -356,9 +359,9 @@ class Pulp(object):
             data = {
                 'source_repo_id': source,
                 'criteria': {
-                    'type_ids' : [V1_C_TYPE],
-                    'filters' : {
-                        'unit' : {
+                    'type_ids': [V1_C_TYPE],
+                    'filters': {
+                        'unit': {
                             'image_id': img
                         }
                     }
@@ -429,7 +432,7 @@ class Pulp(object):
                     override['skip_fast_forward'] = skip
                 log.info('updating distributor: %s' % dist_id)
                 url = '/pulp/api/v2/repositories/%s/actions/publish/' % repo
-                kwds={"data": json.dumps({'id': dist_id, 'override_config': override})}
+                kwds = {"data": json.dumps({'id': dist_id, 'override_config': override})}
                 log.debug('sending %s' % kwds)
                 if not wait:
                     results.append(pool.apply_async(self._request,
@@ -524,7 +527,7 @@ class Pulp(object):
         """
         if pretty:
             return json.dumps(self.listRepos(content=True),
-                sort_keys=True, indent=2)
+                              sort_keys=True, indent=2)
         else:
             return json.dumps(self.listRepos(content=True))
 
@@ -532,14 +535,16 @@ class Pulp(object):
         """
         Return True if a repository already exists, False otherwise
         """
-        data = {'criteria':
-                    {'filters':
-                        {'id': rid}
-                    },
-                'fields': ['id']
+        data = {
+            'criteria': {
+                'filters': {
+                    'id': rid,
                 }
+            },
+            'fields': ['id']
+        }
         found = self._post('/pulp/api/v2/repositories/search/',
-            data=json.dumps(data))
+                           data=json.dumps(data))
         return len(found) > 0
 
     def getAllRepoIDs(self):
@@ -552,7 +557,7 @@ class Pulp(object):
         for blob in self._get('/pulp/api/v2/repositories/', params=params):
             repos.append(blob['id'])
         repos.sort()
-        repos.remove(HIDDEN) # remove the RCM-internal repository
+        repos.remove(HIDDEN)  # remove the RCM-internal repository
         return repos
 
     def getAncestors(self, iid, parents=[]):
@@ -562,12 +567,12 @@ class Pulp(object):
         # a rest call is made per parent, which impacts performance greatly
         data = {
             'criteria': {
-                'filters' : {
-                    'unit' : {
+                'filters': {
+                    'unit': {
                         'image_id': iid
                     }
                 },
-            'limit': 1,
+                'limit': 1,
             },
         }
         log.debug('search request:')
@@ -594,8 +599,8 @@ class Pulp(object):
 
         data = json.dumps({
             'criteria': {
-                'filters' : {
-                    'unit' : {
+                'filters': {
+                    'unit': {
                         'image_id': {"$in": iids}
                     }
                 },
@@ -629,8 +634,8 @@ class Pulp(object):
             data["fields"] = fields
 
         log.debug('getting repositories %s', ', '.join(rids))
-        return  self._post('/pulp/api/v2/repositories/search/',
-                           data=json.dumps(data))
+        return self._post('/pulp/api/v2/repositories/search/',
+                          data=json.dumps(data))
 
     def getTask(self, tid):
         """
@@ -651,7 +656,15 @@ class Pulp(object):
         return a task report for a given id
         """
         log.debug('getting tasks %s information' % tids)
-        criteria = json.dumps({"criteria":{"filters":{"task_id":{"$in":tids}}}})
+        criteria = json.dumps({
+            "criteria": {
+                "filters": {
+                    "task_id": {
+                        "$in": tids,
+                    }
+                }
+            }
+        })
         return self._post('/pulp/api/v2/tasks/search/', data=criteria)
 
     def isRedirect(self):
@@ -681,7 +694,7 @@ class Pulp(object):
         # return information for each repo
         for repo in repos:
             blobs.append(self._get('/pulp/api/v2/repositories/%s/' % repo,
-                params=params))
+                                   params=params))
         clean = []
         # From here we trim out data nobody cares about
         # we assume distributors have the same configuration
@@ -714,7 +727,7 @@ class Pulp(object):
                             break
                 except KeyError:
                     log.debug("no redirect for repo-id %s, using pulp defaults",
-                            r['id'])
+                              r['id'])
                     r['redirect'] = None
             else:
                 r['redirect'] = None
@@ -851,7 +864,7 @@ class Pulp(object):
                 raise errors.DockPulpConfigError('Missing section: %s' % sect)
             if not conf.has_option(sect, self.env):
                 raise errors.DockPulpConfigError('%s section is missing %s' %
-                    (sect, self.env))
+                                                 (sect, self.env))
             process_f = getattr(self, process)
             ret = process_f(conf.items(sect))
             if target:
@@ -874,7 +887,7 @@ class Pulp(object):
         if not self._request.certificate or\
            not os.path.exists(self._request.certificate):
             blob = self._post('/pulp/api/v2/actions/login/',
-                auth=(user, password))
+                              auth=(user, password))
             sessiondir = tempfile.mkdtemp()
             log.info('session info saved in %s' % sessiondir)
             for part in ('certificate', 'key'):
@@ -904,8 +917,8 @@ class Pulp(object):
 
             data = {
                 'criteria': {
-                    'type_ids' : [V2_C_TYPE, V2_BLOB, V2_TAG],
-                    'filters' : {
+                    'type_ids': [V2_C_TYPE, V2_BLOB, V2_TAG],
+                    'filters': {
                         'unit': {
                             "$or": [{'digest': img}, {'manifest_digest': img}]
                         }
@@ -919,9 +932,9 @@ class Pulp(object):
 
             data = {
                 'criteria': {
-                    'type_ids' : [V1_C_TYPE],
-                    'filters' : {
-                        'unit' : {
+                    'type_ids': [V1_C_TYPE],
+                    'filters': {
+                        'unit': {
                             'image_id': img
                         }
                     }
@@ -952,7 +965,7 @@ class Pulp(object):
             }
         }
         repos = self._post('/pulp/api/v2/repositories/search/',
-            data=json.dumps(data))
+                           data=json.dumps(data))
         return [r['id'] for r in repos]
 
     def set_certs(self, cert, key):
@@ -1001,7 +1014,7 @@ class Pulp(object):
         log.info('Syncing from %s' % feed)
         log.info('Syncing repo %s' % repo)
         tid = self._post('/pulp/api/v2/repositories/%s/actions/sync/' % repo,
-            data=json.dumps(data))
+                         data=json.dumps(data))
         self.watch(tid)
 
         repoinfo = repoinfo[0]
@@ -1075,11 +1088,11 @@ class Pulp(object):
         if update.has_key('tag'):
             tags, iid = update['tag'].split(':')
             new_tags = tags.split(",")
-            existing = self._getTags(rid) # need to preserve existing tags
+            existing = self._getTags(rid)  # need to preserve existing tags
             # need to wipe out existing tags for the given image and the
             # existing tags for other images if they match
             existing = [e for e in existing if e["tag"] not in new_tags and
-                e['image_id'] != iid]
+                        e['image_id'] != iid]
             log.debug(existing)
             delta['delta']['scratchpad'] = {'tags': existing}
             if tags != '':
@@ -1097,7 +1110,7 @@ class Pulp(object):
             delta.pop('distributor_configs')
         log.debug('update request body: %s' % pprint.pformat(delta))
         tid = self._put('/pulp/api/v2/repositories/%s/' % rid,
-            data=json.dumps(delta))
+                        data=json.dumps(delta))
         self.watch(tid)
 
     def upload(self, image):
@@ -1110,7 +1123,7 @@ class Pulp(object):
         rid = self._createUploadRequest()
         size = int(os.path.getsize(image))
         curr = 0
-        mb = 1024 * 1024 # 1M
+        mb = 1024 * 1024  # 1M
         try:
             block = self.chunk_size
             if block == None:
@@ -1127,7 +1140,7 @@ class Pulp(object):
             while curr < size:
                 data = fobj.read(block)
                 self._put('/pulp/api/v2/content/uploads/%s/%s/' % (rid, curr),
-                    data=data)
+                          data=data)
                 curr += len(data)
                 log.debug('%s/%s bytes sent' % (curr, size))
         log.info('content uploaded')
@@ -1148,7 +1161,7 @@ class Pulp(object):
         tid = self._post(
             '/pulp/api/v2/repositories/%s/actions/import_upload/' % HIDDEN,
             data=json.dumps(data))
-        timer = max(self.timeout, (size/mb)*2) # wait 2 seconds per megabyte, or timeout,
+        timer = max(self.timeout, (size / mb) * 2)  # wait 2 seconds per megabyte, or timeout,
         self.watch(tid, timeout=timer)  # whichever is greater
         self._deleteUploadRequest(rid)
 
@@ -1233,7 +1246,7 @@ class Pulp(object):
         while running:
             time.sleep(poll)
             tasks_found = self.getTasks(list(running))
-            finished = [t for t in tasks_found if t["state"]  in ("finished", "error", "canceled")]
+            finished = [t for t in tasks_found if t["state"] in ("finished", "error", "canceled")]
             for t in finished:
                 if self.is_task_successful(t):
                     log.debug("Task successful: %s, %s" % (t["task_id"], self.resolve_task_type(t)))
@@ -1253,24 +1266,24 @@ class Pulp(object):
                     finished.append(t)
             for t in [t for t in finished if not self.is_task_successful(t)]:
                 if t.get("exception", None):
-                     exception = u''.join(t["exception"])
+                    exception = u''.join(t["exception"])
                 else:
-                     exception = None
+                    exception = None
                 if t.get("traceback", None):
-                     traceback = u''.join(t["traceback"])
+                    traceback = u''.join(t["traceback"])
                 else:
-                     traceback = None
+                    traceback = None
                 try:
                     reasons = t.reasons
                 except AttributeError:
-                    result = t.get("result",{}) if t.get("result", {}) else {}
+                    result = t.get("result", {}) if t.get("result", {}) else {}
                     reasons = result.get('reasons', [])
                 log.error(u"Pulp task [%s] failed:\nDetails:\n%s\nTags:\n%s\nReasons:\n%s\nException:\n%s\nTraceback:\n%s" %
-                               (t["task_id"],
-                                pprint.pformat(result.get('details', '')),
-                                '\n'.join([str(x) for x in t.get("tags", [])]),
-                                '\n'.join([str(x) for x in reasons]),
-                                exception, traceback))
+                          (t["task_id"],
+                           pprint.pformat(result.get('details', '')),
+                           '\n'.join([str(x) for x in t.get("tags", [])]),
+                           '\n'.join([str(x) for x in reasons]),
+                           exception, traceback))
                 failed_tasks.append(t)
                 failed = True
             running -= set([t["task_id"] for t in finished])
@@ -1287,9 +1300,11 @@ class Pulp(object):
                 running_count = len(running)
         return results.values()
 
+
 def split_content_url(url):
     i = url.find('/content')
     return url[:i], url[i:]
+
 
 def setup_logger(log):
     log.setLevel(logging.INFO)

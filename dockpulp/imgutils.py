@@ -30,6 +30,7 @@ except ImportError:
 
 # see https://github.com/pulp/pulp_docker/blob/master/common/pulp_docker/common/tarutils.py
 
+
 def get_manifest(tarfile_path):
     """
     Given a path to a tarfile, which is itself the product of "docker save",
@@ -56,6 +57,7 @@ def get_manifest(tarfile_path):
                 manifest.append(image_data)
     return manifest
 
+
 def get_metadata(tarfile_path):
     """
     Given a path to a tarfile, which is itself the product of "docker save",
@@ -70,6 +72,7 @@ def get_metadata(tarfile_path):
                 image_data = json.load(archive.extractfile(member))
                 metadata.append(image_data)
     return metadata
+
 
 def get_metadata_pulp(md):
     """
@@ -90,6 +93,7 @@ def get_metadata_pulp(md):
         }
     return details
 
+
 def get_versions(md):
     """
     Inspect the docker version used with the construction of each layer in
@@ -101,6 +105,7 @@ def get_versions(md):
         if 'docker_version' in data.keys():
             vers[image_id] = data['docker_version']
     return vers
+
 
 def check_repo(tarfile_path):
     """
@@ -124,7 +129,7 @@ def check_repo(tarfile_path):
                     return 2
             else:
                 seen_ids.append(os.path.basename(member.path))
-    val = repo_data.popitem()[1] # don't care about repo name at all
+    val = repo_data.popitem()[1]  # don't care about repo name at all
     for ver, iid in val.items():
         if iid not in seen_ids:
             return 3
@@ -132,15 +137,17 @@ def check_repo(tarfile_path):
         return 1
     return 0
 
+
 def _get_hops(iid, md, hops=0):
     """
     return how many parents (layers) an image has
     """
     par = md[iid].get('parent', None)
     if par != None:
-        return _get_hops(par, md, hops=hops+1)
+        return _get_hops(par, md, hops=hops + 1)
     else:
         return hops
+
 
 def get_id(tarfile_path):
     """
@@ -149,6 +156,7 @@ def get_id(tarfile_path):
     meta_raw = get_metadata(tarfile_path)
     metadata = get_metadata_pulp(meta_raw)
     return get_top_layer(metadata)
+
 
 def get_top_layer(metadata):
     """
@@ -165,6 +173,7 @@ def get_top_layer(metadata):
             parents = pars
     return youngest
 
+
 # not used, might be useful later
 def get_ancestry(image_id, metadata):
     """
@@ -178,6 +187,7 @@ def get_ancestry(image_id, metadata):
         image_ids.append(image_id)
         image_id = metadata[image_id].get('parent')
     return tuple(image_ids)
+
 
 def get_top_layer(pulp_md):
     """
