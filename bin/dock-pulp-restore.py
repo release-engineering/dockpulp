@@ -33,15 +33,16 @@ import dockpulp
 
 log = dockpulp.setup_logger(dockpulp.log)
 
+
 def get_opts():
-    usage="""%prog [options] environment config.json
+    usage = """%prog [options] environment config.json
 Restore configuration to a Pulp environment based on a json dump."""
     parser = OptionParser(usage=usage)
     parser.add_option('-d', '--debug', default=False, action='store_true',
-        help='turn on debugging output')
+                      help='turn on debugging output')
     parser.add_option('-p', '--password', help='specify the account password')
     parser.add_option('-u', '--username', default='admin',
-        help='provide an account besides "admin"')
+                      help='provide an account besides "admin"')
     opts, args = parser.parse_args()
     if len(args) != 2:
         parser.error('Please specify an environment to restore and a json file')
@@ -50,6 +51,7 @@ Restore configuration to a Pulp environment based on a json dump."""
     if not opts.password:
         parser.error('please use --password')
     return opts, args
+
 
 def precheck(dpo, jfile):
     """
@@ -94,6 +96,7 @@ def precheck(dpo, jfile):
     log.info('Environment looks clean, pre-check tests pass.')
     return repos
 
+
 def restore(dpo, jdata):
     """
     Configure a pulp instance with the json data provided, which should be a
@@ -103,13 +106,14 @@ def restore(dpo, jdata):
     for repo in jdata:
         url = dockpulp.split_content_url(repo['redirect'])[1]
         dpo.createRepo(repo['id'], url, desc=repo['description'],
-            title=repo['title'])
+                       title=repo['title'])
         for img in repo['images'].keys():
             dpo.copy(repo['id'], img)
             tags = {'tag': '%s:%s' % (','.join(repo['images'][img]), img)}
             dpo.updateRepo(repo['id'], tags)
     log.info('Restoration complete! (%s repositories)' % len(jdata))
     dpo.crane()
+
 
 def die(msg):
     log.error(msg)
@@ -123,4 +127,3 @@ if __name__ == '__main__':
         p.setDebug()
     todo = precheck(p, args[1])
     restore(p, todo)
-

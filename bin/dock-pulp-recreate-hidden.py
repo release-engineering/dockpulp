@@ -38,17 +38,18 @@ formatter = logging.Formatter("%(levelname)-9s %(message)s")
 sh.setFormatter(formatter)
 log.addHandler(sh)
 
+
 def get_opts():
-    usage="""%prog [options] environment config.json
+    usage = """%prog [options] environment config.json
 Recreate hidden repo in a Pulp environment based on a json dump."""
     parser = OptionParser(usage=usage)
     parser.add_option('-d', '--debug', default=False, action='store_true',
-        help='turn on debugging output')
+                      help='turn on debugging output')
     parser.add_option('-t', '--test', default=False, action='store_true',
-        help='test via dry run, will print out what would happen')
+                      help='test via dry run, will print out what would happen')
     parser.add_option('-p', '--password', help='specify the account password')
     parser.add_option('-u', '--username', default='admin',
-        help='provide an account besides "admin"')
+                      help='provide an account besides "admin"')
     opts, args = parser.parse_args()
     if len(args) != 2:
         parser.error('Please specify an environment to recreate the hidden repo and a json file')
@@ -57,6 +58,7 @@ Recreate hidden repo in a Pulp environment based on a json dump."""
     if not opts.password:
         parser.error('please use --password')
     return opts, args
+
 
 def recreate(dpo, jfile, test=False):
     """
@@ -72,9 +74,8 @@ def recreate(dpo, jfile, test=False):
         hidden = p.listRepos(repos=dockpulp.HIDDEN, content=True)[0]
     except dockpulp.errors.DockPulpError, e:
         if '404' in str(e):
-            log.error(
-                '  This command expects the %s repository to be available' % \
-                dockpulp.HIDDEN)
+            log.error('  This command expects the %s repository to be available' % \
+                      dockpulp.HIDDEN)
             die('  Missing %s repository, please see dock-pulp-bootstrap' % \
                 dockpulp.HIDDEN)
         else:
@@ -100,6 +101,7 @@ def recreate(dpo, jfile, test=False):
 
     log.info('Hidden repo recreated.')
 
+
 def die(msg):
     log.error(msg)
     sys.exit(1)
@@ -111,5 +113,3 @@ if __name__ == '__main__':
     if opts.debug:
         p.setDebug()
     todo = recreate(p, args[1], opts.test)
-
-

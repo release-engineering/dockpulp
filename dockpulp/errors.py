@@ -13,20 +13,26 @@
 # You should have received a copy of the GNU General Public License
 # along with dockpulp.  If not, see <http://www.gnu.org/licenses/>.
 
+
 class DockPulpError(Exception):
     pass
+
 
 class DockPulpConfigError(DockPulpError):
     pass
 
+
 class DockPulpInternalError(DockPulpError):
     pass
+
 
 class DockPulpLoginError(DockPulpError):
     pass
 
+
 class DockPulpServerError(DockPulpError):
     pass
+
 
 class DockPulpTaskError(DockPulpError):
     pass
