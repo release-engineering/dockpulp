@@ -105,7 +105,7 @@ class RequestsHttpCaller(object):
                     warnings.simplefilter("ignore")
                 answer = c(url, **kwargs)
 
-        except requests.exceptions.SSLError, se:
+        except requests.exceptions.SSLError:
             if not self.verify:
                 raise errors.DockPulpLoginError(
                     'Expired or bad certificate, please re-login')
@@ -1063,7 +1063,6 @@ class Pulp(object):
             }
         }
 
-        distributors = []
         distributorkeys = []
         validdistributorkeys = []
         webdist = 'docker_distributor_web'

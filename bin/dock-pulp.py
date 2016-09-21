@@ -336,7 +336,7 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, k
                 return result
             try:
                 j = json.loads(response)
-            except ValueError, ve:
+            except ValueError:
                 log.error('  Crane did not return json on parent image %s' % img)
                 result['error'] = True
                 if silent:
@@ -487,7 +487,7 @@ def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
 
     try:
         j = json.loads(response)
-    except ValueError, ve:
+    except ValueError
         log.error('  Crane did not return tag information')
         result['error'] = True
         return result
@@ -584,10 +584,10 @@ def do_clone(bopts, bargs):
 
     log.info('cloning %s repo to %s' % (args[0], repoid))
     oldinfo = p.listRepos(args[0], content=True)[0]
-    newrepo = p.createRepo(repoid, oldinfo['redirect'],
-                           desc=oldinfo['description'], title=oldinfo['title'],
-                           protected=get_bool_from_string(oldinfo['protected']),
-                           productline=productid)
+    p.createRepo(repoid, oldinfo['redirect'],
+                 desc=oldinfo['description'], title=oldinfo['title'],
+                 protected=get_bool_from_string(oldinfo['protected']),
+                 productline=productid)
     log.info('cloning content in %s to %s' % (args[0], repoid))
     if len(oldinfo['images']) > 0:
         for img in oldinfo['images'].keys():

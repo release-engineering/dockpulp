@@ -71,7 +71,7 @@ def recreate(dpo, jfile, test=False):
         die(e)
     # make sure the hidden repository is available
     try:
-        hidden = p.listRepos(repos=dockpulp.HIDDEN, content=True)[0]
+        p.listRepos(repos=dockpulp.HIDDEN, content=True)[0]
     except dockpulp.errors.DockPulpError, e:
         if '404' in str(e):
             log.error('  This command expects the %s repository to be available' % \
