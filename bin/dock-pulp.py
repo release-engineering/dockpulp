@@ -1157,7 +1157,7 @@ def do_task(bopts, bargs):
         log.info(taskinfo['task_id'])
         log.info('-' * 36)
         for field in ('state', 'error', 'task_type', 'queue', 'start_time', 'finish_time', 'traceback'):
-            if not taskinfo.has_key(field):
+            if field not in taskinfo:
                 continue
             log.info('%s = %s' % (field, taskinfo[field]))
 

@@ -272,7 +272,7 @@ class Pulp(object):
         params = {'details': True}
         rinfo = self._get('/pulp/api/v2/repositories/%s/' % repo,
                           params=params)
-        if rinfo['scratchpad'].has_key('tags'):
+        if 'tags' in rinfo['scratchpad']:
             return rinfo['scratchpad']['tags']
         else:
             return []
@@ -763,7 +763,7 @@ class Pulp(object):
                         if unit['unit_type_id'] == V1_C_TYPE]
                 for img in imgs:
                     r['images'][img['metadata']['image_id']] = []
-                if blob['scratchpad'].has_key('tags'):
+                if 'tags' in blob['scratchpad']:
                     tags = blob['scratchpad']['tags']
                     for tag in tags:
                         try:
@@ -1084,9 +1084,9 @@ class Pulp(object):
             if u not in valid:
                 log.warning('ignoring %s, not sure how to update' % u)
         for key in ('description', 'display_name'):
-            if update.has_key(key):
+            if key in update:
                 delta['delta'][key] = update[key]
-        if update.has_key('tag'):
+        if 'tag' in update:
             tags, iid = update['tag'].split(':')
             new_tags = tags.split(",")
             existing = self._getTags(rid)  # need to preserve existing tags
@@ -1101,7 +1101,7 @@ class Pulp(object):
                     delta['delta']['scratchpad']['tags'].append(
                         {'image_id': iid, 'tag': tag})
         for key in ('protected', 'redirect-url', 'repo-registry-id'):
-            if update.has_key(key):
+            if key in update:
                 for distributorkey in delta['distributor_configs']:
                     delta['distributor_configs'][distributorkey][key] = update[key]
         for distributorkey in distributorkeys:
