@@ -37,7 +37,7 @@ create the everything repository in the given environment"""
 
 
 def create_everything(dpo):
-    """create the everything repo with the given dockpulp object"""
+    """Create the everything repo with the given dockpulp object."""
     dpo.createRepo(dockpulp.HIDDEN,
                    '/content/this/does/not/matter',
                    desc='hidden repository for RCM use that contains everything',

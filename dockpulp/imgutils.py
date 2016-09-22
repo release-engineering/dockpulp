@@ -32,7 +32,8 @@ except ImportError:
 
 
 def get_manifest(tarfile_path):
-    """
+    """Extract and return manifest in tarball.
+
     Given a path to a tarfile, which is itself the product of "docker save",
     this discovers the manifest for the collection of images, which provides
     version information.
@@ -59,7 +60,8 @@ def get_manifest(tarfile_path):
 
 
 def get_metadata(tarfile_path):
-    """
+    """Extract and return metadata in tarball.
+
     Given a path to a tarfile, which is itself the product of "docker save",
     this discovers what images (layers) exist in the archive and returns
     metadata about each.
@@ -75,8 +77,7 @@ def get_metadata(tarfile_path):
 
 
 def get_metadata_pulp(md):
-    """
-    Go through read metadata and figure out parents, IDs, and sizes.
+    """Go through read metadata and figure out parents, IDs, and sizes.
 
     Current fields in metadata:
         parent: ID of the parent image, or None if there is none
@@ -95,9 +96,10 @@ def get_metadata_pulp(md):
 
 
 def get_versions(md):
-    """
+    """Return a dict of image-IDs to versions.
+
     Inspect the docker version used with the construction of each layer in
-    an image. Return a dict of image-IDs to versions.
+    an image.
     """
     vers = {}
     for data in md:
@@ -108,8 +110,8 @@ def get_versions(md):
 
 
 def check_repo(tarfile_path):
-    """
-    Confirm the image has a "repositories" file where it should.
+    """Confirm the image has a "repositories" file where it should.
+
     The return code indicates the results of the check.
     0 - repositories file is good, it passes the check
     1 - repositories file is missing
@@ -133,50 +135,34 @@ def check_repo(tarfile_path):
     for ver, iid in val.items():
         if iid not in seen_ids:
             return 3
-    if found == False:
+    if found is False:
         return 1
     return 0
 
 
 def _get_hops(iid, md, hops=0):
-    """
-    return how many parents (layers) an image has
-    """
+    """Return how many parents (layers) an image has."""
     par = md[iid].get('parent', None)
-    if par != None:
+    if par is not None:
         return _get_hops(par, md, hops=hops + 1)
     else:
         return hops
 
 
 def get_id(tarfile_path):
-    """
-    Return the ID for this particular image, ignoring heritage and children
+    """Return the ID for this particular image.
+
+    Ignores heritage and children.
     """
     meta_raw = get_metadata(tarfile_path)
     metadata = get_metadata_pulp(meta_raw)
     return get_top_layer(metadata)
 
 
-def get_top_layer(metadata):
-    """
-    Returns the ID as get_id does, but starts with pulp image metadata.
-    Provided for compatibility with atomic-reactor.
-    """
-    images = metadata.keys()
-    parents = 0
-    youngest = images[0]
-    for image in images:
-        pars = _get_hops(image, metadata)
-        if pars > parents:
-            youngest = image
-            parents = pars
-    return youngest
-
-
 # not used, might be useful later
 def get_ancestry(image_id, metadata):
-    """
+    """Calculate and return ancestry list for image.
+
     Given an image ID and metadata about each image, this calculates and returns
     the ancestry list for that image. It walks the "parent" relationship in the
     metadata to assemble the list, which is ordered with the child leaf at the
@@ -190,10 +176,7 @@ def get_ancestry(image_id, metadata):
 
 
 def get_top_layer(pulp_md):
-    """
-    Find the top (youngest) layer.
-    """
-
+    """Find the top (youngest) layer."""
     # Find layers that are parents
     layers = set()
     parents = set()

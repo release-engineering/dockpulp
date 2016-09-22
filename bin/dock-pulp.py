@@ -15,14 +15,14 @@
 # along with dockpulp.  If not, see <http://www.gnu.org/licenses/>.
 
 from contextlib import closing
+from functools import wraps
 from optparse import OptionParser
+
 import os
 import requests
 import shutil
 import sys
 import logging
-import ast
-import subprocess
 
 try:
     # Python 2.6 and earlier
@@ -112,7 +112,7 @@ def pulp_login(bopts):
 
     default_creddir = os.path.expanduser('~/.pulp')
     if (not p.certificate or not p.key) and\
-        (not os.path.exists(os.path.join(default_creddir, p.AUTH_CER_FILE)) or\
+        (not os.path.exists(os.path.join(default_creddir, p.AUTH_CER_FILE)) or
          not os.path.exists(os.path.join(default_creddir, p.AUTH_KEY_FILE))):
         log.error('You need to log in with a user/password first.')
         sys.exit(1)
@@ -124,7 +124,7 @@ def pulp_login(bopts):
 
 
 def list_directives(prefix):
-    """list all base directives supported by relengo-tool"""
+    """List all base directives supported by relengo-tool."""
     dirs = [(k.replace(prefix, ''), v.__doc__)
             for k, v in globals().items() if k.startswith(prefix)]
     dirs.sort()
@@ -134,14 +134,15 @@ def list_directives(prefix):
 
 
 def find_directive(prefix, arguments):
-    """
+    """Find callable directive.
+
     From a prefix and directive on the cli, find the function we want to call
     and return it. If we can't find it or one wasn't specified, print out what
     is available and exit.
     """
     if len(arguments) > 0:
         cmd = globals().get(prefix + arguments[0], None)
-        if cmd == None:
+        if cmd is None:
             log.error('Unknown directive: %s' % arguments[0])
         else:
             return cmd
@@ -150,9 +151,7 @@ def find_directive(prefix, arguments):
 
 
 def get_bool_from_string(string):
-    """
-    Return bool based on string
-    """
+    """Return bool based on string."""
     if isinstance(string, bool):
         return string
     if string.lower() in ['t', 'true']:
@@ -165,7 +164,7 @@ def get_bool_from_string(string):
 
 
 def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, key=None, silent=False):
-    """confirm we can reach crane and get data back from it"""
+    """Confirm we can reach crane and get data back from it."""
     # manual: curl --insecure https://registry.access.stage.redhat.com/v1/repositories/rhel6/rhel/images
     #         curl --insecure https://registry.access.stage.redhat.com/v1/repositories/rhel6.6/images
     result = {}
@@ -204,7 +203,7 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, k
 
     try:
         j = json.loads(response)
-    except ValueError, ve:
+    except ValueError:
         log.error('  Crane did not return json')
         result['error'] = True
         return result
@@ -298,7 +297,7 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, k
             return result
         try:
             j = json.loads(response)
-        except ValueError, ve:
+        except ValueError:
             log.error('  Crane did not return json')
             result['error'] = True
             if silent:
@@ -355,8 +354,9 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, k
     return result
 
 
-def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags, protected=False, cert=None, key=None, silent=False):
-    """confirm we can reach crane and get data back from it"""
+def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
+                 protected=False, cert=None, key=None, silent=False):
+    """Confirm we can reach crane and get data back from it."""
     result = {}
     result['error'] = False
     if not pulp_manifests:
@@ -487,7 +487,7 @@ def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
 
     try:
         j = json.loads(response)
-    except ValueError
+    except ValueError:
         log.error('  Crane did not return tag information')
         result['error'] = True
         return result
@@ -533,11 +533,29 @@ def _test_repoV2(dpo, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
 # all DO commands follow this line in alphabetical order
 
 
-def do_ancestry(bopts, bargs):
+def make_parser(f):
+    """Helper function for creating parser.
+
+    A new OptionParser object will be created and passed
+    to function as "parser" keyword argument.
+    Docstring from function will be used to set the
+    description (first line), and usage (remaining text).
     """
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        description, usage = [x.rstrip() for x in f.__doc__.split('\n', 1)]
+        parser = OptionParser(description=description, usage=usage)
+        kwargs['parser'] = parser
+        return f(*args, **kwargs)
+    return wrapper
+
+
+@make_parser
+def do_ancestry(bopts, bargs, parser):
+    """List all layers associated with an image.
+
     dock-pulp ancestry [options] image-id
-    List all layers associated with an image"""
-    parser = OptionParser(usage=do_ancestry.__doc__)
+    """
     opts, args = parser.parse_args(bargs)
     if len(args) != 1:
         parser.error('You must provide an image ID')
@@ -548,11 +566,12 @@ def do_ancestry(bopts, bargs):
         log.info(ancestor)
 
 
-def do_associate(bopts, bargs):
-    """
+@make_parser
+def do_associate(bopts, bargs, parser):
+    """Associate a distributor with a repo.
+
     dock-pulp associate [options] distributor-id repo-id
-    Associate a distributor with a repo"""
-    parser = OptionParser(usage=do_associate.__doc__)
+    """
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     if len(args) != 2:
@@ -561,12 +580,13 @@ def do_associate(bopts, bargs):
     log.info("Created distributor: %s", result['id'])
 
 
-def do_clone(bopts, bargs):
-    """
+@make_parser
+def do_clone(bopts, bargs, parser):
+    """Clone a docker repo, bringing content along.
+
     dock-pulp clone [options] repo-id new-product-line new-image-name
     dock-pulp clone [options] --library repo-id  new-image-name
-    Clone a docker repo, bringing content along"""
-    parser = OptionParser(usage=do_clone.__doc__)
+    """
     parser.add_option('-l', '--library', help='create a "library"-level repo',
                       default=False, action='store_true')
     opts, args = parser.parse_args(bargs)
@@ -599,11 +619,12 @@ def do_clone(bopts, bargs):
     log.info('cloning complete')
 
 
-def do_confirm(bopts, bargs):
-    """
+@make_parser
+def do_confirm(bopts, bargs, parser):
+    """Confirm all images are reachable. Accepts regex.
+
     dock-pulp confirm [options] [repo-id...]
-    Confirm all images are reachable. Accepts regex!"""
-    parser = OptionParser(usage=do_confirm.__doc__)
+    """
     parser.add_option('-c', '--cert', action='store', help='A cert used to authenticate protected repositories')
     parser.add_option('-k', '--key', action='store', help='A key used to authenticate protected repositories')
     parser.add_option('-s', '--silent', action='store_true', default=False, help='Return confirm output in machine readable form')
@@ -685,12 +706,13 @@ def do_confirm(bopts, bargs):
         sys.exit(1)
 
 
-def do_copy(bopts, bargs):
-    """
+@make_parser
+def do_copy(bopts, bargs, parser):
+    """Copy an image from one repo to another.
+
     dock-pulp copy [options] dest-repo-id image-id [image-id...]
-    Copy an image from one repo to another"""
+    """
     # TODO: copy over ancestors too
-    parser = OptionParser(usage=do_copy.__doc__)
     parser.add_option('-s', '--source', help='specify a source repo to copy from')
     opts, args = parser.parse_args(bargs)
     if len(args) < 2:
@@ -704,13 +726,15 @@ def do_copy(bopts, bargs):
         log.info('copying successful')
 
 
-def do_create(bopts, bargs):
-    """
+@make_parser
+def do_create(bopts, bargs, parser):
+    """Create a repository for docker images.
+
     dock-pulp create [options] product-line image-name content-url
     dock-pulp create [options] --library image-name content-url
-    Create a repository for docker images
-    content-url is not required if redirect-url = no in /etc/dockpulp.conf"""
-    parser = OptionParser(usage=do_create.__doc__)
+
+    * content-url is not required if redirect-url = no in /etc/dockpulp.conf
+    """
     parser.add_option('-d', '--description', help='specify a repo description',
                       default='No description')
     parser.add_option('-l', '--library', help='create a "library"-level repo',
@@ -748,11 +772,12 @@ def do_create(bopts, bargs):
     log.info('repository created')
 
 
-def do_delete(bopts, bargs):
-    """
+@make_parser
+def do_delete(bopts, bargs, parser):
+    """Delete a repository; this will not affect content in other repos.
+
     dock-pulp delete [options] repo-id [repo-id...]
-    Delete a repository; this will not affect content in other repos"""
-    parser = OptionParser(usage=do_delete.__doc__)
+    """
     opts, args = parser.parse_args(bargs)
     if len(args) < 1:
         parser.error('You must provide a repository ID')
@@ -768,11 +793,12 @@ def do_delete(bopts, bargs):
             log.info('Layers still exist in redhat-everything')
 
 
-def do_disassociate(bopts, bargs):
-    """
+@make_parser
+def do_disassociate(bopts, bargs, parser):
+    """Disassociate a distributor from a repo.
+
     dock-pulp disassociate [options] distributor-id repo-id
-    Disassociate a distributor from a repo"""
-    parser = OptionParser(usage=do_disassociate.__doc__)
+    """
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     if len(args) != 2:
@@ -780,11 +806,12 @@ def do_disassociate(bopts, bargs):
     p.disassociate(args[0], args[1])
 
 
-def do_empty(bopts, bargs):
-    """
+@make_parser
+def do_empty(bopts, bargs, parser):
+    """Remove all contents in a repository.
+
     dock-pulp empty [options] repo-id [repo-id]
-    Remove all contents in a repository"""
-    parser = OptionParser(usage=do_delete.__doc__)
+    """
     opts, args = parser.parse_args(bargs)
     if len(args) < 1:
         parser.error('You must provide a repository ID')
@@ -802,11 +829,12 @@ def do_empty(bopts, bargs):
         log.info('%s emptied' % repo)
 
 
-def do_imageids(bopts, bargs):
-    """
+@make_parser
+def do_imageids(bopts, bargs, parser):
+    """List all layers existing on server.
+
     dock-pulp imageids [options] image-id
-    List all layers existing on server"""
-    parser = OptionParser(usage=do_imageids.__doc__)
+    """
     opts, args = parser.parse_args(bargs)
     if len(args) == 0:
         parser.error('You must provide an image ID(s)')
@@ -815,11 +843,12 @@ def do_imageids(bopts, bargs):
     log.info(result)
 
 
-def do_list(bopts, bargs):
-    """
+@make_parser
+def do_list(bopts, bargs, parser):
+    """List one or more repositories. Accepts regex.
+
     dock-pulp list [options] [repo-id...]
-    List one or more repositories. Accepts regex!"""
-    parser = OptionParser(usage=do_list.__doc__)
+    """
     parser.add_option('-c', '--content', default=False, action='store_true',
                       help='also return information about images in a repository')
     parser.add_option('-d', '--details', default=False, action='store_true',
@@ -865,8 +894,6 @@ def do_list(bopts, bargs):
                 for img in imgs:
                     log.info('  %s (tags: %s)',
                              img, ', '.join(repo['images'][img]))
-                #for id, tags in repo['images'].items():
-                #    log.info('  %s (tags: %s)' % (id, ', '.join(tags)))
             log.info('')
             log.info('v2 manifest details:')
             if len(repo['manifests'].keys()) == 0:
@@ -927,11 +954,12 @@ def do_list(bopts, bargs):
             log.info('')
 
 
-def do_login(bopts, bargs):
-    """
+@make_parser
+def do_login(bopts, bargs, parser):
+    """Login into pulp and get a session certificate.
+
     dock-pulp login [options]
-    Login into pulp and get a session certificate"""
-    parser = OptionParser(usage=do_login.__doc__)
+    """
     parser.add_option('-p', '--password', help='specify an account password')
     parser.add_option('-u', '--username', default='admin', help='pick username')
     opts, args = parser.parse_args(bargs)
@@ -948,11 +976,12 @@ def do_login(bopts, bargs):
     log.info('You may run commands without a user/password now.')
 
 
-def do_json(bopts, bargs):
-    """
+@make_parser
+def do_json(bopts, bargs, parser):
+    """Dump the Pulp configuration in an environment in a json format.
+
     dock-pulp json [options] [2> file.json]
-    Dump the Pulp configuration in an environment in a json format"""
-    parser = OptionParser(usage=do_json.__doc__)
+    """
     parser.add_option('-p', '--pretty', default=False, action='store_true',
                       help='format the json into something human-readable')
     opts, args = parser.parse_args(bargs)
@@ -962,11 +991,12 @@ def do_json(bopts, bargs):
     print >> sys.stderr, j
 
 
-def do_release(bopts, bargs):
-    """
+@make_parser
+def do_release(bopts, bargs, parser):
+    """Publish pulp configurations to Crane, making them live. Accepts regex.
+
     dock-pulp release [options] [repo-id...]
-    Publish pulp configurations to Crane, making them live. Accepts regex!"""
-    parser = OptionParser(usage=do_release.__doc__)
+    """
     parser.add_option('-s', '--skip-fast-forward', default=False, action='store_true',
                       dest="skip", help='use skip fast forward for release')
     parser.add_option('-r', '--force-refresh', default=False, action='store_true',
@@ -993,11 +1023,12 @@ def do_release(bopts, bargs):
     log.info('pulp configuration(s) successfully exported')
 
 
-def do_orphans(bopts, bargs):
-    """
+@make_parser
+def do_orphans(bopts, bargs, parser):
+    """List orphaned content with option to remove it.
+
     dock-pulp orphans [--remove]
-    List orphaned content with option to remove it"""
-    parser = OptionParser(usage=do_orphans.__doc__)
+    """
     parser.add_option('-r', '--remove', default=False, action='store_true',
                       help='Remove all orphaned content. USE WITH CAUTION')
     opts, args = parser.parse_args(bargs)
@@ -1022,13 +1053,14 @@ def do_orphans(bopts, bargs):
             log.info('Orphaned %s removed' % pretty_content_type)
 
 
-def do_remove(bopts, bargs):
-    """
+@make_parser
+def do_remove(bopts, bargs, parser):
+    """Remove an image from a repo, or clean up orphaned content.
+
     dock-pulp remove [options] repo-id image-id [image-id...]
     dock-pulp remove --list-orphans [--remove]
-    Remove an image from a repo, or clean up orphaned content"""
+    """
     # TODO: figure out how to remove unneeded layers too
-    parser = OptionParser(usage=do_remove.__doc__)
     parser.add_option('-l', '--list-orphans', default=False,
                       action='store_true', help='list orphaned images')
     parser.add_option('-r', '--remove', default=False, action='store_true',
@@ -1076,11 +1108,12 @@ def do_remove(bopts, bargs):
     log.info('removed images and unneeded layers')
 
 
-def do_sync(bopts, bargs):
-    """
+@make_parser
+def do_sync(bopts, bargs, parser):
+    """Sync a repo from one environment to another.
+
     dock-pulp sync [options] <env to sync from> repo-id
-    Sync a repo from one environment to another"""
-    parser = OptionParser(usage=do_sync.__doc__)
+    """
     parser.add_option('-p', '--password', help='specify a password')
     parser.add_option('-u', '--username', help='specify a username')
     parser.add_option('--upstream', help='specify an upstream name docker id to sync from')
@@ -1113,12 +1146,13 @@ def do_sync(bopts, bargs):
     log.info('')
 
 
-def do_tag(bopts, bargs):
-    """
+@make_parser
+def do_tag(bopts, bargs, parser):
+    """Tag an image with a tag in a repo.
+
     dock-pulp tag [options] repo-id image-id tags,with,commas
     dock-pulp tag [options] --remove repo-id image-id
-    Tag an image with a tag in a repo"""
-    parser = OptionParser(usage=do_tag.__doc__)
+    """
     parser.add_option('-r', '--remove', action='store_true', default=False,
                       help='remove any tags associated with the image instead')
     opts, args = parser.parse_args(bargs)
@@ -1143,11 +1177,12 @@ def do_tag(bopts, bargs):
     log.info('tagging successful')
 
 
-def do_task(bopts, bargs):
-    """
+@make_parser
+def do_task(bopts, bargs, parser):
+    """Display information about a task in pulp.
+
     dock-pulp task [options] task-id [task-id...]
-    Display information about a task in pulp"""
-    parser = OptionParser(usage=do_task.__doc__)
+    """
     opts, args = parser.parse_args(bargs)
     if len(args) < 1:
         parser.error('You must provide a task ID')
@@ -1162,11 +1197,12 @@ def do_task(bopts, bargs):
             log.info('%s = %s' % (field, taskinfo[field]))
 
 
-def do_update(bopts, bargs):
-    """
+@make_parser
+def do_update(bopts, bargs, parser):
+    """Update metadata for a docker image repository.
+
     dock-pulp update [options] repo-id [repo-id...]
-    Update metadata for a docker image repository"""
-    parser = OptionParser(usage=do_update.__doc__)
+    """
     parser.add_option('-d', '--description',
                       help='update the description for this repository')
     parser.add_option('-i', '--dockerid',
@@ -1195,12 +1231,13 @@ def do_update(bopts, bargs):
         log.info('repo successfully updated')
 
 
-def do_upload(bopts, bargs):
-    """
+@make_parser
+def do_upload(bopts, bargs, parser):
+    """Upload an image to a pulp repository.
+
     dock-pulp upload image-path [repo-id...]
     dock-pulp upload --list-uploads [--delete]
-    Upload an image to a pulp repository"""
-    parser = OptionParser(usage=do_upload.__doc__)
+    """
     parser.add_option('-l', '--list-uploads', default=False, action='store_true',
                       help='List all upload request IDs')
     parser.add_option('-r', '--remove', default=False, action='store_true',

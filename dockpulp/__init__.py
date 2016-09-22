@@ -17,7 +17,6 @@ import atexit
 import ConfigParser
 import logging
 import os
-import pickle
 import pprint
 import requests
 import shutil
@@ -81,12 +80,11 @@ class RequestsHttpCaller(object):
         self.key = key_path
 
     def _error(self, code, url):
-        """format a nice error message"""
+        """Format a nice error message."""
         raise errors.DockPulpError('Received response %s from %s' % (code, url))
 
     def __call__(self, meth, api, **kwargs):
-#    def _request(self, meth, api, **kwargs):
-        """post an http request to a Pulp API"""
+        """Post an http request to a Pulp API."""
         log.debug('remote host is %s' % self.url)
         c = getattr(requests, meth)
         url = self.url + api
@@ -131,20 +129,6 @@ class RequestsHttpCaller(object):
             return r['spawned_tasks'][0]['task_id']
         return r
 
-    """
-    def _get(self, api, **kwargs):
-        return self._request('get', api, **kwargs)
-
-    def _post(self, api, **kwargs):
-        return self._request('post', api, **kwargs)
-
-    def _put(self, api, **kwargs):
-        return self._request('put', api, **kwargs)
-
-    def _delete(self, api, **kwargs):
-        return self._request('delete', api, **kwargs)
-    """
-
 
 class Pulp(object):
     #                           section, process function, target attribute
@@ -162,7 +146,8 @@ class Pulp(object):
 
     def __init__(self, env='qa', config_file=DEFAULT_CONFIG_FILE,
                  config_override=None):
-        """
+        """Constructor for Pulp class.
+
         The constructor sets up the remote hostname given an environment.
         Accepts shorthand, or full hostnames.
         """
@@ -228,31 +213,32 @@ class Pulp(object):
                         setattr(self, target, ret)
 
     def _cleanup(self, creddir):
-        """
-        Clean up the session cert and key. Called automatically on program exit
+        """Clean up the session cert and key.
+
+        Called automatically on program exit
         """
         log.debug('cleaning up session credentials')
         shutil.rmtree(creddir, ignore_errors=True)
 
     def _createUploadRequest(self):
-        """create an upload request"""
+        """Create an upload request."""
         log.debug('creating upload request')
         rid = self._post('/pulp/api/v2/content/uploads/')['upload_id']
         log.info('upload request: %s' % rid)
         return rid
 
     def _deleteUploadRequest(self, rid):
-        """delete an upload request"""
+        """Delete an upload request."""
         log.debug('deleting upload request since we are done')
         self._delete('/pulp/api/v2/content/uploads/%s/' % rid)
         log.info('removed upload request %s' % rid)
 
     def _error(self, code, url):
-        """format a nice error message"""
+        """Format a nice error message."""
         raise errors.DockPulpError('Received response %s from %s' % (code, url))
 
     def _getRepo(self, env, config_file=DEFAULT_CONFIG_FILE):
-        """helper function to set up hostname for sync"""
+        """Helper function to set up hostname for sync."""
         conf = ConfigParser.ConfigParser()
         if not config_file:
             raise errors.DockPulpConfigError('Missing config file')
@@ -267,7 +253,7 @@ class Pulp(object):
         self.syncenv = conf.get('registries', env)
 
     def _getTags(self, repo):
-        """return the tag list for a given repo"""
+        """Return the tag list for a given repo."""
         log.debug('getting tag data...')
         params = {'details': True}
         rinfo = self._get('/pulp/api/v2/repositories/%s/' % repo,
@@ -289,7 +275,6 @@ class Pulp(object):
     def _delete(self, api, **kwargs):
         return self._request('delete', api, **kwargs)
 
-
     def _enforce_repo_name_policy(self, repos, repo_prefix=None):
         new_repos = []
         for repo in repos:
@@ -303,9 +288,7 @@ class Pulp(object):
     # public methods start here, alphabetically
 
     def associate(self, dist_id, repo):
-        """
-        Associate a distributor with a repo
-        """
+        """Associate a distributor with a repo."""
         try:
             data = self.distributorconf[dist_id]
         except KeyError:
@@ -319,26 +302,19 @@ class Pulp(object):
         return result
 
     def cleanOrphans(self, content_type=V1_C_TYPE):
-        """
-        Remove orphaned docker content of given type
-        """
+        """Remove orphaned docker content of given type."""
         log.debug('Removing docker orphans not implemented in Pulp 2.4')
         tid = self._delete('/pulp/api/v2/content/orphans/%s/' % content_type)
         self.watch(tid)
 
     def cleanUploadRequests(self):
-        """
-        Remove outstanding upload requests from Pulp to reclaim space
-        """
+        """Remove outstanding upload requests from Pulp to reclaim space."""
         uploads = self.listUploadRequests()
         for upload in uploads:
             self._deleteUploadRequest(upload)
 
     def copy(self, drepo, img, source=HIDDEN):
-        """
-        Copy an image from one repo to another
-        """
-
+        """Copy an image from one repo to another."""
         if img.startswith("sha256:"):
 
             data = {
@@ -378,8 +354,7 @@ class Pulp(object):
         self.watch(tid)
 
     def copy_filters(self, drepo, source=HIDDEN, filters={}, v1=True, v2=True):
-        """Copy an contnet from one repo to another according to filters"""
-
+        """Copy an contnet from one repo to another according to filters."""
         type_ids = []
         if v1:
             type_ids.append(V1_C_TYPE)
@@ -401,12 +376,8 @@ class Pulp(object):
             data=json.dumps(data))
         self.watch(tid)
 
-    """
-    """
     def crane(self, repos=[], wait=True, skip=False, force_refresh=False):
-        """
-        Export pulp configuration to crane for one or more repositories
-        """
+        """Export pulp configuration to crane for one or more repositories."""
         if len(repos) == 0:
             repos = self.getAllRepoIDs()
         tasks = []
@@ -453,8 +424,9 @@ class Pulp(object):
 
     def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None,
                    protected=False, distributors=True, prefix_with=PREFIX, productline=None):
-        """
-        create a docker repository in pulp, an id and a description is required
+        """Create a docker repository in pulp.
+
+        id and description are required
         """
         if not repo_id.startswith(prefix_with):
             repo_id = prefix_with + repo_id
@@ -509,24 +481,18 @@ class Pulp(object):
         self._post('/pulp/api/v2/repositories/', data=json.dumps(stuff))
 
     def deleteRepo(self, id):
-        """
-        delete a repository; cannot be undone!
-        """
+        """Delete a repository; cannot be undone!."""
         log.info('deleting repo: %s' % id)
         tid = self._delete('/pulp/api/v2/repositories/%s/' % id)
         self.watch(tid)
 
     def disassociate(self, dist_id, repo):
-        """
-        Disassociate a distributor associated with a repo
-        """
+        """Disassociate a distributor associated with a repo."""
         tid = self._delete('/pulp/api/v2/repositories/%s/distributors/%s/' % (repo, dist_id))
         self.watch(tid)
 
     def dump(self, pretty=False):
-        """
-        dump the complete configuration of an environment to json format
-        """
+        """Dump the complete configuration of an environment to json format."""
         if pretty:
             return json.dumps(self.listRepos(content=True),
                               sort_keys=True, indent=2)
@@ -534,9 +500,7 @@ class Pulp(object):
             return json.dumps(self.listRepos(content=True))
 
     def exists(self, rid):
-        """
-        Return True if a repository already exists, False otherwise
-        """
+        """Return True if a repository already exists, False otherwise."""
         data = {
             'criteria': {
                 'filters': {
@@ -550,9 +514,7 @@ class Pulp(object):
         return len(found) > 0
 
     def getAllRepoIDs(self):
-        """
-        Get all repository IDs in Pulp
-        """
+        """Get all repository IDs in Pulp."""
         repos = []
         log.info('getting all repositories...')
         params = {'details': True}
@@ -563,9 +525,7 @@ class Pulp(object):
         return repos
 
     def getAncestors(self, iid, parents=[]):
-        """
-        Return the list of layers (ancestors) of a given image
-        """
+        """Return the list of layers (ancestors) of a given image."""
         # a rest call is made per parent, which impacts performance greatly
         data = {
             'criteria': {
@@ -595,10 +555,7 @@ class Pulp(object):
             return parents
 
     def getImageIdsExist(self, iids=[]):
-        """
-        Return a list of layers already uploaded to the server
-        """
-
+        """Return a list of layers already uploaded to the server."""
         data = json.dumps({
             'criteria': {
                 'filters': {
@@ -615,15 +572,11 @@ class Pulp(object):
         return [c['metadata']['image_id'] for c in result]
 
     def getPrefix(self):
-        """
-        Returns repository prefix
-        """
+        """Return repository prefix."""
         return PREFIX
 
     def getRepos(self, rids, fields=None):
-        """
-        Return list of repo objects with given IDs
-        """
+        """Return list of repo objects with given IDs."""
         data = {
             "criteria": {
                 "filters": {
@@ -640,23 +593,17 @@ class Pulp(object):
                           data=json.dumps(data))
 
     def getTask(self, tid):
-        """
-        return a task report for a given id
-        """
+        """Return a task report for a given id."""
         log.debug('getting task %s information' % tid)
         return self._get('/pulp/api/v2/tasks/%s/' % tid)
 
     def deleteTask(self, tid):
-        """
-        delete a task with the given id
-        """
+        """Delete a task with the given id."""
         log.debug('deleting task: %s' % tid)
         return self._delete('/pulp/api/v2/tasks/%s/' % tid)
 
     def getTasks(self, tids):
-        """
-        return a task report for a given id
-        """
+        """Return a task report for a given id."""
         log.debug('getting tasks %s information' % tids)
         criteria = json.dumps({
             "criteria": {
@@ -673,15 +620,13 @@ class Pulp(object):
         return self.redirect
 
     def listOrphans(self, content_type=V1_C_TYPE):
-        """
-        return a list of orphaned content of given type
-        """
+        """Return a list of orphaned content of given type."""
         log.debug('getting list of orphaned %s' % content_type)
         return self._get('/pulp/api/v2/content/orphans/%s/' % content_type)
 
     def listRepos(self, repos=None, content=False, history=False):
-        """
-        Return information about pulp repositories
+        """Return information about pulp repositories.
+
         If repos is a string or list of strings, treat them as repo IDs
         and get information about each one. If None, get all repos.
         """
@@ -852,7 +797,7 @@ class Pulp(object):
         return clean
 
     def listUploadRequests(self):
-        """return a pending upload requests"""
+        """Return a pending upload requests."""
         log.debug('getting all upload IDs')
         return self._get('/pulp/api/v2/content/uploads/')['upload_ids']
 
@@ -880,9 +825,9 @@ class Pulp(object):
                     setattr(self, target, ret)
 
     def login(self, user, password):
-        """
-        Log into pulp using a user/pass combo. A certificate is saved for
-        additional logins.
+        """Log into pulp using a user/pass combo.
+
+        A certificate is saved for additional logins.
         """
         log.info('logging in as %s' % user)
         log.info('certificate %s' % self._request.certificate)
@@ -903,18 +848,17 @@ class Pulp(object):
             atexit.register(self._cleanup, sessiondir)
 
     def logout(self):
-        """
-        Log out. Does nothing except clean up session info if necessary. There
-        is no need to call this function.
+        """Log out.
+
+        Does nothing except clean up session info if necessary.
+        There is no need to call this function.
         """
         log.info('logging out')
         if self._request.certificate:
             self._cleanup(os.path.dirname(self._request.certificate))
 
     def remove(self, repo, img):
-        """
-        Remove an image from a repo
-        """
+        """Remove an image from a repo."""
         if img.startswith("sha256:"):
 
             data = {
@@ -953,9 +897,7 @@ class Pulp(object):
         self.watch(tid)
 
     def searchRepos(self, patt):
-        """
-        Return a list of existing Pulp repository IDs that match a pattern
-        """
+        """Search and return Pulp repository IDs matching given pattern."""
         data = {
             'criteria': {
                 'filters': {
@@ -976,14 +918,13 @@ class Pulp(object):
         self._request.set_cert_key_paths(self.certificate, self.key)
 
     def setDebug(self):
-        """turn on debug output"""
+        """Turn on debug output."""
         log.setLevel(logging.DEBUG)
 
     def syncRepo(self, env=None, repo=None, config_file=DEFAULT_CONFIG_FILE,
                  prefix_with=PREFIX, feed=None, basic_auth_username=None,
                  basic_auth_password=None, ssl_validation=None, upstream_name=None):
-        """sync repo"""
-
+        """Sync repo."""
         if not repo.startswith(prefix_with):
             repo = prefix_with + repo
 
@@ -1052,8 +993,8 @@ class Pulp(object):
         return (imgs, manifests)
 
     def updateRepo(self, rid, update):
-        """
-        Update metadata on a repository
+        """Update metadata on a repository.
+
         "update" is a dictionary of keys to update with new values
         """
         log.info('updating repo %s' % rid)
@@ -1127,7 +1068,7 @@ class Pulp(object):
         mb = 1024 * 1024  # 1M
         try:
             block = self.chunk_size
-            if block == None:
+            if block is None:
                 block = mb
             # chunk size is in MB, need to convert
             else:
@@ -1167,7 +1108,7 @@ class Pulp(object):
         self._deleteUploadRequest(rid)
 
     def watch(self, tid, timeout=None, poll=5):
-        """watch a task ID and return when it finishes or fails"""
+        """Watch a task ID and return when it finishes or fails."""
         if timeout is None:
             timeout = self.timeout
         log.info('waiting up to %s seconds for task %s...' % (timeout, tid))
@@ -1229,10 +1170,10 @@ class Pulp(object):
             return "Importing content to repo %s" % (repo)
 
     def watch_tasks(self, task_ids, timeout=None, poll=5):
-        """
-        Waits for all supplied task ids to complete. Doesn't wait for other
-        tasks if at least one fails, just cancel everything running and raise
-        error.
+        """Wait for all supplied task ids to complete.
+
+        Doesn't wait for other tasks if at least one fails,
+        just cancel everything running and raise error.
         """
         running = set(task_ids)
         running_count = len(running)
@@ -1255,15 +1196,16 @@ class Pulp(object):
                     log.debug("Finished: Failed: %s" % (t))
                 results[t["task_id"]] = t
             # some tasks could be already removed from cache - search_tasks
-            #doesn't find them. Need check manually
+            # doesn't find them. Need check manually
             for task_id in set(running) - set([t["task_id"] for t in tasks_found]):
-                t = self.getTask(task_id)
-                if t["state"] in ("finished", "error", "canceled"):
-                    results[t["task_id"]] = t
-                    if self.is_task_successful(t):
-                        log.debug("Task successful: %s, %s" % (t["task_id"], self.resolve_task_type(t)))
+                task = self.getTask(task_id)
+                if task["state"] in ("finished", "error", "canceled"):
+                    results[task["task_id"]] = task
+                    if self.is_task_successful(task):
+                        log.debug("Task successful: %s, %s" % (task["task_id"],
+                                  self.resolve_task_type(task)))
                     else:
-                        log.debug("Finished: Failed: %s" % (t))
+                        log.debug("Finished: Failed: %s" % (task))
                     finished.append(t)
             for t in [t for t in finished if not self.is_task_successful(t)]:
                 if t.get("exception", None):
