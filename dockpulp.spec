@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.35
+Version:	1.36
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -48,6 +48,14 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Fri Sep 23 2016 Brendan Reilly <breilly@redhat.com> 1.36-1
+- Bumping version for release (breilly@redhat.com)
+- Automatic commit of package [dockpulp] release [1.35-1]. (breilly@redhat.com)
+- Bumping version for release (breilly@redhat.com)
+- Fix some doc flake8 errors (lucarval@redhat.com)
+- Fix flake8 F841 reports (twaugh@redhat.com)
+- Fix 'W601 .has_key() is deprecated, use 'in'' (vrutkovs@redhat.com)
+
 * Fri Sep 23 2016 Brendan Reilly <breilly@redhat.com> 1.35-1
 - Bumping version for release (breilly@redhat.com)
 - Fixed merging issue with whitespace changes (breilly@redhat.com)
