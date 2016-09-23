@@ -16,7 +16,6 @@
 
 from optparse import OptionParser
 import os.path
-import requests
 import sys
 
 try:
@@ -54,9 +53,7 @@ Restore configuration to a Pulp environment based on a json dump."""
 
 
 def precheck(dpo, jfile):
-    """
-    confirm the hidden repository is available and contains all needed images
-    """
+    """Confirm hidden repository is available and contains all needed images."""
     log.info('performing pre-checks in (empty) %s environment' % dpo.env)
     try:
         repos = json.load(open(jfile, 'r'))
@@ -69,9 +66,9 @@ def precheck(dpo, jfile):
     except dockpulp.errors.DockPulpError, e:
         if '404' in str(e):
             log.error(
-                '  This command expects the %s repository to be available' % \
+                '  This command expects the %s repository to be available' %
                 dockpulp.HIDDEN)
-            die('  Missing %s repository, please see dock-pulp-bootstrap' % \
+            die('  Missing %s repository, please see dock-pulp-bootstrap' %
                 dockpulp.HIDDEN)
         else:
             raise
@@ -98,9 +95,10 @@ def precheck(dpo, jfile):
 
 
 def restore(dpo, jdata):
-    """
-    Configure a pulp instance with the json data provided, which should be a
-    dump of configuration data from another existing environment.
+    """Configure a pulp instance with the json data provided.
+
+    jdata should be a dump of configuration data from another
+    existing environment.
     """
     log.info('Beginning restoration!')
     for repo in jdata:

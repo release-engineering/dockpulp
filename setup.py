@@ -1,6 +1,17 @@
 #!/usr/bin/python
+"""Setup definition for dockpulp.
+
+To install:
+    python setup.py install
+
+To install in development mode:
+    python setup.py develop
+
+For a comprehensive usage explanation:
+    python setup.py --help
+"""
 import sys
-from setuptools import setup, Command
+from setuptools import setup
 from dockpulp import __version__ as dockpulp_version
 
 

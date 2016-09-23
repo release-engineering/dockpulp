@@ -16,7 +16,6 @@
 
 from optparse import OptionParser
 import os.path
-import requests
 import sys
 import logging
 
@@ -61,9 +60,7 @@ Recreate hidden repo in a Pulp environment based on a json dump."""
 
 
 def recreate(dpo, jfile, test=False):
-    """
-    recreate the hidden repo in the environment provided
-    """
+    """Recreate the hidden repo in the environment provided."""
     try:
         repos = json.load(open(jfile, 'r'))
     except ValueError, e:
@@ -74,9 +71,10 @@ def recreate(dpo, jfile, test=False):
         p.listRepos(repos=dockpulp.HIDDEN, content=True)[0]
     except dockpulp.errors.DockPulpError, e:
         if '404' in str(e):
-            log.error('  This command expects the %s repository to be available' % \
-                      dockpulp.HIDDEN)
-            die('  Missing %s repository, please see dock-pulp-bootstrap' % \
+            log.error(
+                '  This command expects the %s repository to be available' %
+                dockpulp.HIDDEN)
+            die('  Missing %s repository, please see dock-pulp-bootstrap' %
                 dockpulp.HIDDEN)
         else:
             raise
