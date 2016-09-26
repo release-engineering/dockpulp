@@ -11,8 +11,10 @@ For a comprehensive usage explanation:
     python setup.py --help
 """
 import sys
+import io
+import os
+import re
 from setuptools import setup
-from dockpulp import __version__ as dockpulp_version
 
 
 def _simplejson_on_python26():
@@ -22,12 +24,29 @@ def _simplejson_on_python26():
         return []
     return ['simplejson']
 
+
+def _read(*names, **kwargs):
+    with io.open(
+        os.path.join(os.path.dirname(__file__), *names),
+        encoding=kwargs.get("encoding", "utf8")
+    ) as fp:
+        return fp.read()
+
+
+def _find_version(*file_paths):
+    version_file = _read(*file_paths)
+    version_match = re.search(r"^__version__ = ['\"]([^'\"]+)['\"]",
+                              version_file, re.M)
+    if version_match:
+        return version_match.group(1)
+    raise RuntimeError("Unable to find version string.")
+
 install_requires = ['requests']
 install_requires.extend(_simplejson_on_python26())
 
 setup(
     name="dockpulp",
-    version=dockpulp_version,
+    version=_find_version("dockpulp", "__init__.py"),
     author="Jay Greguske",
     author_email="jgregusk@redhat.com",
     description=("ReST API Client to Pulp for manipulating docker images"),
