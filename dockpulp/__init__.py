@@ -145,7 +145,7 @@ class Pulp(object):
     AUTH_KEY_FILE = "pulp.key"
 
     def __init__(self, env='qa', config_file=DEFAULT_CONFIG_FILE,
-                 config_override=None):
+                 config_override=None, config_distributors=DEFAULT_DISTRIBUTORS_FILE):
         """Constructor for Pulp class.
 
         The constructor sets up the remote hostname given an environment.
@@ -158,9 +158,9 @@ class Pulp(object):
         self._load_override_conf(config_override)
         self._request = RequestsHttpCaller(self.url)
         self._request.set_cert_key_paths(self.certificate, self.key)
-        if not os.path.exists(DEFAULT_DISTRIBUTORS_FILE):
-                log.error('could not load distributors json: %s' % DEFAULT_DISTRIBUTORS_FILE)
-        self.distributorconf = json.load(open(DEFAULT_DISTRIBUTORS_FILE, 'r'))
+        if not os.path.exists(config_distributors):
+                log.error('could not load distributors json: %s' % config_distributors)
+        self.distributorconf = json.load(open(config_distributors, 'r'))
         try:
             self.timeout
         except AttributeError:
