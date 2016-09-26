@@ -744,9 +744,10 @@ class Pulp(object):
                                         manifest['metadata']['digest'],
                                         blob_sum)
 
-                    r['manifests'][manifest['metadata']['digest']] = {}
-                    r['manifests'][manifest['metadata']['digest']]['tag'] = manifest['metadata']['tag']
-                    r['manifests'][manifest['metadata']['digest']]['layers'] = layers
+                    digest = manifest['metadata']['digest']
+                    r['manifests'][digest] = {}
+                    r['manifests'][digest]['tag'] = manifest['metadata']['tag']
+                    r['manifests'][digest]['layers'] = layers
 
                 for v2_blob, seen_ref in v2_blobs.items():
                     if not seen_ref:
@@ -764,7 +765,8 @@ class Pulp(object):
                         continue
                     for manifest in r['manifests'].keys():
                         try:
-                            data = self._get('/pulp/docker/v2/%s/manifests/%s' % (blob['id'], manifest))
+                            data = self._get('/pulp/docker/v2/%s/manifests/%s' % (
+                                blob['id'], manifest))
                         except errors.DockPulpError:
                             log.warning("Manifest unreachable, skipping %s", manifest)
                             r['manifests'][manifest]['v1parent'] = None
@@ -1020,7 +1022,8 @@ class Pulp(object):
         for distributorkey in validdistributorkeys:
             delta['distributor_configs'][distributorkey] = {}
         # we intentionally ignore everything else
-        valid = ('redirect-url', 'protected', 'repo-registry-id', 'description', 'display_name', 'tag')
+        valid = ('redirect-url', 'protected', 'repo-registry-id', 'description', 'display_name',
+                 'tag')
         for u in update.keys():
             if u not in valid:
                 log.warning('ignoring %s, not sure how to update' % u)
@@ -1184,7 +1187,8 @@ class Pulp(object):
         if timeout is None:
             timeout = self.timeout
         if running:
-            log.debug("Waiting on the following %d Pulp tasks: %s" % (len(running), ",".join(sorted(running))))
+            log.debug("Waiting on the following %d Pulp tasks: %s" % (
+                len(running), ",".join(sorted(running))))
         while running:
             time.sleep(poll)
             tasks_found = self.getTasks(list(running))
@@ -1221,7 +1225,8 @@ class Pulp(object):
                 except AttributeError:
                     result = t.get("result", {}) if t.get("result", {}) else {}
                     reasons = result.get('reasons', [])
-                log.error(u"Pulp task [%s] failed:\nDetails:\n%s\nTags:\n%s\nReasons:\n%s\nException:\n%s\nTraceback:\n%s" %
+                log.error(u"Pulp task [%s] failed:\n"
+                          "Details:\n%s\nTags:\n%s\nReasons:\n%s\nException:\n%s\nTraceback:\n%s" %
                           (t["task_id"],
                            pprint.pformat(result.get('details', '')),
                            '\n'.join([str(x) for x in t.get("tags", [])]),
@@ -1239,7 +1244,8 @@ class Pulp(object):
                 raise errors.DockPulpError("Pulp tasks failed: %s" % failed_tasks)
 
             if running and len(running) != running_count:
-                log.debug("Waiting on the following %d Pulp tasks: %s" % (len(running), ",".join(sorted(running))))
+                log.debug("Waiting on the following %d Pulp tasks: %s" % (
+                    len(running), ",".join(sorted(running))))
                 running_count = len(running)
         return results.values()
 
