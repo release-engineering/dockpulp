@@ -767,6 +767,8 @@ def do_create(bopts, bargs, parser):
     if url:
         if not url.startswith('/content'):
             parser.error('the content-url needs to start with /content')
+        if not url.endswith('/docker-id'):
+            parser.error('the content-url needs to end with /docker-id')
 
     p.createRepo(repoid, url, desc=opts.description, title=opts.title, protected=opts.protected, productline=productid)
     log.info('repository created')
