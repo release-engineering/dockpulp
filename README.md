@@ -1,12 +1,16 @@
+[![Build Status](https://travis-ci.org/release-engineering/dockpulp.svg?branch=master)](https://travis-ci.org/release-engineering/dockpulp)
+
 # dockpulp
 ReST API Client to Pulp for manipulating docker images
 
 ## Installation
 
 The only test installation is via RPM deployment, which presently is not
-integrated with the repository you just checked out. You will need to run the
-rpmbuild commands yourself after tarring up the code. (this will be improved
-in the future)
+integrated with the repository you just checked out. 
+You will need to install tito and then run following command for building rpm 
+package.
+
+`$ tito build --offline --rpm`
 
 Deployment will leave a file called /etc/dockpulp.conf, which how you configure
 the client for use with your Pulp, Crane, and CDN deployments. Read the

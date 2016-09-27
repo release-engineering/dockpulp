@@ -1,0 +1,7 @@
+pytest
+six
+pytest-capturelog
+responses
+requests
+flexmock
+simplejson
