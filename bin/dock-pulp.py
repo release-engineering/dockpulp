@@ -163,10 +163,11 @@ def get_bool_from_string(string):
     sys.exit(1)
 
 
-def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, key=None, silent=False):
+def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None,
+               key=None, silent=False):
     """Confirm we can reach crane and get data back from it."""
-    # manual: curl --insecure https://registry.access.stage.redhat.com/v1/repositories/rhel6/rhel/images
-    #         curl --insecure https://registry.access.stage.redhat.com/v1/repositories/rhel6.6/images
+    # manual: curl -k https://registry.access.stage.redhat.com/v1/repositories/rhel6/rhel/images
+    #         curl -k https://registry.access.stage.redhat.com/v1/repositories/rhel6.6/images
     result = {}
     result['error'] = False
     if not pulp_imgs:
@@ -248,7 +249,8 @@ def _test_repo(dpo, dockerid, redirect, pulp_imgs, protected=False, cert=None, k
             url = redirect + '/' + img + '/' + ext
             log.debug('  reaching for %s', url)
             try:
-                with closing(requests.get(url, verify=False, stream=True, cert=(cert, key))) as answer:
+                req_params = {'verify': False, 'stream': True, 'cert': (cert, key)}
+                with closing(requests.get(url, **req_params)) as answer:
                     log.debug('    got back a %s', answer.status_code)
                     if answer.status_code != requests.codes.ok:
                         missing.add(img)
@@ -598,7 +600,8 @@ def do_clone(bopts, bargs, parser):
         repoid = 'redhat-%s' % (args[1])
     else:
         if len(args) != 3:
-            parser.error('You need a source repo id, a new product line (rhel6, openshift3, etc), and a new image name')
+            parser.error('You need a source repo id, a new product line '
+                         '(rhel6, openshift3, etc), and a new image name')
         repoid = 'redhat-%s-%s' % (args[1], args[2])
         productid = args[1]
 
@@ -625,9 +628,12 @@ def do_confirm(bopts, bargs, parser):
 
     dock-pulp confirm [options] [repo-id...]
     """
-    parser.add_option('-c', '--cert', action='store', help='A cert used to authenticate protected repositories')
-    parser.add_option('-k', '--key', action='store', help='A key used to authenticate protected repositories')
-    parser.add_option('-s', '--silent', action='store_true', default=False, help='Return confirm output in machine readable form')
+    parser.add_option('-c', '--cert', action='store',
+                      help='A cert used to authenticate protected repositories')
+    parser.add_option('-k', '--key', action='store',
+                      help='A key used to authenticate protected repositories')
+    parser.add_option('-s', '--silent', action='store_true', default=False,
+                      help='Return confirm output in machine readable form')
     parser.add_option('--v1', action='store_true', default=False, help='Only report v1 output')
     parser.add_option('--v2', action='store_true', default=False, help='Only report v2 output')
     opts, args = parser.parse_args(bargs)
@@ -672,7 +678,8 @@ def do_confirm(bopts, bargs, parser):
         blobs = list(set(blobs))
         errorids[repo['id']] = False
         if opts.v1:
-            response = _test_repo(p, repo['docker-id'], repo['redirect'], imgs, repo['protected'], opts.cert, opts.key, opts.silent)
+            response = _test_repo(p, repo['docker-id'], repo['redirect'], imgs, repo['protected'],
+                                  opts.cert, opts.key, opts.silent)
             if opts.silent:
                 repoids[repo['id']].update(response)
                 if response['error']:
@@ -688,7 +695,8 @@ def do_confirm(bopts, bargs, parser):
                 log.debug('  /v2/ response not ok, will skip v2')
 
         if opts.v2:
-            response = _test_repoV2(p, repo['docker-id'], repo['redirect'], manifests, blobs, tags, repo['protected'], opts.cert, opts.key, opts.silent)
+            response = _test_repoV2(p, repo['docker-id'], repo['redirect'], manifests, blobs, tags,
+                                    repo['protected'], opts.cert, opts.key, opts.silent)
             if opts.silent:
                 repoids[repo['id']].update(response)
                 if errorids[repo['id']]:
@@ -756,7 +764,8 @@ def do_create(bopts, bargs, parser):
             url = args[1]
     else:
         if len(args) != 3 and p.isRedirect():
-            parser.error('You need a product line (rhel6, openshift3, etc), image name and a content-url')
+            parser.error('You need a product line (rhel6, openshift3, etc),'
+                         'image name and a content-url')
         elif (len(args) != 2 and len(args) != 3) and not p.isRedirect():
             parser.error('You need a product line (rhel6, openshift3, etc) and image name')
         productid = args[0]
@@ -770,7 +779,8 @@ def do_create(bopts, bargs, parser):
         if not url.endswith('/docker-id'):
             parser.error('the content-url needs to end with /docker-id')
 
-    p.createRepo(repoid, url, desc=opts.description, title=opts.title, protected=opts.protected, productline=productid)
+    p.createRepo(repoid, url, desc=opts.description, title=opts.title,
+                 protected=opts.protected, productline=productid)
     log.info('repository created')
 
 
@@ -944,7 +954,8 @@ def do_list(bopts, bargs, parser):
                             log.info('      %s', layer)
                     if opts.history and not repo['id'] == dockpulp.HIDDEN:
                         tagoutput.sort()
-                        if output[image][manifests[0]]['id'] or output[image][manifests[0]]['parent']:
+                        if output[image][manifests[0]]['id'] or \
+                           output[image][manifests[0]]['parent']:
                             log.info('    v1Compatibility:')
                             if output[image][manifests[0]]['id']:
                                 log.info('      %s (tags: %s)', output[image][manifests[0]]['id'],
@@ -1002,7 +1013,8 @@ def do_release(bopts, bargs, parser):
     parser.add_option('-s', '--skip-fast-forward', default=False, action='store_true',
                       dest="skip", help='use skip fast forward for release')
     parser.add_option('-r', '--force-refresh', default=False, action='store_true',
-                      dest="force_refresh", help='removes extra content on filer that is not in pulp')
+                      dest="force_refresh",
+                      help='removes extra content on filer that is not in pulp')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     if p.env == 'prod':
@@ -1193,7 +1205,8 @@ def do_task(bopts, bargs, parser):
         taskinfo = p.getTask(task)
         log.info(taskinfo['task_id'])
         log.info('-' * 36)
-        for field in ('state', 'error', 'task_type', 'queue', 'start_time', 'finish_time', 'traceback'):
+        for field in ('state', 'error', 'task_type', 'queue', 'start_time',
+                      'finish_time', 'traceback'):
             if field not in taskinfo:
                 continue
             log.info('%s = %s' % (field, taskinfo[field]))
@@ -1212,7 +1225,8 @@ def do_update(bopts, bargs, parser):
     parser.add_option('-r', '--redirect', help='set the redirect URL')
     parser.add_option('-t', '--title', help='set the title (short desc)')
     parser.add_option('-p', '--protected',
-                      help='set the protected bit. Accepts (t, true, True) for True, (f, false, False) for False')
+                      help='set the protected bit. Accepts (t, true, True) for True, '
+                           '(f, false, False) for False')
     opts, args = parser.parse_args(bargs)
     if len(args) < 1:
         parser.error('You must specify a repo ID (not the docker name)')
