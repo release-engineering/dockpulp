@@ -48,10 +48,11 @@ class TestPulp(object):
         assert pulp.certificate == cert
         assert pulp.key == key
 
-    @pytest.mark.parametrize('tid, url, result', [
-        ('111', '/pulp/api/v2/tasks/111/', 'task_received')
+    @pytest.mark.parametrize('tid, url', [
+        ('111', '/pulp/api/v2/tasks/111/')
     ])
-    def test_getTask(self, pulp, tid, url, result):
+    def test_getTask(self, pulp, tid, url):
+        result = 'task_received'
         flexmock(RequestsHttpCaller)
         RequestsHttpCaller.should_receive('__call__').with_args('get', url).once().and_return(result)
         assert pulp.getTask(tid) == result
