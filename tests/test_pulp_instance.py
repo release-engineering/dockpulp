@@ -42,15 +42,19 @@ def pulp(tmpdir):
 # tests
 class TestPulp(object):
     # Tests of methods from Pulp class.
-    def test_set_certs(self, pulp):
-        pulp.set_certs('foo', 'bar')
-        assert pulp.certificate == 'foo'
-        assert pulp.key == 'bar'
+    @pytest.mark.parametrize('cert, key', [('foo', 'bar')])
+    def test_set_certs(self, pulp, cert, key):
+        pulp.set_certs(cert, key)
+        assert pulp.certificate == cert
+        assert pulp.key == key
 
-    def test_getTask(self, pulp):
+    @pytest.mark.parametrize('tid, url, result', [
+        ('111', '/pulp/api/v2/tasks/111/', 'task_received')
+    ])
+    def test_getTask(self, pulp, tid, url, result):
         flexmock(RequestsHttpCaller)
-        RequestsHttpCaller.should_receive('__call__').with_args('get', '/pulp/api/v2/tasks/111/').once().and_return('well_done')
-        assert pulp.getTask("111") == 'well_done'
+        RequestsHttpCaller.should_receive('__call__').with_args('get', url).once().and_return(result)
+        assert pulp.getTask(tid) == result
 
     def test_getPrefix(self, pulp):
         assert pulp.getPrefix() == 'redhat-'
