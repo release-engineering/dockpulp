@@ -54,7 +54,11 @@ class TestPulp(object):
     def test_getTask(self, pulp, tid, url):
         result = 'task_received'
         flexmock(RequestsHttpCaller)
-        RequestsHttpCaller.should_receive('__call__').with_args('get', url).once().and_return(result)
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .with_args('get', url)
+            .once()
+            .and_return(result))
         assert pulp.getTask(tid) == result
 
     def test_getPrefix(self, pulp):
