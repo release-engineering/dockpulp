@@ -140,7 +140,8 @@ class Pulp(object):
                                ('release_order', "_set_env_attr", "release_order"))
     OPTIONAL_CONF_SECTIONS = (('certificates', "_set_cert", None),
                               ('chunk_size', "_set_int_attr", "chunk_size"),
-                              ('timeout', "_set_int_attr", "timeout"))
+                              ('timeout', "_set_int_attr", "timeout"),
+                              ('retries', "_set_int_attr", "retries"))
     AUTH_CER_FILE = "pulp.cer"
     AUTH_KEY_FILE = "pulp.key"
 
@@ -167,6 +168,12 @@ class Pulp(object):
             self.timeout = 180
         if self.timeout is None:
             self.timeout = 180
+        try:
+            self.retries
+        except AttributeError:
+            self.retries = 1
+        if self.retries is None or self.retries < 1:
+            self.retries = 1
 
     def _set_bool(self, attrs):
         for key, boolean in attrs:
@@ -264,16 +271,44 @@ class Pulp(object):
             return []
 
     def _get(self, api, **kwargs):
-        return self._request('get', api, **kwargs)
+        for r in xrange(self.retries):
+            try:
+                req = self._request('get', api, **kwargs)
+            except requests.ConnectionError as err:
+                continue
+            return req
+        log.debug("Retried pulp request %s times", self.retries)
+        raise err
 
     def _post(self, api, **kwargs):
-        return self._request('post', api, **kwargs)
+        for r in xrange(self.retries):
+            try:
+                req = self._request('post', api, **kwargs)
+            except requests.ConnectionError as err:
+                continue
+            return req
+        log.debug("Retried pulp request %s times", self.retries)
+        raise err
 
     def _put(self, api, **kwargs):
-        return self._request('put', api, **kwargs)
+        for r in xrange(self.retries):
+            try:
+                req = self._request('put', api, **kwargs)
+            except requests.ConnectionError as err:
+                continue
+            return req
+        log.debug("Retried pulp request %s times", self.retries)
+        raise err
 
     def _delete(self, api, **kwargs):
-        return self._request('delete', api, **kwargs)
+        for r in xrange(self.retries):
+            try:
+                req = self._request('delete', api, **kwargs)
+            except requests.ConnectionError as err:
+                continue
+            return req
+        log.debug("Retried pulp request %s times", self.retries)
+        raise err
 
     def _enforce_repo_name_policy(self, repos, repo_prefix=None):
         new_repos = []
