@@ -24,6 +24,7 @@ import sys
 import tempfile
 import time
 import warnings
+from functools import wraps
 
 import multiprocessing
 
@@ -270,45 +271,34 @@ class Pulp(object):
         else:
             return []
 
+    def _pulp_retry(func):
+        @wraps(func)
+        def request_wrapper(self, api, **kwargs):
+            for r in xrange(self.retries):
+                try:
+                    req = func(self, api, **kwargs)
+                except requests.ConnectionError as err:
+                    continue
+                return req
+            log.debug("Retried pulp request %s times", self.retries)
+            raise err
+        return request_wrapper
+
+    @_pulp_retry
     def _get(self, api, **kwargs):
-        for r in xrange(self.retries):
-            try:
-                req = self._request('get', api, **kwargs)
-            except requests.ConnectionError as err:
-                continue
-            return req
-        log.debug("Retried pulp request %s times", self.retries)
-        raise err
+        return self._request('get', api, **kwargs)
 
+    @_pulp_retry
     def _post(self, api, **kwargs):
-        for r in xrange(self.retries):
-            try:
-                req = self._request('post', api, **kwargs)
-            except requests.ConnectionError as err:
-                continue
-            return req
-        log.debug("Retried pulp request %s times", self.retries)
-        raise err
+        return self._request('post', api, **kwargs)
 
+    @_pulp_retry
     def _put(self, api, **kwargs):
-        for r in xrange(self.retries):
-            try:
-                req = self._request('put', api, **kwargs)
-            except requests.ConnectionError as err:
-                continue
-            return req
-        log.debug("Retried pulp request %s times", self.retries)
-        raise err
+        return self._request('put', api, **kwargs)
 
+    @_pulp_retry
     def _delete(self, api, **kwargs):
-        for r in xrange(self.retries):
-            try:
-                req = self._request('delete', api, **kwargs)
-            except requests.ConnectionError as err:
-                continue
-            return req
-        log.debug("Retried pulp request %s times", self.retries)
-        raise err
+        return self._request('delete', api, **kwargs)
 
     def _enforce_repo_name_policy(self, repos, repo_prefix=None):
         new_repos = []
