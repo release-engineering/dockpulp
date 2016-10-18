@@ -18,6 +18,7 @@ import ConfigParser
 import logging
 import os
 import pprint
+import re
 import requests
 import shutil
 import sys
@@ -1071,6 +1072,10 @@ class Pulp(object):
                         {'image_id': iid, 'tag': tag})
         for key in ('protected', 'redirect-url', 'repo-registry-id'):
             if key in update:
+                if key == 'redirect-url':
+                    if re.match("https?:\/\/.+\/.*", update[key]) is None:
+                        raise errors.DockPulpError('The redirect-url must follow the form '
+                                                   'http://example/url or https://example/url')
                 for distributorkey in delta['distributor_configs']:
                     delta['distributor_configs'][distributorkey][key] = update[key]
         for distributorkey in distributorkeys:
