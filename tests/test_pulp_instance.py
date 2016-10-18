@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
-from dockpulp import Pulp, RequestsHttpCaller
+from dockpulp import Pulp, RequestsHttpCaller, errors
 import pytest
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
@@ -63,3 +63,41 @@ class TestPulp(object):
 
     def test_getPrefix(self, pulp):
         assert pulp.getPrefix() == 'redhat-'
+
+    @pytest.mark.parametrize('rid, redirect', [
+        ('test-repo', 'http://example/url'),
+        ('test-repo', 'https://example/url'),
+        ('test-repo', 'http://www.example.com/url/foo/bar'),
+        ('test-repo', 'https://www.example.com/url/foo/bar')
+    ])
+    def test_updateRedirect(self, pulp, rid, redirect):
+        update = {'redirect-url': redirect}
+        blob = []
+        did = {'distributor_type_id': 'testdist', 'id': 'test'}
+        t = {'state': 'finished'}
+        blob.append(did)
+        flexmock(RequestsHttpCaller)
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .and_return(blob, '111', t)
+            .one_by_one())
+        assert pulp.updateRepo(rid, update) is None
+
+    @pytest.mark.parametrize('rid, redirect', [
+        ('test-repo', 'test'),
+        ('test-repo', 'example/test'),
+        ('test-repo', 'https://example')
+    ])
+    def test_updateRedirectFail(self, pulp, rid, redirect):
+        update = {'redirect-url': redirect}
+        blob = []
+        did = {'distributor_type_id': 'testdist', 'id': 'test'}
+        t = {'state': 'finished'}
+        blob.append(did)
+        flexmock(RequestsHttpCaller)
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .and_return(blob, '111', t)
+            .one_by_one())
+        with pytest.raises(errors.DockPulpError):
+            pulp.updateRepo(rid, update)
