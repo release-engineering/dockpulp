@@ -867,6 +867,8 @@ def do_list(bopts, bargs, parser):
                       help='show details (not content) about each repository')
     parser.add_option('--history', default=False, action='store_true',
                       help='show v1 compatibility history')
+    parser.add_option('-l', '--labels', default=False, action='store_true',
+                      help='show labels')
     parser.add_option('-m', '--manifests', default=False, action='store_true',
                       help='only list manifests and their tags, no blobs')
     opts, args = parser.parse_args(bargs)
@@ -885,7 +887,7 @@ def do_list(bopts, bargs, parser):
                     rids.extend(results)
             else:
                 rids.append(arg)
-        repos = p.listRepos(repos=rids, content=opts.content, history=opts.history)
+        repos = p.listRepos(repos=rids, content=opts.content, history=(opts.history or opts.labels))
     for repo in repos:
         log.info(repo['id'])
         if opts.details or opts.content:
@@ -896,7 +898,7 @@ def do_list(bopts, bargs, parser):
                     continue
                 else:
                     log.info('%s = %s', k, v)
-        if opts.content or opts.history:
+        if opts.content or opts.history or opts.labels:
             log.info('v1 image details:')
             if len(repo['images'].keys()) == 0:
                 log.info('  No images')
@@ -933,9 +935,10 @@ def do_list(bopts, bargs, parser):
 
                     output[layer][manifest]['active'] = active_marker
 
-                    if opts.history and not repo['id'] == dockpulp.HIDDEN:
+                    if (opts.history or opts.labels) and not repo['id'] == dockpulp.HIDDEN:
                         output[layer][manifest]['id'] = repo['manifests'][manifest]['v1id']
                         output[layer][manifest]['parent'] = repo['manifests'][manifest]['v1parent']
+                        output[layer][manifest]['labels'] = repo['manifests'][manifest]['v1labels']
 
                 images = output.keys()
                 for image in images:
@@ -962,6 +965,13 @@ def do_list(bopts, bargs, parser):
                                          ', '.join(tagoutput))
                             if output[image][manifests[0]]['parent']:
                                 log.info('      %s (tags: )', output[image][manifests[0]]['parent'])
+
+                    if opts.labels and not repo['id'] == dockpulp.HIDDEN:
+                        if output[image][manifests[0]]['labels']:
+                            log.info('    Labels:')
+                            for key in output[image][manifests[0]]['labels']:
+                                log.info('      %s: %s', key,
+                                         output[image][manifests[0]]['labels'][key])
 
         if opts.details or opts.content or opts.history:
             log.info('')

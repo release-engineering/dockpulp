@@ -797,6 +797,7 @@ class Pulp(object):
                             log.warning("Manifest unreachable, skipping %s", manifest)
                             r['manifests'][manifest]['v1parent'] = None
                             r['manifests'][manifest]['v1id'] = None
+                            r['manifests'][manifest]['v1labels'] = None
                             continue
 
                         # Unsure if all v2 images will have v1 history
@@ -806,6 +807,7 @@ class Pulp(object):
                             log.debug("%s has no v1 history information, skipping", manifest)
                             r['manifests'][manifest]['v1parent'] = None
                             r['manifests'][manifest]['v1id'] = None
+                            r['manifests'][manifest]['v1labels'] = None
                             continue
 
                         try:
@@ -819,6 +821,12 @@ class Pulp(object):
                         except KeyError:
                             log.debug("%s has no v1 history id information", manifest)
                             r['manifests'][manifest]['v1id'] = None
+
+                        try:
+                            r['manifests'][manifest]['v1labels'] = hist['config']['Labels']
+                        except KeyError:
+                            log.debug("%s has no v1 label information", manifest)
+                            r['manifests'][manifest]['v1labels'] = None
 
             clean.append(r)
             clean.sort()
