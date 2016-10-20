@@ -103,27 +103,31 @@ class TestPulp(object):
         with pytest.raises(errors.DockPulpError):
             pulp.updateRepo(rid, update)
 
-    @pytest.mark.parametrize('repos, content, history', [
-        ('test-repo', True, True),
-        ('test-repo', False, True),
+    @pytest.mark.parametrize('repos, content, history, label', [
+        ('test-repo', True, True, True),
+        ('test-repo', False, True, True),
     ])
-    def test_listHistory(self, pulp, repos, content, history):
+    def test_listHistory(self, pulp, repos, content, history, label):
         blob = {'notes': {'_repo-type': 'docker-repo'}, 'id': 'testid', 'description': 'testdesc',
                 'display_name': 'testdisp', 'distributors': [], 'scratchpad': {}}
         units = [{'unit_type_id': 'docker_manifest',
                   'metadata': {'fs_layers': [{'blob_sum': 'test'}], 'digest': 'testdig',
-                               'tag': 'testtag'}}]
+                               'tag': 'testtag'}},
+                 {'unit_type_id': 'docker_image', 'metadata': {'image_id': 'v1idtest'}}]
+        labels = {'config': {'Labels': {'label1': 'label2'}}}
         v1Compatibility = {'parent': 'testparent', 'id': 'testid',
                            'config': {'Labels': {'testlab1': 'testlab2'}}}
         data = {'history': [{'v1Compatibility': json.dumps(v1Compatibility)}]}
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
             .should_receive('__call__')
-            .and_return(blob, units, data)
+            .and_return(blob, units, labels, data)
             .one_by_one())
-        history = pulp.listRepos(repos, content, history)
+        history = pulp.listRepos(repos, content, history, label)
         for key in history[0]['manifests']:
             assert history[0]['manifests'][key]['v1parent'] == v1Compatibility['parent']
             assert history[0]['manifests'][key]['v1id'] == v1Compatibility['id']
             assert history[0]['manifests'][key]['v1labels']['testlab1'] == \
                 v1Compatibility['config']['Labels']['testlab1']
+        for key in history[0]['v1_labels']:
+            assert history[0]['v1_labels'][key] == labels['config']['Labels']
