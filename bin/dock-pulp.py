@@ -887,7 +887,8 @@ def do_list(bopts, bargs, parser):
                     rids.extend(results)
             else:
                 rids.append(arg)
-        repos = p.listRepos(repos=rids, content=opts.content, history=(opts.history or opts.labels))
+        repos = p.listRepos(repos=rids, content=opts.content, history=(opts.history or opts.labels),
+                            labels=opts.labels)
     for repo in repos:
         log.info(repo['id'])
         if opts.details or opts.content:
@@ -908,6 +909,10 @@ def do_list(bopts, bargs, parser):
                 for img in imgs:
                     log.info('  %s (tags: %s)',
                              img, ', '.join(repo['images'][img]))
+                    if repo['v1_labels'][img]:
+                        log.info('    Labels:')
+                        for key in repo['v1_labels'][img]:
+                            log.info('      %s: %s', key, repo['v1_labels'][img][key])
             log.info('')
             log.info('v2 manifest details:')
             if len(repo['manifests'].keys()) == 0:

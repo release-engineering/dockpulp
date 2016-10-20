@@ -650,7 +650,7 @@ class Pulp(object):
         log.debug('getting list of orphaned %s' % content_type)
         return self._get('/pulp/api/v2/content/orphans/%s/' % content_type)
 
-    def listRepos(self, repos=None, content=False, history=False):
+    def listRepos(self, repos=None, content=False, history=False, labels=False):
         """Return information about pulp repositories.
 
         If repos is a string or list of strings, treat them as repo IDs
@@ -730,10 +730,21 @@ class Pulp(object):
                     '/pulp/api/v2/repositories/%s/search/units/' % blob['id'],
                     data=json.dumps(data))
                 r['images'] = {}
+                if labels:
+                    r['v1_labels'] = {}
                 imgs = [unit for unit in units
                         if unit['unit_type_id'] == V1_C_TYPE]
                 for img in imgs:
                     r['images'][img['metadata']['image_id']] = []
+
+                    if labels:
+                        labels = self._get('/pulp/docker/v1/%s/%s/json' %
+                                           (blob['id'], img['metadata']['image_id']))
+                        try:
+                            r['v1_labels'][img['metadata']['image_id']] = labels['config']['Labels']
+                        except KeyError:
+                            r['v1_labels'][img['metadata']['image_id']] = None
+
                 if 'tags' in blob['scratchpad']:
                     tags = blob['scratchpad']['tags']
                     for tag in tags:
