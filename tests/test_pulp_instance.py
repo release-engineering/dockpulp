@@ -9,6 +9,7 @@ from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from contextlib import nested
 from flexmock import flexmock
+import requests
 
 
 # fixtures
@@ -29,6 +30,8 @@ def pulp(tmpdir):
             {name} = foo
             [release_order]
             {name} = foo
+            [retries]
+            {name} = 2
             """).format(name=name))
         fp.flush()
 
@@ -61,6 +64,33 @@ class TestPulp(object):
             .once()
             .and_return(result))
         assert pulp.getTask(tid) == result
+
+    @pytest.mark.parametrize('tid, url', [
+        ('111', '/pulp/api/v2/tasks/111/')
+    ])
+    def test_getTaskRetries(self, pulp, tid, url):
+        result = 'task_received'
+        flexmock(RequestsHttpCaller)
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .with_args('get', url)
+            .twice()
+            .and_raise(requests.ConnectionError)
+            .and_return(result))
+        assert pulp.getTask(tid) == result
+
+    @pytest.mark.parametrize('tid, url', [
+        ('111', '/pulp/api/v2/tasks/111/')
+    ])
+    def test_getTaskRetriesFail(self, pulp, tid, url):
+        flexmock(RequestsHttpCaller)
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .with_args('get', url)
+            .twice()
+            .and_raise(requests.ConnectionError))
+        with pytest.raises(requests.ConnectionError):
+            pulp.getTask(tid)
 
     def test_getPrefix(self, pulp):
         assert pulp.getPrefix() == 'redhat-'
