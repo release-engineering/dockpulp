@@ -15,6 +15,7 @@
 
 import atexit
 import ConfigParser
+import hashlib
 import logging
 import os
 import pprint
@@ -22,6 +23,7 @@ import re
 import requests
 import shutil
 import sys
+import tarfile
 import tempfile
 import time
 import warnings
@@ -112,6 +114,8 @@ class RequestsHttpCaller(object):
             else:
                 raise errors.DockPulpLoginError(
                     'Expired or bad certificate, or SSL verification failed')
+        if 'stream' in kwargs and kwargs['stream']:
+            return answer
         try:
             r = json.loads(answer.content)
             log.debug('raw response data:')
@@ -326,6 +330,50 @@ class Pulp(object):
         result = self._post('/pulp/api/v2/repositories/%s/distributors/' % repo,
                             data=json.dumps(data))
         return result
+
+    def checkLayers(self, repo, images):
+        response = {}
+        response['failedlayers'] = []
+        response['error'] = False
+        for img in images:
+            layer_url = '/pulp/docker/v1/%s/%s/layer' % (repo, img)
+            try:
+                r = self._get(layer_url, stream=True)
+            except requests.exceptions.ConnectionError:
+                log.warning('Layer %s not available in pulp for repo %s' % (img, repo))
+                response['failedlayers'].append(img)
+                response['error'] = True
+                continue
+            try:
+                tar = tarfile.open(fileobj=r.raw, mode='r|*')
+                tar.close()
+            except IOError:
+                log.warning('Layer %s corrupted for repo %s' % (img, repo))
+                response['failedlayers'].append(img)
+                response['error'] = True
+
+        return response
+
+    def checkBlobs(self, repo, blobs):
+        response = {}
+        response['failedblobs'] = []
+        response['error'] = False
+        for blob in blobs:
+            blob_url = '/pulp/docker/v2/%s/blobs/%s' % (repo, blob)
+            try:
+                r = self._get(blob_url, stream=True)
+            except requests.exceptions.ConnectionError:
+                log.warning('Blob %s not available in pulp for repo %s' % (blob, repo))
+                response['failedblobs'].append(blob)
+                response['error'] = True
+                continue
+            sig = hashlib.sha256(r.raw.read())
+            shasum = 'sha256:%s' % sig.hexdigest()
+            if shasum != blob:
+                log.warning('Blob %s does not have expected shasum %s' % (blob, shasum))
+                response['failedblobs'].append(blob)
+                response['error'] = True
+        return response
 
     def cleanOrphans(self, content_type=V1_C_TYPE):
         """Remove orphaned docker content of given type."""

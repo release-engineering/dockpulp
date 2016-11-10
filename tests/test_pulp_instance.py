@@ -4,12 +4,14 @@
 
 from dockpulp import Pulp, RequestsHttpCaller, errors
 import pytest
+import hashlib
 import json
+import requests
+import tarfile
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from contextlib import nested
 from flexmock import flexmock
-import requests
 
 
 # fixtures
@@ -41,6 +43,25 @@ def pulp(tmpdir):
         df.flush()
         pulp = Pulp(env=name, config_file=fp.name, config_distributors=df.name)
     return pulp
+
+
+# wrapper classes
+class testRead(object):
+    def read(self):
+        return 'test'
+
+
+class testResponse(object):
+    def __init__(self):
+        self.raw = testRead()
+
+
+class testHash(object):
+    def __init__(self, output):
+        self.output = output
+
+    def hexdigest(self):
+        return self.output
 
 
 # tests
@@ -161,3 +182,89 @@ class TestPulp(object):
                 v1Compatibility['config']['Labels']['testlab1']
         for key in history[0]['v1_labels']:
             assert history[0]['v1_labels'][key] == labels['config']['Labels']
+
+    @pytest.mark.parametrize('repo, image', [('testrepo', 'testimg')])
+    def test_checkLayers(self, pulp, repo, image):
+        images = []
+        images.append(image)
+        req = requests.Response()
+        flexmock(
+            req,
+            raw="rawtest")
+        flexmock(RequestsHttpCaller)
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .once()
+            .and_return(req))
+        flexmock(tarfile)
+        (tarfile
+            .should_receive('open')
+            .once()
+            .and_return(tarfile.TarFile))
+        flexmock(tarfile.TarFile)
+        (tarfile.TarFile
+            .should_receive('close')
+            .once()
+            .and_return())
+        response = pulp.checkLayers(repo, images)
+        assert not response['error']
+
+    @pytest.mark.parametrize('repo, image', [('testrepo', 'testimg')])
+    def test_checkLayersFail(self, pulp, repo, image):
+        images = []
+        images.append(image)
+        flexmock(RequestsHttpCaller)
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .twice()
+            .and_raise(requests.exceptions.ConnectionError))
+        response = pulp.checkLayers(repo, images)
+        assert response['error']
+
+    @pytest.mark.parametrize('repo, blob', [('testrepo', 'testblob')])
+    def test_checkBlobs(self, pulp, repo, blob):
+        blobs = []
+        blobs.append('sha256:%s' % blob)
+        req = testResponse()
+        flexmock(RequestsHttpCaller)
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .once()
+            .and_return(req))
+        flexmock(hashlib)
+        (hashlib
+            .should_receive('sha256')
+            .once()
+            .and_return(testHash(blob)))
+        response = pulp.checkBlobs(repo, blobs)
+        assert not response['error']
+
+    @pytest.mark.parametrize('repo, blob', [('testrepo', 'testblob')])
+    def test_checkBlobsMismatch(self, pulp, repo, blob):
+        blobs = []
+        blobs.append('sha256:%s' % blob)
+        req = testResponse()
+        flexmock(RequestsHttpCaller)
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .once()
+            .and_return(req))
+        flexmock(hashlib)
+        (hashlib
+            .should_receive('sha256')
+            .once()
+            .and_return(testHash('test')))
+        response = pulp.checkBlobs(repo, blobs)
+        assert response['error']
+
+    @pytest.mark.parametrize('repo, blob', [('testrepo', 'sha256:testblob')])
+    def test_checkBlobsFail(self, pulp, repo, blob):
+        blobs = []
+        blobs.append(blob)
+        flexmock(RequestsHttpCaller)
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .twice()
+            .and_raise(requests.exceptions.ConnectionError))
+        response = pulp.checkBlobs(repo, blobs)
+        assert response['error']
