@@ -634,6 +634,8 @@ def do_confirm(bopts, bargs, parser):
                       help='A key used to authenticate protected repositories')
     parser.add_option('-s', '--silent', action='store_true', default=False,
                       help='Return confirm output in machine readable form')
+    parser.add_option('--check-layers', action='store_true', default=False,
+                      help="Tests all layers via shasum for v2 or tar/gzip for v1")
     parser.add_option('--v1', action='store_true', default=False, help='Only report v1 output')
     parser.add_option('--v2', action='store_true', default=False, help='Only report v2 output')
     opts, args = parser.parse_args(bargs)
@@ -703,6 +705,27 @@ def do_confirm(bopts, bargs, parser):
                     repoids[repo['id']]['error'] = True
             elif response['error']:
                 errors += 1
+
+        if opts.check_layers:
+            log.info('Testing each layer/blob in %s' % repo['id'])
+            log.info('This may take significant machine time and resources')
+            if opts.v1:
+                response = p.checkLayers(repo['id'], imgs)
+                if opts.silent:
+                    repoids[repo['id']].update(response)
+                    if errorids[repo['id']]:
+                        repoids[repo['id']]['error'] = True
+                elif response['error']:
+                    errors += 1
+
+            if opts.v2:
+                response = p.checkBlobs(repo['id'], blobs)
+                if opts.silent:
+                    repoids[repo['id']].update(response)
+                    if errorids[repo['id']]:
+                        repoids[repo['id']]['error'] = True
+                elif response['error']:
+                    errors += 1
 
     log.info('Testing complete... %s error(s)' % errors)
 
