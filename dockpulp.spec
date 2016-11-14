@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.36
+Version:	1.37
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -48,6 +48,29 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Mon Nov 14 2016 Brendan Reilly <breilly@redhat.com> 1.37-1
+- Bumping version for 1.37 release (breilly@redhat.com)
+- Added check-layers functionality (breilly@redhat.com)
+- Added unit testing for retries (breilly@redhat.com)
+- Added support for v1 label listing (breilly@redhat.com)
+- Added listing label support for v2 manifests (breilly@redhat.com)
+- Dockpulp checks update redirect-url to fit pulp standards
+  (breilly@redhat.com)
+- Added decorator to cut down on duplicate code (breilly@redhat.com)
+- Added configurable retries to make requests more resilient to infra hiccups
+  (breilly@redhat.com)
+- Adding version of pydocstyle into tox.ini (lkolacek@redhat.com)
+- Fixing flake8 error E501 - line too long (lkolacek@redhat.com)
+- Removing result from arguments (lkolacek@redhat.com)
+- Adding parametrization of arguments for a test functions
+  (lkolacek@redhat.com)
+- Adding new tests for Pulp instance (lkolacek@redhat.com)
+- Fix E501 line too long (n > 100 characters) (vrutkovs@redhat.com)
+- Removing corrected errors and adding new ones (lkolacek@redhat.com)
+- content-url is now enforced to end with '/docker-id' (breilly@redhat.com)
+- Remove import of version from setup.py (csomh@redhat.com)
+- Setting environment for dockpulp unit testing (lkolacek@redhat.com)
+
 * Fri Sep 23 2016 Brendan Reilly <breilly@redhat.com> 1.36-1
 - Bumping version for release (breilly@redhat.com)
 - Automatic commit of package [dockpulp] release [1.35-1]. (breilly@redhat.com)
