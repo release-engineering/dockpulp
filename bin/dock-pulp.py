@@ -1367,5 +1367,6 @@ def do_upload(bopts, bargs, parser):
                 p.copy(repo, img)
     log.info('Upload complete')
 
+
 if __name__ == '__main__':
     main()

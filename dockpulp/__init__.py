@@ -62,6 +62,7 @@ class NullHandler(logging.Handler):
     def emit(self, record):
         pass
 
+
 # This is our log object, clients of this library can use this object to
 # define their own logging needs
 log = logging.getLogger("dockpulp")

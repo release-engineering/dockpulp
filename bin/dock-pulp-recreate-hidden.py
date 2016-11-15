@@ -104,6 +104,7 @@ def die(msg):
     log.error(msg)
     sys.exit(1)
 
+
 if __name__ == '__main__':
     opts, args = get_opts()
     p = dockpulp.Pulp(env=args[0])
