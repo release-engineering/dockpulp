@@ -932,7 +932,7 @@ def do_list(bopts, bargs, parser):
                 for img in imgs:
                     log.info('  %s (tags: %s)',
                              img, ', '.join(repo['images'][img]))
-                    if repo['v1_labels'][img]:
+                    if opts.labels and repo['v1_labels'][img]:
                         log.info('    Labels:')
                         for key in repo['v1_labels'][img]:
                             log.info('      %s: %s', key, repo['v1_labels'][img][key])
@@ -1366,6 +1366,7 @@ def do_upload(bopts, bargs, parser):
             for img in newimgs:
                 p.copy(repo, img)
     log.info('Upload complete')
+
 
 if __name__ == '__main__':
     main()
