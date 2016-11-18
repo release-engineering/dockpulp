@@ -783,6 +783,7 @@ def do_create(bopts, bargs, parser):
         elif (len(args) != 1 and len(args) != 2) and not p.isRedirect():
             parser.error('You need a name for a library-level repo')
         repoid = 'redhat-%s' % (args[0])
+        imagename = args[0]
         if len(args) == 2:
             url = args[1]
     else:
@@ -792,6 +793,7 @@ def do_create(bopts, bargs, parser):
         elif (len(args) != 2 and len(args) != 3) and not p.isRedirect():
             parser.error('You need a product line (rhel6, openshift3, etc) and image name')
         productid = args[0]
+        imagename = args[1]
         repoid = 'redhat-%s-%s' % (args[0], args[1])
         if len(args) == 3:
             url = args[2]
@@ -799,8 +801,11 @@ def do_create(bopts, bargs, parser):
     if url:
         if not url.startswith('/content'):
             parser.error('the content-url needs to start with /content')
-        if not url.endswith('/docker-id'):
-            parser.error('the content-url needs to end with /docker-id')
+        suffix = '/%s' % imagename
+        if productid:
+            suffix = '/%s%s' % (productid, suffix)
+        if not url.rstrip('/').endswith(suffix):
+            parser.error('the content-url needs to end with %s' % suffix)
 
     p.createRepo(repoid, url, desc=opts.description, title=opts.title,
                  protected=opts.protected, productline=productid)
