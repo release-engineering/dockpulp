@@ -21,6 +21,7 @@ import os
 import shutil
 import sys
 import logging
+import json
 
 import dockpulp
 
@@ -453,8 +454,15 @@ def do_list(bopts, bargs, parser):
                       help='show labels')
     parser.add_option('-m', '--manifests', default=False, action='store_true',
                       help='only list manifests and their tags, no blobs')
+    parser.add_option('-s', '--silent', default=False, action='store_true',
+                      help='return a json object of the listing, no other output')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
+
+    if opts.silent:
+        log.removeHandler(sh)
+        log.addHandler(dockpulp.NullHandler())
+
     if len(args) == 0:
         repos = p.listRepos(content=opts.content)
     else:
@@ -471,6 +479,13 @@ def do_list(bopts, bargs, parser):
                 rids.append(arg)
         repos = p.listRepos(repos=rids, content=opts.content, history=(opts.history or opts.labels),
                             labels=opts.labels)
+
+    if opts.silent:
+        log.addHandler(silent)
+        repoinfo = json.dumps(repos)
+        log.info(repoinfo)
+        return
+
     for repo in repos:
         log.info(repo['id'])
         if opts.details or opts.content:
