@@ -131,12 +131,12 @@ def check_repo(tarfile_path):
                     return 2
             else:
                 seen_ids.append(os.path.basename(member.path))
+    if found is False:
+        return 1
     val = repo_data.popitem()[1]  # don't care about repo name at all
     for ver, iid in val.items():
         if iid not in seen_ids:
             return 3
-    if found is False:
-        return 1
     return 0
 
 
