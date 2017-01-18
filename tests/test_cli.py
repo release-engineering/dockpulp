@@ -31,6 +31,12 @@ class testPulp(object):
     def setDebug():
         return
 
+    def isRedirect():
+        return
+
+    def createRepo():
+        return
+
 
 # tests
 class TestCLI(object):
@@ -67,3 +73,37 @@ class TestCLI(object):
                 .twice()
                 .and_return(True))
         assert cli.pulp_login(bopts) is p
+
+    @pytest.mark.parametrize('lib', [True, False])
+    @pytest.mark.parametrize('args', ['1 2 3', '1 2',
+                                      'test /content/test', 'foo bar /content/foo/bar'])
+    def test_do_create(self, args, lib):
+
+        bopts = testbOpts("testserv", "testconf", None, True, True)
+        p = testPulp()
+        (flexmock(Pulp)
+            .new_instances(p)
+            .once()
+            .with_args(Pulp, env=bopts.server, config_file=bopts.config_file))
+        args = args.split(" ")
+        bargs = args[:]
+        if lib:
+            bargs.append('-l')
+        flexmock(testPulp)
+        (testPulp
+            .should_receive('isRedirect')
+            .and_return(True))
+        (testPulp
+            .should_receive('createRepo')
+            .and_return(None))
+        if lib and len(args) != 2:
+            with pytest.raises(SystemExit):
+                cli.do_create(bopts, bargs)
+        elif not lib and len(args) != 3:
+            with pytest.raises(SystemExit):
+                cli.do_create(bopts, bargs)
+        elif not args[-1].startswith('/content'):
+            with pytest.raises(SystemExit):
+                cli.do_create(bopts, bargs)
+        else:
+            assert cli.do_create(bopts, bargs) is None
