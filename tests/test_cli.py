@@ -10,7 +10,8 @@ from flexmock import flexmock
 
 # wrapper classes
 class testbOpts(object):
-    def __init__(self, server, config_file, debug, cert, key):
+    def __init__(self, server="testserv", config_file="testconf",
+                 debug=False, cert=True, key=True):
         self.server = server
         self.config_file = config_file
         self.debug = debug
@@ -36,6 +37,9 @@ class testPulp(object):
 
     def createRepo():
         return
+
+    def getAncestors(self, arg):
+        return arg
 
 
 # tests
@@ -74,12 +78,25 @@ class TestCLI(object):
                 .and_return(True))
         assert cli.pulp_login(bopts) is p
 
+    @pytest.mark.parametrize('bargs', ['1', '1 2'])
+    def test_do_ancestry(self, bargs):
+        bargs = bargs.split(" ")
+        bopts = testbOpts()
+        p = testPulp()
+        (flexmock(Pulp)
+            .new_instances(p)
+            .with_args(Pulp, env=bopts.server, config_file=bopts.config_file))
+        if len(bargs) != 1:
+            with pytest.raises(SystemExit):
+                cli.do_ancestry(bopts, bargs)
+        else:
+            assert cli.do_ancestry(bopts, bargs) is None
+
     @pytest.mark.parametrize('lib', [True, False])
     @pytest.mark.parametrize('args', ['1 2 3', '1 2',
                                       'test /content/test', 'foo bar /content/foo/bar'])
     def test_do_create(self, args, lib):
-
-        bopts = testbOpts("testserv", "testconf", None, True, True)
+        bopts = testbOpts()
         p = testPulp()
         (flexmock(Pulp)
             .new_instances(p)
