@@ -41,6 +41,9 @@ class testPulp(object):
     def getAncestors(self, arg):
         return arg
 
+    def associate(self, arg1, arg2):
+        return {'id': 0}
+
 
 # tests
 class TestCLI(object):
@@ -91,6 +94,20 @@ class TestCLI(object):
                 cli.do_ancestry(bopts, bargs)
         else:
             assert cli.do_ancestry(bopts, bargs) is None
+
+    @pytest.mark.parametrize('bargs', ['1', '1 2'])
+    def test_do_associate(self, bargs):
+        bargs = bargs.split(" ")
+        bopts = testbOpts()
+        p = testPulp()
+        (flexmock(Pulp)
+            .new_instances(p)
+            .with_args(Pulp, env=bopts.server, config_file=bopts.config_file))
+        if len(bargs) != 2:
+            with pytest.raises(SystemExit):
+                cli.do_associate(bopts, bargs)
+        else:
+            assert cli.do_associate(bopts, bargs) is None
 
     @pytest.mark.parametrize('lib', [True, False])
     @pytest.mark.parametrize('args', ['1 2 3', '1 2',
