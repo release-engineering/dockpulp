@@ -35,7 +35,8 @@ class testPulp(object):
     def isRedirect():
         return
 
-    def createRepo():
+    def createRepo(self, arg1, arg2, desc=None, title=None,
+                   protected=None, productline=None):
         return
 
     def getAncestors(self, arg):
@@ -43,6 +44,15 @@ class testPulp(object):
 
     def associate(self, arg1, arg2):
         return {'id': 0}
+
+    def copy(self, arg1, arg2):
+        return
+
+    def listRepos(self, arg1, content):
+        return
+
+    def updateRepo(self, arg1, arg2):
+        return
 
 
 # tests
@@ -108,6 +118,65 @@ class TestCLI(object):
                 cli.do_associate(bopts, bargs)
         else:
             assert cli.do_associate(bopts, bargs) is None
+
+    @pytest.mark.parametrize('lib', [True, False])
+    @pytest.mark.parametrize('img', [True, False])
+    @pytest.mark.parametrize('args', ['1 2 3', '1 2', '1'])
+    def test_do_clone(self, args, lib, img):
+        bopts = testbOpts()
+        p = testPulp()
+        if img:
+            images = {'1': '1'}
+        else:
+            images = {}
+        oldinfo = [{'redirect': None, 'description': None, 'title': None,
+                   'protected': "False", "images": images}]
+        (flexmock(Pulp)
+            .new_instances(p)
+            .once()
+            .with_args(Pulp, env=bopts.server, config_file=bopts.config_file))
+        args = args.split(" ")
+        bargs = args[:]
+        if lib:
+            bargs.append('-l')
+        if lib and len(args) != 2:
+            with pytest.raises(SystemExit):
+                cli.do_clone(bopts, bargs)
+        elif not lib and len(args) != 3:
+            with pytest.raises(SystemExit):
+                cli.do_clone(bopts, bargs)
+        else:
+            if lib:
+                repoid = 'redhat-%s' % args[1]
+                productid = None
+            else:
+                repoid = 'redhat-%s-%s' % (args[1], args[2])
+                productid = args[1]
+            tags = {'tag': '1:1'}
+            flexmock(testPulp)
+            (testPulp
+                .should_receive('listRepos')
+                .once()
+                .with_args(args[0], content=True)
+                .and_return(oldinfo))
+            (testPulp
+                .should_receive('createRepo')
+                .once()
+                .with_args(repoid, None, desc=None, title=None, protected=False,
+                           productline=productid)
+                .and_return(None))
+            if img:
+                (testPulp
+                    .should_receive('copy')
+                    .once()
+                    .with_args(repoid, '1')
+                    .and_return(None))
+                (testPulp
+                    .should_receive('updateRepo')
+                    .once()
+                    .with_args(repoid, tags)
+                    .and_return(None))
+            assert cli.do_clone(bopts, bargs) is None
 
     @pytest.mark.parametrize('lib', [True, False])
     @pytest.mark.parametrize('args', ['1 2 3', '1 2',
