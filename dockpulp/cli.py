@@ -328,6 +328,7 @@ def do_create(bopts, bargs, parser):
     parser.add_option('-l', '--library', help='create a "library"-level repo',
                       default=False, action='store_true')
     parser.add_option('-t', '--title', help='set the title for the repo')
+    parser.add_option('-s', '--signature', help='set the signatures field for the repo')
     parser.add_option('-p', '--protected', help='set the protected bit to true for the repo',
                       default=False, action='store_true')
     opts, args = parser.parse_args(bargs)
@@ -364,7 +365,7 @@ def do_create(bopts, bargs, parser):
         if not url.rstrip('/').endswith(suffix):
             parser.error('the content-url needs to end with %s' % suffix)
 
-    p.createRepo(repoid, url, desc=opts.description, title=opts.title,
+    p.createRepo(repoid, url, desc=opts.description, title=opts.title, sig=opts.signature,
                  protected=opts.protected, productline=productid)
     log.info('repository created')
 
@@ -838,6 +839,7 @@ def do_update(bopts, bargs, parser):
                       help='set the docker ID (name) for this repo')
     parser.add_option('-r', '--redirect', help='set the redirect URL')
     parser.add_option('-t', '--title', help='set the title (short desc)')
+    parser.add_option('-s', '--signature', help='set the signatures field for the repo')
     parser.add_option('-p', '--protected',
                       help='set the protected bit. Accepts (t, true, True) for True, '
                            '(f, false, False) for False')
@@ -854,6 +856,8 @@ def do_update(bopts, bargs, parser):
         updates['redirect-url'] = opts.redirect
     if opts.title:
         updates['display_name'] = opts.title
+    if opts.signature:
+        updates['signature'] = opts.signature
     if opts.protected:
         updates['protected'] = get_bool_from_string(opts.protected)
     for repo in args:

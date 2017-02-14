@@ -599,7 +599,8 @@ class Pulp(object):
     OPTIONAL_CONF_SECTIONS = (('certificates', "_set_cert", None),
                               ('chunk_size', "_set_int_attr", "chunk_size"),
                               ('timeout', "_set_int_attr", "timeout"),
-                              ('retries', "_set_int_attr", "retries"))
+                              ('retries', "_set_int_attr", "retries"),
+                              ('signatures', "_set_sig_attr", "sigs"),)
     AUTH_CER_FILE = "pulp.cer"
     AUTH_KEY_FILE = "pulp.key"
 
@@ -664,6 +665,9 @@ class Pulp(object):
                 except TypeError:
                     pass
         return None
+
+    def _set_sig_attr(self, attrs):
+        return dict(attrs)
 
     def _load_override_conf(self, config_override):
         if not isinstance(config_override, dict):
@@ -948,7 +952,7 @@ class Pulp(object):
         else:
             return tasks
 
-    def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None,
+    def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None, sig=None,
                    protected=False, distributors=True, prefix_with=PREFIX, productline=None):
         """Create a docker repository in pulp.
 
@@ -985,6 +989,9 @@ class Pulp(object):
             'importer_config': {},
             'notes': {'_repo-type': 'docker-repo'},
         }
+        if sig:
+            sig = self.getSignature(sig)
+            stuff['notes']['signatures'] = sig
         if self.distributors == "":
             distributors = False
         if distributors:
@@ -1118,6 +1125,19 @@ class Pulp(object):
         return self._post('/pulp/api/v2/repositories/search/',
                           data=json.dumps(data))
 
+    def getSignature(self, sig):
+        """Return a signature key."""
+        try:
+            self.sigs
+        except AttributeError:
+            raise errors.DockPulpConfigError('Signatures not defined in dockpulp.conf')
+        try:
+            return self.sigs[sig]
+        except KeyError:
+            log.error('Signature not defined in dockpulp.conf')
+            raise errors.DockPulpConfigError(
+                'Available signatures are: %s' % ', '.join(self.sigs.keys()))
+
     def getTask(self, tid):
         """Return a task report for a given id."""
         log.debug('getting task %s information' % tid)
@@ -1213,6 +1233,11 @@ class Pulp(object):
 
             else:
                 r['distributors'] = None
+
+            try:
+                r['signatures'] = blob['notes']['signatures']
+            except KeyError:
+                log.debug("no signature for repo-id %s", r['id'])
 
             if content or history:
                 # Fetch all content in a single request
@@ -1568,7 +1593,7 @@ class Pulp(object):
             delta['distributor_configs'][distributorkey] = {}
         # we intentionally ignore everything else
         valid = ('redirect-url', 'protected', 'repo-registry-id', 'description', 'display_name',
-                 'tag')
+                 'tag', 'signature')
         for u in update.keys():
             if u not in valid:
                 log.warning('ignoring %s, not sure how to update' % u)
@@ -1597,6 +1622,9 @@ class Pulp(object):
                                                    'http://example/url or https://example/url')
                 for distributorkey in delta['distributor_configs']:
                     delta['distributor_configs'][distributorkey][key] = update[key]
+        if 'signature' in update:
+            sig = self.getSignature(update['signature'])
+            delta['delta']['notes'] = {'signatures': sig}
         for distributorkey in distributorkeys:
             delta['distributor_configs'][distributorkey] = {}
         if len(delta['distributor_configs']) == 0:
