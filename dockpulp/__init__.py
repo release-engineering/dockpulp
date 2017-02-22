@@ -52,6 +52,7 @@ V2_BLOB = 'docker_blob'
 V2_TAG = 'docker_tag'
 V1_C_TYPE = 'docker_image'         # pulp content type identifier for docker
 HIDDEN = 'redhat-everything'    # ID of a "hidden" repository for RCM
+SIGSTORE = 'redhat-sigstore'    # ID of an iso repo for docker manifest signatures
 DEFAULT_CONFIG_FILE = '/etc/dockpulp.conf'
 DEFAULT_DISTRIBUTORS_FILE = '/etc/dockpulpdistributors.json'
 PREFIX = 'redhat-'
@@ -973,7 +974,7 @@ class Pulp(object):
 
     def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None, sig=None,
                    protected=False, distributors=True, prefix_with=PREFIX, productline=None,
-                   library=False, distribution=None):
+                   library=False, distribution=None, repotype=None, importer_type_id=None):
         """Create a docker repository in pulp.
 
         id and description are required
@@ -1017,6 +1018,10 @@ class Pulp(object):
         if distribution:
             self.checkDistribution(distribution)
             stuff['notes']['distribution'] = distribution
+        if repotype:
+            stuff['notes']['_repo-type'] = repotype
+        if importer_type_id:
+            stuff['importer_type_id'] = importer_type_id
         if self.distributors == "":
             distributors = False
         if distributors:
@@ -1218,7 +1223,7 @@ class Pulp(object):
         # From here we trim out data nobody cares about
         # we assume distributors have the same configuration
         for blob in blobs:
-            if blob['notes']['_repo-type'] != 'docker-repo':
+            if blob['notes']['_repo-type'] != 'docker-repo' and blob['id'] != SIGSTORE:
                 raise errors.DockPulpError('Non-docker repo hit, what should I do?!')
             r = {
                 'id': blob['id'],

@@ -339,6 +339,7 @@ class TestPulp(object):
                                                       ('foo-bar', 'foo'),
                                                       ('foo', None),
                                                       ('foo-bar-test', 'foo-bar')])
+    @pytest.mark.parametrize('repotype, importer_type_id', [('foo', 'bar'), (None, None)])
     @pytest.mark.parametrize('url', [None, 'http://test', '/content/foo/bar'])
     @pytest.mark.parametrize('registry_id', [None, 'foo/bar'])
     @pytest.mark.parametrize('sig', [None, 'foobar'])
@@ -346,7 +347,7 @@ class TestPulp(object):
     @pytest.mark.parametrize('library', [True, False])
     @pytest.mark.parametrize('distribution', ['beta', 'ga', None])
     def test_createRepo(self, pulp, repo_id, url, registry_id, sig, distributors, productline,
-                        library, distribution):
+                        library, distribution, repotype, importer_type_id):
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
             .should_receive('__call__')
@@ -354,7 +355,8 @@ class TestPulp(object):
             .and_return(None))
         response = pulp.createRepo(repo_id=repo_id, url=url, registry_id=registry_id,
                                    sig=sig, distributors=distributors, productline=productline,
-                                   library=library, distribution=distribution)
+                                   library=library, distribution=distribution, repotype=repotype,
+                                   importer_type_id=importer_type_id)
         if not repo_id.startswith(pulp.getPrefix()):
             repo_id = pulp.getPrefix() + repo_id
         if registry_id is None:
@@ -376,6 +378,10 @@ class TestPulp(object):
             assert response['distributors'][0]['distributor_config']['repo-registry-id'] \
                 == registry_id
             assert response['distributors'][0]['distributor_config']['redirect-url'] == rurl
+        if repotype:
+            assert response['notes']['_repo-type'] == repotype
+        if importer_type_id:
+            assert response['importer_type_id'] == importer_type_id
 
     def test_disassociate(self, pulp):
         repo = 'testrepo'
