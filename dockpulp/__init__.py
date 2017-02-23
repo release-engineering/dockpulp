@@ -953,7 +953,8 @@ class Pulp(object):
             return tasks
 
     def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None, sig=None,
-                   protected=False, distributors=True, prefix_with=PREFIX, productline=None):
+                   protected=False, distributors=True, prefix_with=PREFIX, productline=None,
+                   library=False):
         """Create a docker repository in pulp.
 
         id and description are required
@@ -967,8 +968,10 @@ class Pulp(object):
             if productline:
                 pindex = repo_id.find(productline)
                 registry_id = productline + '/' + repo_id[pindex + len(productline) + 1:]
+            elif library:
+                registry_id = repo_id.replace(prefix_with, '')
             else:
-                registry_id = repo_id.replace('redhat-', '').replace('-', '/', 1)
+                registry_id = repo_id.replace(prefix_with, '').replace('-', '/', 1)
 
         rurl = url
         if rurl and not rurl.startswith('http'):
@@ -1012,6 +1015,7 @@ class Pulp(object):
         log.debug('data sent in request:')
         log.debug(pprint.pformat(stuff))
         self._post('/pulp/api/v2/repositories/', data=json.dumps(stuff))
+        return stuff
 
     def deleteRepo(self, id):
         """Delete a repository; cannot be undone!."""

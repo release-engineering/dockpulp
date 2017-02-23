@@ -2,16 +2,18 @@
 # -*- coding: utf-8 -*-
 
 
-from dockpulp import Pulp, RequestsHttpCaller, errors
+from dockpulp import Pulp, RequestsHttpCaller, errors, log
 import pytest
 import hashlib
 import json
 import requests
 import tarfile
+import logging
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from contextlib import nested
 from flexmock import flexmock
+log.setLevel(logging.CRITICAL)
 
 
 # fixtures
@@ -34,11 +36,18 @@ def pulp(tmpdir):
             {name} = foo
             [retries]
             {name} = 2
+            [signatures]
+            foobar = foo
             """).format(name=name))
         fp.flush()
 
         df.write(dedent("""
-            {}
+            {
+                "foo":{
+                    "distributor_type_id": "docker_distributor_web",
+                    "distributor_config": {}
+                }
+            }
             """))
         df.flush()
         pulp = Pulp(env=name, config_file=fp.name, config_distributors=df.name)
@@ -268,3 +277,44 @@ class TestPulp(object):
             .and_raise(requests.exceptions.ConnectionError))
         response = pulp.checkBlobs(repo, blobs)
         assert response['error']
+
+    @pytest.mark.parametrize('repo_id, productline', [('redhat-foo-bar', 'foo'),
+                                                      ('foo-bar', 'foo'),
+                                                      ('foo', None),
+                                                      ('foo-bar-test', 'foo-bar')])
+    @pytest.mark.parametrize('url', [None, 'http://test', '/content/foo/bar'])
+    @pytest.mark.parametrize('registry_id', [None, 'foo/bar'])
+    @pytest.mark.parametrize('sig', [None, 'foobar'])
+    @pytest.mark.parametrize('distributors', [True, False])
+    @pytest.mark.parametrize('library', [True, False])
+    def test_createRepo(self, pulp, repo_id, url, registry_id, sig, distributors, productline,
+                        library):
+        flexmock(RequestsHttpCaller)
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .once()
+            .and_return(None))
+        response = pulp.createRepo(repo_id=repo_id, url=url, registry_id=registry_id,
+                                   sig=sig, distributors=distributors, productline=productline,
+                                   library=library)
+        if not repo_id.startswith(pulp.getPrefix()):
+            repo_id = pulp.getPrefix() + repo_id
+        if registry_id is None:
+            if productline:
+                pindex = repo_id.find(productline)
+                registry_id = productline + '/' + repo_id[pindex + len(productline) + 1:]
+            elif library:
+                registry_id = repo_id.replace(pulp.getPrefix(), '')
+            else:
+                registry_id = repo_id.replace(pulp.getPrefix(), '').replace('-', '/', 1)
+        rurl = url
+        if rurl and not rurl.startswith('http'):
+            rurl = pulp.cdnhost + url
+        assert response['id'] == repo_id
+        assert response['display_name'] == repo_id
+        if sig:
+            assert response['notes']['signatures'] == pulp.getSignature(sig)
+        if distributors:
+            assert response['distributors'][0]['distributor_config']['repo-registry-id'] \
+                == registry_id
+            assert response['distributors'][0]['distributor_config']['redirect-url'] == rurl
