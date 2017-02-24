@@ -61,8 +61,8 @@ def main(args=None):
     except dockpulp.errors.DockPulpConfigError, pe:
         log.error('Configuration error: %s' % str(pe))
         log.error('')
-        log.error('Something is wrong in /etc/dockpulp.conf, or you')
-        log.error('mistyped an option you are passing to --server')
+        log.error('Something is wrong in /etc/dockpulp.conf or /etc/dockpulpdistributors.json')
+        log.error('Or you mistyped an option you are passing to --server')
         sys.exit(1)
     except dockpulp.errors.DockPulpInternalError, pe:
         log.error('Internal failure: %s' % str(pe))

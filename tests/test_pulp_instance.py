@@ -278,6 +278,24 @@ class TestPulp(object):
         response = pulp.checkBlobs(repo, blobs)
         assert response['error']
 
+    @pytest.mark.parametrize('dist_id', ['foo', 'bar'])
+    def test_associate(self, pulp, dist_id):
+        if dist_id == 'bar':
+            flexmock(RequestsHttpCaller)
+            (RequestsHttpCaller
+                .should_receive('__call__')
+                .never())
+            with pytest.raises(errors.DockPulpConfigError):
+                pulp.associate(dist_id, 'testrepo')
+        else:
+            flexmock(RequestsHttpCaller)
+            (RequestsHttpCaller
+                .should_receive('__call__')
+                .once()
+                .and_return(None))
+            response = pulp.associate(dist_id, 'testrepo')
+            assert response is None
+
     @pytest.mark.parametrize('repo_id, productline', [('redhat-foo-bar', 'foo'),
                                                       ('foo-bar', 'foo'),
                                                       ('foo', None),
@@ -318,3 +336,24 @@ class TestPulp(object):
             assert response['distributors'][0]['distributor_config']['repo-registry-id'] \
                 == registry_id
             assert response['distributors'][0]['distributor_config']['redirect-url'] == rurl
+
+    def test_disassociate(self, pulp):
+        repo = 'testrepo'
+        dist_id = 'foo'
+        dl = '/pulp/api/v2/repositories/%s/distributors/%s/' % (repo, dist_id)
+        tid = '123'
+        url = '/pulp/api/v2/tasks/%s/' % tid
+        t = {'state': 'finished'}
+        flexmock(RequestsHttpCaller)
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .with_args('delete', dl)
+            .once()
+            .and_return(tid))
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .with_args('get', url)
+            .once()
+            .and_return(t))
+        response = pulp.disassociate('foo', 'testrepo')
+        assert response is None
