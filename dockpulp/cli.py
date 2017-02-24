@@ -366,7 +366,7 @@ def do_create(bopts, bargs, parser):
             parser.error('the content-url needs to end with %s' % suffix)
 
     p.createRepo(repoid, url, desc=opts.description, title=opts.title, sig=opts.signature,
-                 protected=opts.protected, productline=productid)
+                 protected=opts.protected, productline=productid, library=opts.library)
     log.info('repository created')
 
 

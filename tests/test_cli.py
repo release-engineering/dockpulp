@@ -36,7 +36,7 @@ class testPulp(object):
         return
 
     def createRepo(self, arg1, arg2, desc=None, title=None,
-                   protected=None, productline=None):
+                   protected=None, productline=None, library=None):
         return
 
     def getAncestors(self, arg):
