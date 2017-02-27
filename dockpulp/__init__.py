@@ -778,8 +778,8 @@ class Pulp(object):
         try:
             data = self.distributorconf[dist_id]
         except KeyError:
-            log.error("Distributor not listed in dockpulpdistributors.json")
-            exit(1)
+            raise errors.DockPulpConfigError(
+                'Distributor %s not listed in dockpulpdistributors.json' % dist_id)
 
         log.debug(data)
 
