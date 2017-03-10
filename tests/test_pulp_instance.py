@@ -38,6 +38,8 @@ def pulp(tmpdir):
             {name} = 2
             [signatures]
             foobar = foo
+            [distribution]
+            distributions = beta,ga
             """).format(name=name))
         fp.flush()
 
@@ -52,6 +54,40 @@ def pulp(tmpdir):
         df.flush()
         pulp = Pulp(env=name, config_file=fp.name, config_distributors=df.name)
     return pulp
+
+
+@pytest.fixture
+def core_pulp(tmpdir):
+    # No optional fields in dockpulp.conf
+    with nested(NamedTemporaryFile(mode='wt'), NamedTemporaryFile(mode='wt')) as (fp, df):
+        name = 'test'
+        fp.write(dedent("""
+            [pulps]
+            {name} = foo
+            [registries]
+            {name} = foo
+            [filers]
+            {name} = foo
+            [redirect]
+            {name} = no
+            [distributors]
+            {name} = foo
+            [release_order]
+            {name} = foo
+            """).format(name=name))
+        fp.flush()
+
+        df.write(dedent("""
+            {
+                "foo":{
+                    "distributor_type_id": "docker_distributor_web",
+                    "distributor_config": {}
+                }
+            }
+            """))
+        df.flush()
+        core_pulp = Pulp(env=name, config_file=fp.name, config_distributors=df.name)
+    return core_pulp
 
 
 # wrapper classes
@@ -131,12 +167,15 @@ class TestPulp(object):
         ('test-repo', 'http://www.example.com/url/foo/bar'),
         ('test-repo', 'https://www.example.com/url/foo/bar')
     ])
-    def test_updateRedirect(self, pulp, rid, redirect):
+    @pytest.mark.parametrize('dist', [None, 'beta'])
+    def test_updateRedirect(self, pulp, rid, redirect, dist):
         update = {'redirect-url': redirect}
         blob = []
         did = {'distributor_type_id': 'testdist', 'id': 'test'}
         t = {'state': 'finished'}
         blob.append(did)
+        if dist:
+            update['notes'] = {'distribution': dist}
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
             .should_receive('__call__')
@@ -305,8 +344,9 @@ class TestPulp(object):
     @pytest.mark.parametrize('sig', [None, 'foobar'])
     @pytest.mark.parametrize('distributors', [True, False])
     @pytest.mark.parametrize('library', [True, False])
+    @pytest.mark.parametrize('distribution', ['beta', 'ga', None])
     def test_createRepo(self, pulp, repo_id, url, registry_id, sig, distributors, productline,
-                        library):
+                        library, distribution):
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
             .should_receive('__call__')
@@ -314,7 +354,7 @@ class TestPulp(object):
             .and_return(None))
         response = pulp.createRepo(repo_id=repo_id, url=url, registry_id=registry_id,
                                    sig=sig, distributors=distributors, productline=productline,
-                                   library=library)
+                                   library=library, distribution=distribution)
         if not repo_id.startswith(pulp.getPrefix()):
             repo_id = pulp.getPrefix() + repo_id
         if registry_id is None:
@@ -357,3 +397,14 @@ class TestPulp(object):
             .and_return(t))
         response = pulp.disassociate('foo', 'testrepo')
         assert response is None
+
+    @pytest.mark.parametrize('dist', ['beta', 'foo'])
+    def test_checkDistribution(self, pulp, core_pulp, dist):
+        if dist == 'foo':
+            with pytest.raises(errors.DockPulpConfigError):
+                pulp.checkDistribution(dist)
+        else:
+            response = pulp.checkDistribution(dist)
+            assert response is None
+            with pytest.raises(errors.DockPulpConfigError):
+                core_pulp.checkDistribution(dist)

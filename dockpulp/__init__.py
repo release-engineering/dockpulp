@@ -600,7 +600,8 @@ class Pulp(object):
                               ('chunk_size', "_set_int_attr", "chunk_size"),
                               ('timeout', "_set_int_attr", "timeout"),
                               ('retries', "_set_int_attr", "retries"),
-                              ('signatures', "_set_sig_attr", "sigs"),)
+                              ('signatures', "_set_sig_attr", "sigs"),
+                              ('distribution', "_set_dist_attr", "dists"))
     AUTH_CER_FILE = "pulp.cer"
     AUTH_KEY_FILE = "pulp.key"
 
@@ -650,6 +651,12 @@ class Pulp(object):
                                                 self.AUTH_CER_FILE)
                 self.key = os.path.join(os.path.expanduser(cert_path),
                                         self.AUTH_KEY_FILE)
+
+    def _set_dist_attr(self, attrs):
+        # dists are environment independent
+        # first value used regardless of key name
+        for key, val in attrs:
+            return val
 
     def _set_env_attr(self, attrs):
         for key, val in attrs:
@@ -831,6 +838,18 @@ class Pulp(object):
                 response['error'] = True
         return response
 
+    def checkDistribution(self, dist):
+        """Check if distribution is valid."""
+        try:
+            if dist in self.dists.split(','):
+                return
+            else:
+                log.error('Distribution not defined in dockpulp.conf')
+                raise errors.DockPulpConfigError(
+                    'Available distributions are: %s' % self.dists)
+        except AttributeError:
+            raise errors.DockPulpConfigError('Distributions not defined in dockpulp.conf')
+
     def cleanOrphans(self, content_type=V1_C_TYPE):
         """Remove orphaned docker content of given type."""
         log.debug('Removing docker orphans not implemented in Pulp 2.4')
@@ -954,7 +973,7 @@ class Pulp(object):
 
     def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None, sig=None,
                    protected=False, distributors=True, prefix_with=PREFIX, productline=None,
-                   library=False):
+                   library=False, distribution=None):
         """Create a docker repository in pulp.
 
         id and description are required
@@ -995,6 +1014,9 @@ class Pulp(object):
         if sig:
             sig = self.getSignature(sig)
             stuff['notes']['signatures'] = sig
+        if distribution:
+            self.checkDistribution(distribution)
+            stuff['notes']['distribution'] = distribution
         if self.distributors == "":
             distributors = False
         if distributors:
@@ -1242,6 +1264,11 @@ class Pulp(object):
                 r['signatures'] = blob['notes']['signatures']
             except KeyError:
                 log.debug("no signature for repo-id %s", r['id'])
+
+            try:
+                r['distribution'] = blob['notes']['distribution']
+            except KeyError:
+                log.debug("no distribution for repo-id %s", r['id'])
 
             if content or history:
                 # Fetch all content in a single request
@@ -1597,7 +1624,7 @@ class Pulp(object):
             delta['distributor_configs'][distributorkey] = {}
         # we intentionally ignore everything else
         valid = ('redirect-url', 'protected', 'repo-registry-id', 'description', 'display_name',
-                 'tag', 'signature')
+                 'tag', 'signature', 'distribution')
         for u in update.keys():
             if u not in valid:
                 log.warning('ignoring %s, not sure how to update' % u)
@@ -1629,6 +1656,9 @@ class Pulp(object):
         if 'signature' in update:
             sig = self.getSignature(update['signature'])
             delta['delta']['notes'] = {'signatures': sig}
+        if 'distribution' in update:
+            self.checkDistribution(update['distribution'])
+            delta['delta']['notes'] = {'distribution': update['distribution']}
         for distributorkey in distributorkeys:
             delta['distributor_configs'][distributorkey] = {}
         if len(delta['distributor_configs']) == 0:
