@@ -229,10 +229,12 @@ def do_clone(bopts, bargs, parser):
 
     log.info('cloning %s repo to %s' % (args[0], repoid))
     oldinfo = p.listRepos(args[0], content=True)[0]
+    sig = oldinfo.get('signatures')
+    dist = oldinfo.get('distribution')
     p.createRepo(repoid, oldinfo['redirect'],
                  desc=oldinfo['description'], title=oldinfo['title'],
-                 protected=get_bool_from_string(oldinfo['protected']),
-                 productline=productid)
+                 protected=get_bool_from_string(oldinfo['protected']), sig=sig,
+                 distribution=dist, productline=productid)
     log.info('cloning content in %s to %s' % (args[0], repoid))
     if len(oldinfo['images']) > 0:
         for img in oldinfo['images'].keys():
@@ -329,6 +331,7 @@ def do_create(bopts, bargs, parser):
                       default=False, action='store_true')
     parser.add_option('-t', '--title', help='set the title for the repo')
     parser.add_option('-s', '--signature', help='set the signatures field for the repo')
+    parser.add_option('--distribution', help='set the distribution field for the repo')
     parser.add_option('-p', '--protected', help='set the protected bit to true for the repo',
                       default=False, action='store_true')
     opts, args = parser.parse_args(bargs)
@@ -366,7 +369,8 @@ def do_create(bopts, bargs, parser):
             parser.error('the content-url needs to end with %s' % suffix)
 
     p.createRepo(repoid, url, desc=opts.description, title=opts.title, sig=opts.signature,
-                 protected=opts.protected, productline=productid, library=opts.library)
+                 protected=opts.protected, productline=productid, library=opts.library,
+                 distribution=opts.distribution)
     log.info('repository created')
 
 
@@ -840,6 +844,7 @@ def do_update(bopts, bargs, parser):
     parser.add_option('-r', '--redirect', help='set the redirect URL')
     parser.add_option('-t', '--title', help='set the title (short desc)')
     parser.add_option('-s', '--signature', help='set the signatures field for the repo')
+    parser.add_option('--distribution', help='set the distribution field for the repo')
     parser.add_option('-p', '--protected',
                       help='set the protected bit. Accepts (t, true, True) for True, '
                            '(f, false, False) for False')
@@ -858,6 +863,8 @@ def do_update(bopts, bargs, parser):
         updates['display_name'] = opts.title
     if opts.signature:
         updates['signature'] = opts.signature
+    if opts.distribution:
+        updates['distribution'] = opts.distribution
     if opts.protected:
         updates['protected'] = get_bool_from_string(opts.protected)
     for repo in args:
