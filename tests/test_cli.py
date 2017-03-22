@@ -37,11 +37,14 @@ class testPulp(object):
 
     def createRepo(self, arg1, arg2, desc=None, title=None,
                    protected=None, productline=None, library=None,
-                   sig=None, distribution=None):
+                   sig=None, distribution=None, prefix_with=None):
         return
 
     def getAncestors(self, arg):
         return arg
+
+    def getPrefix(self):
+        return
 
     def associate(self, arg1, arg2):
         return {'id': 0}
@@ -123,8 +126,9 @@ class TestCLI(object):
     @pytest.mark.parametrize('lib', [True, False])
     @pytest.mark.parametrize('img', [True, False])
     @pytest.mark.parametrize('manifest', [True, False])
+    @pytest.mark.parametrize('noprefix', [True, False])
     @pytest.mark.parametrize('args', ['1 2 3', '1 2', '1'])
-    def test_do_clone(self, args, lib, img, manifest):
+    def test_do_clone(self, args, lib, img, manifest, noprefix):
         bopts = testbOpts()
         p = testPulp()
         if img:
@@ -146,6 +150,8 @@ class TestCLI(object):
         bargs = args[:]
         if lib:
             bargs.append('-l')
+        if noprefix:
+            bargs.append('--noprefix')
         if lib and len(args) != 2:
             with pytest.raises(SystemExit):
                 cli.do_clone(bopts, bargs)
@@ -154,13 +160,28 @@ class TestCLI(object):
                 cli.do_clone(bopts, bargs)
         else:
             if lib:
-                repoid = 'redhat-%s' % args[1]
+                if noprefix:
+                    repoid = '%s' % args[1]
+                else:
+                    repoid = 'redhat-%s' % args[1]
                 productid = None
             else:
-                repoid = 'redhat-%s-%s' % (args[1], args[2])
+                if noprefix:
+                    repoid = '%s-%s' % (args[1], args[2])
+                else:
+                    repoid = 'redhat-%s-%s' % (args[1], args[2])
                 productid = args[1]
+            if noprefix:
+                prefix_with = ''
+            else:
+                prefix_with = 'redhat-'
             tags = {'tag': '1:1'}
             flexmock(testPulp)
+            if not noprefix:
+                (testPulp
+                    .should_receive('getPrefix')
+                    .once()
+                    .and_return('redhat-'))
             (testPulp
                 .should_receive('listRepos')
                 .once()
@@ -170,7 +191,8 @@ class TestCLI(object):
                 .should_receive('createRepo')
                 .once()
                 .with_args(repoid, None, desc=None, title=None, protected=False,
-                           productline=productid, sig=None, distribution=None)
+                           productline=productid, sig=None, distribution=None,
+                           prefix_with=prefix_with)
                 .and_return(None))
             if img:
                 (testPulp
@@ -192,9 +214,10 @@ class TestCLI(object):
             assert cli.do_clone(bopts, bargs) is None
 
     @pytest.mark.parametrize('lib', [True, False])
+    @pytest.mark.parametrize('noprefix', [True, False])
     @pytest.mark.parametrize('args', ['1 2 3', '1 2',
                                       'test /content/test', 'foo bar /content/foo/bar'])
-    def test_do_create(self, args, lib):
+    def test_do_create(self, args, lib, noprefix):
         bopts = testbOpts()
         p = testPulp()
         (flexmock(Pulp)
@@ -205,7 +228,14 @@ class TestCLI(object):
         bargs = args[:]
         if lib:
             bargs.append('-l')
+        if noprefix:
+            bargs.append('--noprefix')
         flexmock(testPulp)
+        if not noprefix:
+            (testPulp
+                .should_receive('getPrefix')
+                .once()
+                .and_return('redhat-'))
         (testPulp
             .should_receive('isRedirect')
             .and_return(True))

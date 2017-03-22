@@ -213,18 +213,21 @@ def do_clone(bopts, bargs, parser):
     """
     parser.add_option('-l', '--library', help='create a "library"-level repo',
                       default=False, action='store_true')
+    parser.add_option('--noprefix', help='do not add prefix to the repo id', default=False,
+                      action='store_true')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     productid = None
+    prefix_with = '' if opts.noprefix else p.getPrefix()
     if opts.library:
         if len(args) != 2:
             parser.error('You need a source repo id and a name for a library-level repo')
-        repoid = 'redhat-%s' % (args[1])
+        repoid = '%s%s' % (prefix_with, args[1])
     else:
         if len(args) != 3:
             parser.error('You need a source repo id, a new product line '
                          '(rhel6, openshift3, etc), and a new image name')
-        repoid = 'redhat-%s-%s' % (args[1], args[2])
+        repoid = '%s%s-%s' % (prefix_with, args[1], args[2])
         productid = args[1]
 
     log.info('cloning %s repo to %s' % (args[0], repoid))
@@ -234,7 +237,7 @@ def do_clone(bopts, bargs, parser):
     p.createRepo(repoid, oldinfo['redirect'],
                  desc=oldinfo['description'], title=oldinfo['title'],
                  protected=get_bool_from_string(oldinfo['protected']), sig=sig,
-                 distribution=dist, productline=productid)
+                 distribution=dist, productline=productid, prefix_with=prefix_with)
     log.info('cloning content in %s to %s' % (args[0], repoid))
     if len(oldinfo['images']) > 0:
         for img in oldinfo['images'].keys():
@@ -337,16 +340,19 @@ def do_create(bopts, bargs, parser):
     parser.add_option('--distribution', help='set the distribution field for the repo')
     parser.add_option('-p', '--protected', help='set the protected bit to true for the repo',
                       default=False, action='store_true')
+    parser.add_option('--noprefix', help='do not add prefix to the repo id', default=False,
+                      action='store_true')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     url = None
     productid = None
+    prefix_with = '' if opts.noprefix else p.getPrefix()
     if opts.library:
         if len(args) != 2 and p.isRedirect():
             parser.error('You need a name for a library-level repo and a content-url')
         elif (len(args) != 1 and len(args) != 2) and not p.isRedirect():
             parser.error('You need a name for a library-level repo')
-        repoid = 'redhat-%s' % (args[0])
+        repoid = '%s%s' % (prefix_with, args[0])
         imagename = args[0]
         if len(args) == 2:
             url = args[1]
@@ -358,7 +364,7 @@ def do_create(bopts, bargs, parser):
             parser.error('You need a product line (rhel6, openshift3, etc) and image name')
         productid = args[0]
         imagename = args[1]
-        repoid = 'redhat-%s-%s' % (args[0], args[1])
+        repoid = '%s%s-%s' % (prefix_with, args[0], args[1])
         if len(args) == 3:
             url = args[2]
 
@@ -373,7 +379,7 @@ def do_create(bopts, bargs, parser):
 
     p.createRepo(repoid, url, desc=opts.description, title=opts.title, sig=opts.signature,
                  protected=opts.protected, productline=productid, library=opts.library,
-                 distribution=opts.distribution)
+                 distribution=opts.distribution, prefix_with=prefix_with)
     log.info('repository created')
 
 
