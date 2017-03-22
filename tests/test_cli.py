@@ -122,16 +122,22 @@ class TestCLI(object):
 
     @pytest.mark.parametrize('lib', [True, False])
     @pytest.mark.parametrize('img', [True, False])
+    @pytest.mark.parametrize('manifest', [True, False])
     @pytest.mark.parametrize('args', ['1 2 3', '1 2', '1'])
-    def test_do_clone(self, args, lib, img):
+    def test_do_clone(self, args, lib, img, manifest):
         bopts = testbOpts()
         p = testPulp()
         if img:
             images = {'1': '1'}
         else:
             images = {}
+        if manifest:
+            manifests = {'2': '2'}
+        else:
+            manifests = {}
+
         oldinfo = [{'redirect': None, 'description': None, 'title': None,
-                   'protected': "False", "images": images}]
+                    'protected': "False", "images": images, "manifests": manifests}]
         (flexmock(Pulp)
             .new_instances(p)
             .once()
@@ -176,6 +182,12 @@ class TestCLI(object):
                     .should_receive('updateRepo')
                     .once()
                     .with_args(repoid, tags)
+                    .and_return(None))
+            if manifest:
+                (testPulp
+                    .should_receive('copy')
+                    .once()
+                    .with_args(repoid, '2')
                     .and_return(None))
             assert cli.do_clone(bopts, bargs) is None
 

@@ -241,7 +241,10 @@ def do_clone(bopts, bargs, parser):
             p.copy(repoid, img)
             tags = {'tag': '%s:%s' % (','.join(oldinfo['images'][img]), img)}
             p.updateRepo(repoid, tags)
-    else:
+    if len(oldinfo['manifests']) > 0:
+        for manifest in oldinfo['manifests'].keys():
+            p.copy(repoid, manifest)
+    if len(oldinfo['images']) == 0 and len(oldinfo['manifests']) == 0:
         log.info('no content to copy in')
     log.info('cloning complete')
 
