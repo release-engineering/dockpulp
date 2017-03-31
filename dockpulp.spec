@@ -31,10 +31,10 @@ rm -rf $RPM_BUILD_ROOT
 install -d $RPM_BUILD_ROOT%{python_sitelib}/dockpulp
 install -d $RPM_BUILD_ROOT%{_bindir}
 install -pm 0644 dockpulp/* $RPM_BUILD_ROOT%{python_sitelib}/dockpulp
-install -pm 0755 bin/dock-pulp.py $RPM_BUILD_ROOT%{_bindir}/dock-pulp
-install -pm 0755 bin/dock-pulp-bootstrap.py $RPM_BUILD_ROOT%{_bindir}/dock-pulp-bootstrap
-install -pm 0755 bin/dock-pulp-restore.py $RPM_BUILD_ROOT%{_bindir}/dock-pulp-restore
-install -pm 0755 bin/dock-pulp-recreate-hidden.py $RPM_BUILD_ROOT%{_bindir}/dock-pulp-recreate-hidden
+install -pm 0755 bin/dock-pulp $RPM_BUILD_ROOT%{_bindir}/dock-pulp
+install -pm 0755 bin/dock-pulp-bootstrap $RPM_BUILD_ROOT%{_bindir}/dock-pulp-bootstrap
+install -pm 0755 bin/dock-pulp-restore $RPM_BUILD_ROOT%{_bindir}/dock-pulp-restore
+install -pm 0755 bin/dock-pulp-recreate-hidden $RPM_BUILD_ROOT%{_bindir}/dock-pulp-recreate-hidden
 
 %clean
 rm -rf $RPM_BUILD_ROOT
