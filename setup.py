@@ -56,7 +56,7 @@ setup(
     package_dir={'': '.'},
     packages=['dockpulp'],
     install_requires=install_requires,
-    scripts=['bin/dock-pulp.py', 'bin/dock-pulp-bootstrap.py', 'bin/dock-pulp-restore.py'],
+    scripts=['bin/dock-pulp', 'bin/dock-pulp-bootstrap', 'bin/dock-pulp-restore'],
     package_data={'': ['conf/dockpulp.conf', 'conf/dockpulpdistributors.json']},
     test_suite="tests",
 )
