@@ -17,19 +17,29 @@
 from optparse import OptionParser
 
 import dockpulp
+import logging
+import sys
 
 log = dockpulp.log
+sh = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter("%(levelname)-9s %(message)s")
+sh.setFormatter(formatter)
+log.addHandler(sh)
 
 
 def get_opts():
     usage = """%prog [options] environment
-create the everything repository in the given environment"""
+create the everything and sigstore repositories in the given environment"""
     parser = OptionParser(usage=usage)
     parser.add_option('-d', '--debug', default=False, action='store_true',
                       help='turn on debugging output')
     parser.add_option('-p', '--password', help='specify the account password')
     parser.add_option('-u', '--username', default='admin',
                       help='provide an account besides "admin"')
+    parser.add_option('-e', '--everything', default=False, action='store_true',
+                      help='only create the everything repo')
+    parser.add_option('-s', '--sigstore', default=False, action='store_true',
+                      help='only create the sigstore repo')
     opts, args = parser.parse_args()
     if len(args) != 1:
         parser.error('You must provide an environment to create the repository')
@@ -38,12 +48,39 @@ create the everything repository in the given environment"""
 
 def create_everything(dpo):
     """Create the everything repo with the given dockpulp object."""
-    dpo.createRepo(dockpulp.HIDDEN,
-                   '/content/this/does/not/matter',
-                   desc='hidden repository for RCM use that contains everything',
-                   title='RCM Hidden repository',
-                   distributors=False)
+    # check if hidden repo exists first
+    try:
+        dpo.listRepos(dockpulp.HIDDEN)
+        log.info("%s already exists, skipping" % dockpulp.HIDDEN)
+        return
+    except dockpulp.errors.DockPulpError:
+        log.info("creating HIDDEN repo %s" % dockpulp.HIDDEN)
+        dpo.createRepo(dockpulp.HIDDEN,
+                       '/content/this/does/not/matter',
+                       desc='hidden repository for RCM use that contains everything',
+                       title='RCM Hidden repository',
+                       distributors=False)
     # remove distributors from the hidden repository so it is never published
+
+
+def create_sigstore(dpo):
+    """Create the sigstore repo with the given dockpulp object."""
+    # check if sigstore repo exists first
+    try:
+        dpo.listRepos(dockpulp.SIGSTORE)
+        log.info("%s already exists, skipping" % dockpulp.SIGSTORE)
+        return
+    except dockpulp.errors.DockPulpError:
+        log.info("creating SIGSTORE repo %s" % dockpulp.SIGSTORE)
+        dpo.createRepo(dockpulp.SIGSTORE, '/content/sigstore',
+                       desc='repository that contains container manifest signatures',
+                       title='SIGSTORE repository',
+                       distributors=False,
+                       repotype="iso-repo",
+                       importer_type_id="iso_importer")
+        # add iso distributors to the sigstore repo
+        dpo.associate('iso_distributor_sigstore', dockpulp.SIGSTORE)
+        dpo.associate('cdn_distributor_sigstore', dockpulp.SIGSTORE)
 
 
 if __name__ == '__main__':
@@ -52,4 +89,7 @@ if __name__ == '__main__':
     p.login(opts.username, opts.password)
     if opts.debug:
         p.setDebug()
-    create_everything(p)
+    if not opts.sigstore or opts.everything:
+        create_everything(p)
+    if not opts.everything or opts.sigstore:
+        create_sigstore(p)
