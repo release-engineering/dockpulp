@@ -13,6 +13,13 @@
 	},
 	"auto_publish": "True"
     },
+    "cdn_distributor": {
+        "distributor_id": "cdn_distributor",
+        "distributor_type_id": "cdn_distributor",
+        "distributor_config": {
+        },
+        "auto_publish": "True"
+    },
     "iso_distributor_sigstore": {
 	"distributor_id": "iso_distributor",
 	"distributor_type_id": "iso_distributor",
