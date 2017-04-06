@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.40
+Version:	1.41
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -48,6 +48,29 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Thu Apr 06 2017 Brendan Reilly <breilly@redhat.com> 1.41-1
+- Bumping version for release (breilly@redhat.com)
+- Added one more distributor for sigstore (breilly@redhat.com)
+- Made dock-pulp-bootstrap idempotent, added sigstore repo setup
+  (breilly@redhat.com)
+- Make source and installation filenames consistent (rmcgover@redhat.com)
+- Added noprefix option for create and clone (breilly@redhat.com)
+- Clone now copies V2 images (breilly@redhat.com)
+- Added option for distribution field in repos (breilly@redhat.com)
+- Added unit tests for associate / disassociate (breilly@redhat.com)
+- Fixed library docker-id bug, added unit tests for createRepo
+  (breilly@redhat.com)
+- Added option to set signatures to sign repos (breilly@redhat.com)
+- Added unit test for clone (breilly@redhat.com)
+- Unit test for do_associate (breilly@redhat.com)
+- Unit test for do_ancestry (breilly@redhat.com)
+- Make tests a module to aid local coverage testing (twaugh@redhat.com)
+- Added unit test for do_create (breilly@redhat.com)
+- Fixed repo file check (breilly@redhat.com)
+- Added unit test for pulp login (breilly@redhat.com)
+- Moved CLI code to separate file to allow for testing (breilly@redhat.com)
+- Updating titoprops for new version (breilly@redhat.com)
+
 * Tue Dec 20 2016 Brendan Reilly <breilly@redhat.com> 1.40-1
 - Bumping version for release (breilly@redhat.com)
 - Added silent option for json dump of repo listing (breilly@redhat.com)
