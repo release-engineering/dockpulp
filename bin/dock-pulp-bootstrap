@@ -81,6 +81,7 @@ def create_sigstore(dpo):
         # add iso distributors to the sigstore repo
         dpo.associate('iso_distributor_sigstore', dockpulp.SIGSTORE)
         dpo.associate('cdn_distributor_sigstore', dockpulp.SIGSTORE)
+        dpo.associate('cdn_distributor', dockpulp.SIGSTORE)
 
 
 if __name__ == '__main__':
