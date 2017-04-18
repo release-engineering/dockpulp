@@ -290,7 +290,7 @@ class Crane(object):
                 log.error('    In Pulp but not Crane: ' + pdiff)
             if cdiff:
                 log.error('    In Crane but not Pulp: ' + cdiff)
-                result['error'] = True
+            result['error'] = True
             return result
 
         log.info('  Pulp and Crane data reconciled correctly, testing content')
@@ -579,7 +579,7 @@ class Crane(object):
                 log.error('    In Pulp but not Crane: ' + pdiff)
             if cdiff:
                 log.error('    In Crane but not Pulp: ' + cdiff)
-                result['error'] = True
+            result['error'] = True
             return result
 
         result['reachable_tags'] = pulp_tags
