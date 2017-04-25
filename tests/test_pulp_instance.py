@@ -39,7 +39,8 @@ def pulp(tmpdir):
             [signatures]
             foobar = foo
             [distribution]
-            distributions = beta,ga
+            beta = foobar
+            ga = foobar
             """).format(name=name))
         fp.flush()
 
@@ -342,11 +343,10 @@ class TestPulp(object):
     @pytest.mark.parametrize('repotype, importer_type_id', [('foo', 'bar'), (None, None)])
     @pytest.mark.parametrize('url', [None, 'http://test', '/content/foo/bar'])
     @pytest.mark.parametrize('registry_id', [None, 'foo/bar'])
-    @pytest.mark.parametrize('sig', [None, 'foobar'])
     @pytest.mark.parametrize('distributors', [True, False])
     @pytest.mark.parametrize('library', [True, False])
     @pytest.mark.parametrize('distribution', ['beta', 'ga', None])
-    def test_createRepo(self, pulp, repo_id, url, registry_id, sig, distributors, productline,
+    def test_createRepo(self, pulp, repo_id, url, registry_id, distributors, productline,
                         library, distribution, repotype, importer_type_id):
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
@@ -354,7 +354,7 @@ class TestPulp(object):
             .once()
             .and_return(None))
         response = pulp.createRepo(repo_id=repo_id, url=url, registry_id=registry_id,
-                                   sig=sig, distributors=distributors, productline=productline,
+                                   distributors=distributors, productline=productline,
                                    library=library, distribution=distribution, repotype=repotype,
                                    importer_type_id=importer_type_id)
         if not repo_id.startswith(pulp.getPrefix()):
@@ -372,7 +372,9 @@ class TestPulp(object):
             rurl = pulp.cdnhost + url
         assert response['id'] == repo_id
         assert response['display_name'] == repo_id
-        if sig:
+        if distribution:
+            assert response['notes']['distribution'] == distribution
+            sig = pulp.getDistributionSig(distribution)
             assert response['notes']['signatures'] == pulp.getSignature(sig)
         if distributors:
             assert response['distributors'][0]['distributor_config']['repo-registry-id'] \
@@ -405,12 +407,12 @@ class TestPulp(object):
         assert response is None
 
     @pytest.mark.parametrize('dist', ['beta', 'foo'])
-    def test_checkDistribution(self, pulp, core_pulp, dist):
+    def test_getDistributionSig(self, pulp, core_pulp, dist):
         if dist == 'foo':
             with pytest.raises(errors.DockPulpConfigError):
-                pulp.checkDistribution(dist)
+                pulp.getDistributionSig(dist)
         else:
-            response = pulp.checkDistribution(dist)
-            assert response is None
+            response = pulp.getDistributionSig(dist)
+            assert response
             with pytest.raises(errors.DockPulpConfigError):
-                core_pulp.checkDistribution(dist)
+                core_pulp.getDistributionSig(dist)
