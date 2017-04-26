@@ -37,7 +37,7 @@ class testPulp(object):
 
     def createRepo(self, arg1, arg2, desc=None, title=None,
                    protected=None, productline=None, library=None,
-                   sig=None, distribution=None, prefix_with=None):
+                   distribution=None, prefix_with=None):
         return
 
     def getAncestors(self, arg):
@@ -191,8 +191,7 @@ class TestCLI(object):
                 .should_receive('createRepo')
                 .once()
                 .with_args(repoid, None, desc=None, title=None, protected=False,
-                           productline=productid, sig=None, distribution=None,
-                           prefix_with=prefix_with)
+                           productline=productid, distribution=None, prefix_with=prefix_with)
                 .and_return(None))
             if img:
                 (testPulp

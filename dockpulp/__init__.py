@@ -655,9 +655,7 @@ class Pulp(object):
 
     def _set_dist_attr(self, attrs):
         # dists are environment independent
-        # first value used regardless of key name
-        for key, val in attrs:
-            return val
+        return dict(attrs)
 
     def _set_env_attr(self, attrs):
         for key, val in attrs:
@@ -839,15 +837,14 @@ class Pulp(object):
                 response['error'] = True
         return response
 
-    def checkDistribution(self, dist):
-        """Check if distribution is valid."""
+    def getDistributionSig(self, dist):
+        """Check distribution and get its associated signature."""
         try:
-            if dist in self.dists.split(','):
-                return
-            else:
-                log.error('Distribution not defined in dockpulp.conf')
-                raise errors.DockPulpConfigError(
-                    'Available distributions are: %s' % self.dists)
+            return self.dists[dist]
+        except KeyError:
+            log.error('Distribution not defined in dockpulp.conf')
+            raise errors.DockPulpConfigError(
+                'Available distributions are: %s' % self.dists.keys())
         except AttributeError:
             raise errors.DockPulpConfigError('Distributions not defined in dockpulp.conf')
 
@@ -972,9 +969,9 @@ class Pulp(object):
         else:
             return tasks
 
-    def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None, sig=None,
-                   protected=False, distributors=True, prefix_with=PREFIX, productline=None,
-                   library=False, distribution=None, repotype=None, importer_type_id=None):
+    def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None, protected=False,
+                   distributors=True, prefix_with=PREFIX, productline=None, library=False,
+                   distribution=None, repotype=None, importer_type_id=None):
         """Create a docker repository in pulp.
 
         id and description are required
@@ -1012,11 +1009,10 @@ class Pulp(object):
             'importer_config': {},
             'notes': {'_repo-type': 'docker-repo'},
         }
-        if sig:
+        if distribution:
+            sig = self.getDistributionSig(distribution)
             sig = self.getSignature(sig)
             stuff['notes']['signatures'] = sig
-        if distribution:
-            self.checkDistribution(distribution)
             stuff['notes']['distribution'] = distribution
         if repotype:
             stuff['notes']['_repo-type'] = repotype
@@ -1662,8 +1658,11 @@ class Pulp(object):
             sig = self.getSignature(update['signature'])
             delta['delta']['notes'] = {'signatures': sig}
         if 'distribution' in update:
-            self.checkDistribution(update['distribution'])
+            sig = self.getDistributionSig(update['distribution'])
             delta['delta']['notes'] = {'distribution': update['distribution']}
+            if 'signature' not in update:
+                sig = self.getSignature(sig)
+                delta['delta']['notes'] = {'signatures': sig}
         for distributorkey in distributorkeys:
             delta['distributor_configs'][distributorkey] = {}
         if len(delta['distributor_configs']) == 0:

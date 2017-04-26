@@ -232,12 +232,11 @@ def do_clone(bopts, bargs, parser):
 
     log.info('cloning %s repo to %s' % (args[0], repoid))
     oldinfo = p.listRepos(args[0], content=True)[0]
-    sig = oldinfo.get('signatures')
     dist = oldinfo.get('distribution')
     p.createRepo(repoid, oldinfo['redirect'],
                  desc=oldinfo['description'], title=oldinfo['title'],
-                 protected=get_bool_from_string(oldinfo['protected']), sig=sig,
-                 distribution=dist, productline=productid, prefix_with=prefix_with)
+                 protected=get_bool_from_string(oldinfo['protected']), distribution=dist,
+                 productline=productid, prefix_with=prefix_with)
     log.info('cloning content in %s to %s' % (args[0], repoid))
     if len(oldinfo['images']) > 0:
         for img in oldinfo['images'].keys():
@@ -336,7 +335,6 @@ def do_create(bopts, bargs, parser):
     parser.add_option('-l', '--library', help='create a "library"-level repo',
                       default=False, action='store_true')
     parser.add_option('-t', '--title', help='set the title for the repo')
-    parser.add_option('-s', '--signature', help='set the signatures field for the repo')
     parser.add_option('--distribution', help='set the distribution field for the repo')
     parser.add_option('-p', '--protected', help='set the protected bit to true for the repo',
                       default=False, action='store_true')
@@ -377,9 +375,9 @@ def do_create(bopts, bargs, parser):
         if not url.rstrip('/').endswith(suffix):
             parser.error('the content-url needs to end with %s' % suffix)
 
-    p.createRepo(repoid, url, desc=opts.description, title=opts.title, sig=opts.signature,
-                 protected=opts.protected, productline=productid, library=opts.library,
-                 distribution=opts.distribution, prefix_with=prefix_with)
+    p.createRepo(repoid, url, desc=opts.description, title=opts.title, protected=opts.protected,
+                 productline=productid, library=opts.library, distribution=opts.distribution,
+                 prefix_with=prefix_with)
     log.info('repository created')
 
 
