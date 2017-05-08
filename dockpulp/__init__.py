@@ -601,14 +601,16 @@ class Pulp(object):
                               ('chunk_size', "_set_int_attr", "chunk_size"),
                               ('timeout', "_set_int_attr", "timeout"),
                               ('retries', "_set_int_attr", "retries"),
-                              ('signatures', "_set_sig_attr", "sigs"),
-                              ('distribution', "_set_dist_attr", "dists"))
+                              ('signatures', "_set_independent_attr", "sigs"),
+                              ('distribution', "_set_independent_attr", "dists"),
+                              ('name_enforce', "_set_name_attr", "name_enforce"),
+                              ('content_enforce', "_set_independent_attr", "content_enforce"))
     AUTH_CER_FILE = "pulp.cer"
     AUTH_KEY_FILE = "pulp.key"
 
     def __init__(self, env='qa', config_file=DEFAULT_CONFIG_FILE,
                  config_override=None, config_distributors=DEFAULT_DISTRIBUTORS_FILE):
-        """Constructor for Pulp class.
+        """Construct a Pulp class.
 
         The constructor sets up the remote hostname given an environment.
         Accepts shorthand, or full hostnames.
@@ -616,6 +618,7 @@ class Pulp(object):
         self.certificate = None  # set in login()
         self.key = None
         self.env = env
+        self.name_enforce = {}
         self.load_configuration(config_file)
         self._load_override_conf(config_override)
         self._request = RequestsHttpCaller(self.url)
@@ -653,8 +656,8 @@ class Pulp(object):
                 self.key = os.path.join(os.path.expanduser(cert_path),
                                         self.AUTH_KEY_FILE)
 
-    def _set_dist_attr(self, attrs):
-        # dists are environment independent
+    def _set_independent_attr(self, attrs):
+        # set environment independent attributes
         return dict(attrs)
 
     def _set_env_attr(self, attrs):
@@ -672,8 +675,16 @@ class Pulp(object):
                     pass
         return None
 
-    def _set_sig_attr(self, attrs):
-        return dict(attrs)
+    def _set_name_attr(self, attrs):
+        name_enforce = {}
+        for key, boolean in attrs:
+            if boolean == "yes":
+                name_enforce[key] = '-%s' % key
+            elif boolean == "no":
+                name_enforce[key] = ''
+            else:
+                raise errors.DockPulpConfigError('Redirect must be \'yes\' or \'no\'')
+        return name_enforce
 
     def _load_override_conf(self, config_override):
         if not isinstance(config_override, dict):
@@ -713,7 +724,7 @@ class Pulp(object):
         raise errors.DockPulpError('Received response %s from %s' % (code, url))
 
     def _getRepo(self, env, config_file=DEFAULT_CONFIG_FILE):
-        """Helper function to set up hostname for sync."""
+        """Set up hostname for sync."""
         conf = ConfigParser.ConfigParser()
         if not config_file:
             raise errors.DockPulpConfigError('Missing config file')
@@ -1010,6 +1021,16 @@ class Pulp(object):
             'notes': {'_repo-type': 'docker-repo'},
         }
         if distribution:
+            if not repo_id.endswith(self.name_enforce.get(distribution, '')):
+                raise errors.DockPulpError("%s is a %s repo, repo id must end with %s" %
+                                           (repo_id, distribution, distribution))
+            try:
+                if not url.startswith(self.content_enforce.get(distribution, '')):
+                    raise errors.DockPulpError("%s is a %s repo, content-url must start with %s" %
+                                               (repo_id, distribution,
+                                                self.content_enforce[distribution]))
+            except AttributeError:
+                pass
             sig = self.getDistributionSig(distribution)
             sig = self.getSignature(sig)
             stuff['notes']['signatures'] = sig

@@ -40,7 +40,11 @@ def pulp(tmpdir):
             foobar = foo
             [distribution]
             beta = foobar
-            ga = foobar
+            test = foobar
+            [name_enforce]
+            test = yes
+            [content_enforce]
+            test = /content/test
             """).format(name=name))
         fp.flush()
 
@@ -341,17 +345,24 @@ class TestPulp(object):
                                                       ('foo', None),
                                                       ('foo-bar-test', 'foo-bar')])
     @pytest.mark.parametrize('repotype, importer_type_id', [('foo', 'bar'), (None, None)])
-    @pytest.mark.parametrize('url', [None, 'http://test', '/content/foo/bar'])
+    @pytest.mark.parametrize('url', [None, 'http://test', '/content/test/foo/bar'])
     @pytest.mark.parametrize('registry_id', [None, 'foo/bar'])
     @pytest.mark.parametrize('distributors', [True, False])
     @pytest.mark.parametrize('library', [True, False])
-    @pytest.mark.parametrize('distribution', ['beta', 'ga', None])
+    @pytest.mark.parametrize('distribution', ['beta', 'test', None])
     def test_createRepo(self, pulp, repo_id, url, registry_id, distributors, productline,
                         library, distribution, repotype, importer_type_id):
+        if distribution == 'test' and ((url != '/content/test/foo/bar' and url is not None) or
+                                       repo_id != 'foo-bar-test'):
+            with pytest.raises(errors.DockPulpError):
+                pulp.createRepo(repo_id=repo_id, url=url, registry_id=registry_id,
+                                distributors=distributors, productline=productline,
+                                library=library, distribution=distribution, repotype=repotype,
+                                importer_type_id=importer_type_id)
+            return
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
             .should_receive('__call__')
-            .once()
             .and_return(None))
         response = pulp.createRepo(repo_id=repo_id, url=url, registry_id=registry_id,
                                    distributors=distributors, productline=productline,
