@@ -1021,9 +1021,15 @@ class Pulp(object):
             'notes': {'_repo-type': 'docker-repo'},
         }
         if distribution:
-            if not repo_id.endswith(self.name_enforce.get(distribution, '')):
-                raise errors.DockPulpError("%s is a %s repo, repo id must end with %s" %
-                                           (repo_id, distribution, distribution))
+            if productline:
+                if not productline.endswith(self.name_enforce.get(distribution, '')):
+                    raise errors.DockPulpError("%s is a %s repo, product-line must end with %s" %
+                                               (repo_id, distribution, distribution))
+            # library level repo do not use product-line
+            elif library:
+                if not repo_id.endswith(self.name_enforce.get(distribution, '')):
+                    raise errors.DockPulpError("%s is a %s repo, repo id must end with %s" %
+                                               (repo_id, distribution, distribution))
             try:
                 if not url.startswith(self.content_enforce.get(distribution, '')):
                     raise errors.DockPulpError("%s is a %s repo, content-url must start with %s" %
