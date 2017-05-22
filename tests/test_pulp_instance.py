@@ -19,7 +19,8 @@ log.setLevel(logging.CRITICAL)
 # fixtures
 @pytest.fixture
 def pulp(tmpdir):
-    with nested(NamedTemporaryFile(mode='wt'), NamedTemporaryFile(mode='wt')) as (fp, df):
+    with nested(NamedTemporaryFile(mode='wt'), NamedTemporaryFile(mode='wt'),
+                NamedTemporaryFile(mode='wt')) as (fp, df, dn):
         name = 'test'
         fp.write(dedent("""
             [pulps]
@@ -38,13 +39,6 @@ def pulp(tmpdir):
             {name} = 2
             [signatures]
             foobar = foo
-            [distribution]
-            beta = foobar
-            test = foobar
-            [name_enforce]
-            test = yes
-            [content_enforce]
-            test = /content/test
             """).format(name=name))
         fp.flush()
 
@@ -57,14 +51,34 @@ def pulp(tmpdir):
             }
             """))
         df.flush()
-        pulp = Pulp(env=name, config_file=fp.name, config_distributors=df.name)
+
+        dn.write(dedent("""
+            {
+                "beta":{
+                    "signature": "foobar",
+                    "name_enforce": "",
+                    "content_enforce": "",
+                    "name_restrict": ["-test"]
+                },
+                "test":{
+                    "signature": "foobar",
+                    "name_enforce": "-test",
+                    "content_enforce": "/content/test",
+                    "name_restrict": []
+                }
+            }
+            """))
+        dn.flush()
+        pulp = Pulp(env=name, config_file=fp.name, config_distributors=df.name,
+                    config_distributions=dn.name)
     return pulp
 
 
 @pytest.fixture
 def core_pulp(tmpdir):
     # No optional fields in dockpulp.conf
-    with nested(NamedTemporaryFile(mode='wt'), NamedTemporaryFile(mode='wt')) as (fp, df):
+    with nested(NamedTemporaryFile(mode='wt'), NamedTemporaryFile(mode='wt'),
+                NamedTemporaryFile(mode='wt')) as (fp, df, dn):
         name = 'test'
         fp.write(dedent("""
             [pulps]
@@ -91,7 +105,20 @@ def core_pulp(tmpdir):
             }
             """))
         df.flush()
-        core_pulp = Pulp(env=name, config_file=fp.name, config_distributors=df.name)
+
+        dn.write(dedent("""
+            {
+                "foo":{
+                    "signature": "",
+                    "name_enforce": "",
+                    "content_enforce": "",
+                    "name_restrict": []
+                }
+            }
+            """))
+        dn.flush()
+        core_pulp = Pulp(env=name, config_file=fp.name, config_distributors=df.name,
+                         config_distributions=dn.name)
     return core_pulp
 
 
@@ -361,6 +388,13 @@ class TestPulp(object):
                                     library=library, distribution=distribution, repotype=repotype,
                                     importer_type_id=importer_type_id)
                 return
+        if distribution == 'beta' and productline and productline.endswith('test'):
+            with pytest.raises(errors.DockPulpError):
+                pulp.createRepo(repo_id=repo_id, url=url, registry_id=registry_id,
+                                distributors=distributors, productline=productline,
+                                library=library, distribution=distribution, repotype=repotype,
+                                importer_type_id=importer_type_id)
+            return
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
             .should_receive('__call__')
@@ -418,14 +452,3 @@ class TestPulp(object):
             .and_return(t))
         response = pulp.disassociate('foo', 'testrepo')
         assert response is None
-
-    @pytest.mark.parametrize('dist', ['beta', 'foo'])
-    def test_getDistributionSig(self, pulp, core_pulp, dist):
-        if dist == 'foo':
-            with pytest.raises(errors.DockPulpConfigError):
-                pulp.getDistributionSig(dist)
-        else:
-            response = pulp.getDistributionSig(dist)
-            assert response
-            with pytest.raises(errors.DockPulpConfigError):
-                core_pulp.getDistributionSig(dist)

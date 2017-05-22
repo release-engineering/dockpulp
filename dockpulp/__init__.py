@@ -55,6 +55,7 @@ HIDDEN = 'redhat-everything'    # ID of a "hidden" repository for RCM
 SIGSTORE = 'redhat-sigstore'    # ID of an iso repo for docker manifest signatures
 DEFAULT_CONFIG_FILE = '/etc/dockpulp.conf'
 DEFAULT_DISTRIBUTORS_FILE = '/etc/dockpulpdistributors.json'
+DEFAULT_DISTRIBUTIONS_FILE = '/etc/dockpulpdistributions.json'
 PREFIX = 'redhat-'
 
 
@@ -609,7 +610,8 @@ class Pulp(object):
     AUTH_KEY_FILE = "pulp.key"
 
     def __init__(self, env='qa', config_file=DEFAULT_CONFIG_FILE,
-                 config_override=None, config_distributors=DEFAULT_DISTRIBUTORS_FILE):
+                 config_override=None, config_distributors=DEFAULT_DISTRIBUTORS_FILE,
+                 config_distributions=DEFAULT_DISTRIBUTIONS_FILE):
         """Construct a Pulp class.
 
         The constructor sets up the remote hostname given an environment.
@@ -626,6 +628,9 @@ class Pulp(object):
         if not os.path.exists(config_distributors):
                 log.error('could not load distributors json: %s' % config_distributors)
         self.distributorconf = json.load(open(config_distributors, 'r'))
+        if not os.path.exists(config_distributions):
+                log.error('could not load distributions json: %s' % config_distributions)
+        self.distributionconf = json.load(open(config_distributions, 'r'))
         try:
             self.timeout
         except AttributeError:
@@ -848,17 +853,6 @@ class Pulp(object):
                 response['error'] = True
         return response
 
-    def getDistributionSig(self, dist):
-        """Check distribution and get its associated signature."""
-        try:
-            return self.dists[dist]
-        except KeyError:
-            log.error('Distribution not defined in dockpulp.conf')
-            raise errors.DockPulpConfigError(
-                'Available distributions are: %s' % self.dists.keys())
-        except AttributeError:
-            raise errors.DockPulpConfigError('Distributions not defined in dockpulp.conf')
-
     def cleanOrphans(self, content_type=V1_C_TYPE):
         """Remove orphaned docker content of given type."""
         log.debug('Removing docker orphans not implemented in Pulp 2.4')
@@ -1021,25 +1015,38 @@ class Pulp(object):
             'notes': {'_repo-type': 'docker-repo'},
         }
         if distribution:
+            try:
+                distconf = self.distributionconf[distribution]
+            except KeyError:
+                raise errors.DockPulpConfigError("Distribution %s not defined in %s" %
+                                                 (distribution, DEFAULT_DISTRIBUTIONS_FILE))
             if productline:
-                if not productline.endswith(self.name_enforce.get(distribution, '')):
+                if not productline.endswith(distconf.get('name_enforce', '')):
                     raise errors.DockPulpError("%s is a %s repo, product-line must end with %s" %
-                                               (repo_id, distribution, distribution))
+                                               (repo_id, distribution, distconf['name_enforce']))
+                for restrict in distconf['name_restrict']:
+                    if restrict in productline:
+                        raise errors.DockPulpError(
+                            "%s is a %s repo, product-line must not contain %s" %
+                            (repo_id, distribution, restrict))
             # library level repo do not use product-line
             elif library:
-                if not repo_id.endswith(self.name_enforce.get(distribution, '')):
+                if not repo_id.endswith(distconf.get('name_enforce', '')):
                     raise errors.DockPulpError("%s is a %s repo, repo id must end with %s" %
-                                               (repo_id, distribution, distribution))
+                                               (repo_id, distribution, distconf['name_enforce']))
+                for restrict in distconf['name_restrict']:
+                    if restrict in repo_id:
+                        raise errors.DockPulpError("%s is a %s repo, repo id must not contain %s" %
+                                                   (repo_id, distribution, restrict))
             try:
-                if not url.startswith(self.content_enforce.get(distribution, '')):
+                if not url.startswith(distconf.get('content_enforce', '')):
                     raise errors.DockPulpError("%s is a %s repo, content-url must start with %s" %
-                                               (repo_id, distribution,
-                                                self.content_enforce[distribution]))
+                                               (repo_id, distribution, distconf['content_enforce']))
             except AttributeError:
                 pass
-            sig = self.getDistributionSig(distribution)
-            sig = self.getSignature(sig)
-            stuff['notes']['signatures'] = sig
+            if distconf['signature'] != "":
+                sig = self.getSignature(distconf['signature'])
+                stuff['notes']['signatures'] = sig
             stuff['notes']['distribution'] = distribution
         if repotype:
             stuff['notes']['_repo-type'] = repotype
@@ -1140,6 +1147,11 @@ class Pulp(object):
             return self.getAncestors(par, parents=parents)
         else:
             return parents
+
+    def getDistributionSig(self, dist):
+        """Get distribution signature."""
+        # No longer used, keeping for unit tests
+        return self.distributionconf[dist]['signature']
 
     def getImageIdsExist(self, iids=[]):
         """Return a list of layers already uploaded to the server."""
@@ -1685,9 +1697,9 @@ class Pulp(object):
             sig = self.getSignature(update['signature'])
             delta['delta']['notes'] = {'signatures': sig}
         if 'distribution' in update:
-            sig = self.getDistributionSig(update['distribution'])
+            sig = self.distributionconf[update['distribution']]['signature']
             delta['delta']['notes'] = {'distribution': update['distribution']}
-            if 'signature' not in update:
+            if 'signature' not in update and sig != "":
                 sig = self.getSignature(sig)
                 delta['delta']['notes'] = {'signatures': sig}
         for distributorkey in distributorkeys:
