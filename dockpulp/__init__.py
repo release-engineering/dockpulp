@@ -602,10 +602,8 @@ class Pulp(object):
                               ('chunk_size', "_set_int_attr", "chunk_size"),
                               ('timeout', "_set_int_attr", "timeout"),
                               ('retries', "_set_int_attr", "retries"),
-                              ('signatures', "_set_independent_attr", "sigs"),
-                              ('distribution', "_set_independent_attr", "dists"),
-                              ('name_enforce', "_set_name_attr", "name_enforce"),
-                              ('content_enforce', "_set_independent_attr", "content_enforce"))
+                              ('distribution', "_set_bool", "dists"),
+                              ('signatures', "_set_independent_attr", "sigs"))
     AUTH_CER_FILE = "pulp.cer"
     AUTH_KEY_FILE = "pulp.key"
 
@@ -643,6 +641,10 @@ class Pulp(object):
             self.retries = 1
         if self.retries is None or self.retries < 1:
             self.retries = 1
+        try:
+            self.dists
+        except AttributeError:
+            self.dists = False
 
     def _set_bool(self, attrs):
         for key, boolean in attrs:
@@ -651,7 +653,7 @@ class Pulp(object):
                     return True
                 elif boolean == "no":
                     return False
-        raise errors.DockPulpConfigError('Redirect must be \'yes\' or \'no\'')
+        raise errors.DockPulpConfigError('Redirect and Distribution must be \'yes\' or \'no\'')
 
     def _set_cert(self, attrs):
         for key, cert_path in attrs:
@@ -679,17 +681,6 @@ class Pulp(object):
                 except TypeError:
                     pass
         return None
-
-    def _set_name_attr(self, attrs):
-        name_enforce = {}
-        for key, boolean in attrs:
-            if boolean == "yes":
-                name_enforce[key] = '-%s' % key
-            elif boolean == "no":
-                name_enforce[key] = ''
-            else:
-                raise errors.DockPulpConfigError('Redirect must be \'yes\' or \'no\'')
-        return name_enforce
 
     def _load_override_conf(self, config_override):
         if not isinstance(config_override, dict):
@@ -1048,6 +1039,9 @@ class Pulp(object):
                 sig = self.getSignature(distconf['signature'])
                 stuff['notes']['signatures'] = sig
             stuff['notes']['distribution'] = distribution
+        elif self.dists:
+            raise errors.DockPulpError("Env %s requires distribution defined at repo creation" %
+                                       self.env)
         if repotype:
             stuff['notes']['_repo-type'] = repotype
         if importer_type_id:
