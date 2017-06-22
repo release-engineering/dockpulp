@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.41
+Version:	1.42
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -48,6 +48,16 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Thu Jun 22 2017 Brendan Reilly <breilly@redhat.com> 1.42-1
+- Bumping version for release (breilly@redhat.com)
+- Enforce distribution for certain envs (breilly@redhat.com)
+- Refactored distribution conf into json (breilly@redhat.com)
+- Name enforce now checks product-line (breilly@redhat.com)
+- Added configurable naming enforcement for repo-ids and content-urls
+  (breilly@redhat.com)
+- Added distribution mapping to signatures (breilly@redhat.com)
+- Added missing error return (breilly@redhat.com)
+
 * Thu Apr 06 2017 Brendan Reilly <breilly@redhat.com> 1.41-1
 - Bumping version for release (breilly@redhat.com)
 - Added one more distributor for sigstore (breilly@redhat.com)
