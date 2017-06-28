@@ -371,14 +371,15 @@ class TestPulp(object):
                                                       ('foo-bar', 'foo'),
                                                       ('foo', None),
                                                       ('bar', 'foo-test')])
-    @pytest.mark.parametrize('repotype, importer_type_id', [('foo', 'bar'), (None, None)])
+    @pytest.mark.parametrize('repotype, importer_type_id, rel_url',
+                             [('foo', 'bar', 'http://relurl'), (None, None, None)])
     @pytest.mark.parametrize('url', [None, 'http://test', '/content/test/foo-test/bar'])
     @pytest.mark.parametrize('registry_id', [None, 'foo/bar'])
     @pytest.mark.parametrize('distributors', [True, False])
     @pytest.mark.parametrize('library', [True, False])
     @pytest.mark.parametrize('distribution', ['beta', 'test', None])
     def test_createRepo(self, pulp, repo_id, url, registry_id, distributors, productline,
-                        library, distribution, repotype, importer_type_id):
+                        library, distribution, repotype, importer_type_id, rel_url):
         if distribution == 'test':
             if (url != '/content/test/foo-test/bar' and url is not None) or \
                ((productline is not None or library) and productline != 'foo-test'):
@@ -386,14 +387,14 @@ class TestPulp(object):
                     pulp.createRepo(repo_id=repo_id, url=url, registry_id=registry_id,
                                     distributors=distributors, productline=productline,
                                     library=library, distribution=distribution, repotype=repotype,
-                                    importer_type_id=importer_type_id)
+                                    importer_type_id=importer_type_id, rel_url=rel_url)
                 return
         if distribution == 'beta' and productline and productline.endswith('test'):
             with pytest.raises(errors.DockPulpError):
                 pulp.createRepo(repo_id=repo_id, url=url, registry_id=registry_id,
                                 distributors=distributors, productline=productline,
                                 library=library, distribution=distribution, repotype=repotype,
-                                importer_type_id=importer_type_id)
+                                importer_type_id=importer_type_id, rel_url=rel_url)
             return
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
@@ -403,7 +404,7 @@ class TestPulp(object):
         response = pulp.createRepo(repo_id=repo_id, url=url, registry_id=registry_id,
                                    distributors=distributors, productline=productline,
                                    library=library, distribution=distribution, repotype=repotype,
-                                   importer_type_id=importer_type_id)
+                                   importer_type_id=importer_type_id, rel_url=rel_url)
         if not repo_id.startswith(pulp.getPrefix()):
             repo_id = pulp.getPrefix() + repo_id
         if registry_id is None:
@@ -431,6 +432,8 @@ class TestPulp(object):
             assert response['notes']['_repo-type'] == repotype
         if importer_type_id:
             assert response['importer_type_id'] == importer_type_id
+        if rel_url:
+            assert response['notes']['relative_url'] == rel_url
 
     def test_disassociate(self, pulp):
         repo = 'testrepo'

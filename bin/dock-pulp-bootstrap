@@ -77,7 +77,8 @@ def create_sigstore(dpo):
                        title='SIGSTORE repository',
                        distributors=False,
                        repotype="iso-repo",
-                       importer_type_id="iso_importer")
+                       importer_type_id="iso_importer",
+                       rel_url='/content/sigstore')
         # add iso distributors to the sigstore repo
         dpo.associate('iso_distributor_sigstore', dockpulp.SIGSTORE)
         dpo.associate('cdn_distributor_sigstore', dockpulp.SIGSTORE)
