@@ -47,6 +47,7 @@ import imgutils
 
 __version__ = "1.42"
 
+SIG_TYPE = 'iso'
 V2_C_TYPE = 'docker_manifest'
 V2_BLOB = 'docker_blob'
 V2_TAG = 'docker_tag'
@@ -161,6 +162,16 @@ class Crane(object):
         for repo in repos:
             log.info('Testing %s' % repo['id'])
             repoids[repo['id']] = {}
+            errorids[repo['id']] = False
+            if repo['id'] == SIGSTORE:
+                response = self._test_sigstore(repo['sigstore'])
+                if silent:
+                    repoids[repo['id']].update(response)
+                    if response['error']:
+                        errorids[repo['id']] = True
+                elif response['error']:
+                    errors += 1
+                continue
             imgs = repo['images'].keys()
             manifests = repo['manifests'].keys()
             blobs = []
@@ -170,7 +181,6 @@ class Crane(object):
                 tags.append(repo['manifests'][manifest]['tag'])
             # reduce duplicate blobs
             blobs = list(set(blobs))
-            errorids[repo['id']] = False
             if v1:
                 response = self._test_repo(repo['docker-id'], repo['redirect'], imgs,
                                            repo['protected'], silent)
@@ -587,6 +597,24 @@ class Crane(object):
 
         log.info('  Pulp and Crane tags reconciled correctly, all content reachable')
 
+        return result
+
+    def _test_sigstore(self, signatures):
+        """Confirm we can reach CDN and get data back from it."""
+        result = {'error': False, 'missing_signatures': []}
+        if not signatures:
+            log.info('  No signatures to test')
+            return result
+        url = self.p.cdnhost + '/content/sigstore/'
+        log.info('  Confirming CDN has signatures available')
+        for signature in signatures:
+            log.debug('  contacting %s', url + signature)
+            answer = requests.get(url + signature, verify=False)
+            log.debug('  status code: %s', answer.status_code)
+            if not answer.ok:
+                log.error('  Signature missing in CDN: %s', signature)
+                result['error'] = True
+                result['missing_signatures'].append(signature)
         return result
 
 
@@ -1202,6 +1230,10 @@ class Pulp(object):
             raise errors.DockPulpConfigError(
                 'Available signatures are: %s' % ', '.join(self.sigs.keys()))
 
+    def getSigstore(self):
+        """Return the sigstore repo id."""
+        return SIGSTORE
+
     def getTask(self, tid):
         """Return a task report for a given id."""
         log.debug('getting task %s information' % tid)
@@ -1312,7 +1344,7 @@ class Pulp(object):
                 # Fetch all content in a single request
                 data = {
                     'criteria': {
-                        'type_ids': [V1_C_TYPE, V2_C_TYPE, V2_BLOB, V2_TAG],
+                        'type_ids': [V1_C_TYPE, V2_C_TYPE, V2_BLOB, V2_TAG, SIG_TYPE],
                         'filters': {
                             'unit': {}
                         }
@@ -1323,6 +1355,15 @@ class Pulp(object):
                 units = self._post(
                     '/pulp/api/v2/repositories/%s/search/units/' % blob['id'],
                     data=json.dumps(data))
+                if blob['id'] == SIGSTORE:
+                    r['sigstore'] = []
+                    sigs = [unit for unit in units
+                            if unit['unit_type_id'] == SIG_TYPE]
+                    for sig in sigs:
+                        r['sigstore'].append(sig['metadata']['name'])
+                    clean.append(r)
+                    clean.sort()
+                    continue
                 r['images'] = {}
                 if labels:
                     r['v1_labels'] = {}
