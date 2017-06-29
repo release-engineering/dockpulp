@@ -967,7 +967,7 @@ class Pulp(object):
 
     def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None, protected=False,
                    distributors=True, prefix_with=PREFIX, productline=None, library=False,
-                   distribution=None, repotype=None, importer_type_id=None):
+                   distribution=None, repotype=None, importer_type_id=None, rel_url=None):
         """Create a docker repository in pulp.
 
         id and description are required
@@ -1005,6 +1005,10 @@ class Pulp(object):
             'importer_config': {},
             'notes': {'_repo-type': 'docker-repo'},
         }
+        if rel_url:
+            if not rel_url.startswith('http'):
+                rel_url = self.cdnhost + rel_url
+            stuff['notes']['relative_url'] = rel_url
         if distribution:
             try:
                 distconf = self.distributionconf[distribution]
