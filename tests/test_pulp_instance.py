@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
-from dockpulp import Pulp, RequestsHttpCaller, errors, log
+from dockpulp import Pulp, Crane, RequestsHttpCaller, errors, log
 import pytest
 import hashlib
 import json
@@ -120,6 +120,12 @@ def core_pulp(tmpdir):
         core_pulp = Pulp(env=name, config_file=fp.name, config_distributors=df.name,
                          config_distributions=dn.name)
     return core_pulp
+
+
+@pytest.fixture
+def crane(pulp):
+    crane = Crane(pulp)
+    return crane
 
 
 # wrapper classes
@@ -262,6 +268,20 @@ class TestPulp(object):
                 v1Compatibility['config']['Labels']['testlab1']
         for key in history[0]['v1_labels']:
             assert history[0]['v1_labels'][key] == labels['config']['Labels']
+
+    def test_listSigstore(self, pulp):
+        repoid = pulp.getSigstore()
+        blob = {'notes': {'_repo-type': 'iso'}, 'id': repoid,
+                'description': 'testdesc', 'display_name': 'testdisp', 'distributors': [],
+                'scratchpad': {}}
+        units = [{'unit_type_id': 'iso', 'metadata': {'name': 'testname'}}]
+        flexmock(RequestsHttpCaller)
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .and_return(blob, units)
+            .one_by_one())
+        response = pulp.listRepos(repoid, content=True)
+        assert response[0]['sigstore'][0] == 'testname'
 
     @pytest.mark.parametrize('repo, image', [('testrepo', 'testimg')])
     def test_checkLayers(self, pulp, repo, image):
@@ -455,3 +475,52 @@ class TestPulp(object):
             .and_return(t))
         response = pulp.disassociate('foo', 'testrepo')
         assert response is None
+
+
+class TestCrane(object):
+    # Tests of methods of Crane class.
+    def test_confirm_sigstore(self, crane, pulp):
+        repos = pulp.getSigstore()
+        repoinfo = [{'id': repos, 'sigstore': 'image@shasum'}]
+        response = {'error': False}
+        flexmock(pulp)
+        (pulp
+            .should_receive('listRepos')
+            .with_args(repos=repos, content=True)
+            .once()
+            .and_return(repoinfo))
+        flexmock(crane)
+        (crane
+            .should_receive('_test_sigstore')
+            .with_args(repoinfo[0]['sigstore'])
+            .once()
+            .and_return(response))
+        crane.confirm(repos)
+
+    @pytest.mark.parametrize('signatures', [None, ['sig@shasum'], ['failedsig']])
+    def test_test_sigstore(self, crane, signatures):
+        if signatures is None:
+            response = crane._test_sigstore(signatures)
+            assert response == {'error': False, 'missing_signatures': []}
+            return
+        url = 'foo/content/sigstore/'
+        signature = signatures[0]
+        if signature == 'failedsig':
+            answer = flexmock(
+                status_code="404",
+                ok=False)
+        else:
+            answer = flexmock(
+                status_code="200",
+                ok=True)
+        flexmock(requests)
+        (requests
+            .should_receive('get')
+            .with_args(url + signature, verify=False)
+            .once()
+            .and_return(answer))
+        response = crane._test_sigstore(signatures)
+        if signature == 'failedsig':
+            assert response == {'error': True, 'missing_signatures': ['failedsig']}
+        else:
+            assert response == {'error': False, 'missing_signatures': []}

@@ -507,11 +507,18 @@ def do_list(bopts, bargs, parser):
             log.info('-' * len(repo['id']))
         if opts.details:
             for k, v in repo.items():
-                if k in ('id', 'images', 'manifests'):
+                if k in ('id', 'images', 'manifests', 'sigstore'):
                     continue
                 else:
                     log.info('%s = %s', k, v)
         if opts.content or opts.history or opts.labels:
+            if repo['id'] == p.getSigstore():
+                log.info('  Signatures: ')
+                for sig in repo['sigstore']:
+                    log.info('    %s', sig)
+                log.info('')
+                continue
+
             log.info('v1 image details:')
             if len(repo['images'].keys()) == 0:
                 log.info('  No images')
