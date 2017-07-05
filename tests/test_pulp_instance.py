@@ -123,6 +123,65 @@ def core_pulp(tmpdir):
 
 
 @pytest.fixture
+def restricted_pulp(tmpdir):
+    with nested(NamedTemporaryFile(mode='wt'), NamedTemporaryFile(mode='wt'),
+                NamedTemporaryFile(mode='wt')) as (fp, df, dn):
+        name = 'test'
+        fp.write(dedent("""
+            [pulps]
+            {name} = foo
+            [registries]
+            {name} = foo
+            [filers]
+            {name} = foo
+            [redirect]
+            {name} = no
+            [distributors]
+            {name} = foo
+            [release_order]
+            {name} = foo
+            [retries]
+            {name} = 2
+            [signatures]
+            foobar = foo
+            [distribution]
+            {name} = yes
+            """).format(name=name))
+        fp.flush()
+
+        df.write(dedent("""
+            {
+                "foo":{
+                    "distributor_type_id": "docker_distributor_web",
+                    "distributor_config": {}
+                }
+            }
+            """))
+        df.flush()
+
+        dn.write(dedent("""
+            {
+                "beta":{
+                    "signature": "foobar",
+                    "name_enforce": "",
+                    "content_enforce": "",
+                    "name_restrict": ["-test"]
+                },
+                "test":{
+                    "signature": "foobar",
+                    "name_enforce": "-test",
+                    "content_enforce": "/content/test",
+                    "name_restrict": []
+                }
+            }
+            """))
+        dn.flush()
+        restricted_pulp = Pulp(env=name, config_file=fp.name, config_distributors=df.name,
+                               config_distributions=dn.name)
+    return restricted_pulp
+
+
+@pytest.fixture
 def crane(pulp):
     crane = Crane(pulp)
     return crane
@@ -475,6 +534,20 @@ class TestPulp(object):
             .and_return(t))
         response = pulp.disassociate('foo', 'testrepo')
         assert response is None
+
+    @pytest.mark.parametrize('repo_id', ['redhat-everything', 'redhat-sigstore', 'redhat-foo-bar'])
+    def test_create_hidden(self, restricted_pulp, repo_id):
+        if repo_id == 'redhat-foo-bar':
+            with pytest.raises(errors.DockPulpError):
+                restricted_pulp.createRepo(repo_id=repo_id, url='/foo/bar', library=True)
+            return
+        flexmock(RequestsHttpCaller)
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .once()
+            .and_return(None))
+        response = restricted_pulp.createRepo(repo_id=repo_id, url='/foo/bar', library=True)
+        assert response['id'] == repo_id
 
 
 class TestCrane(object):

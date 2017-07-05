@@ -1071,7 +1071,7 @@ class Pulp(object):
                 sig = self.getSignature(distconf['signature'])
                 stuff['notes']['signatures'] = sig
             stuff['notes']['distribution'] = distribution
-        elif self.dists:
+        elif self.dists and repo_id != HIDDEN and repo_id != SIGSTORE:
             raise errors.DockPulpError("Env %s requires distribution defined at repo creation" %
                                        self.env)
         if repotype:
