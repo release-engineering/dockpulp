@@ -1034,8 +1034,6 @@ class Pulp(object):
             'notes': {'_repo-type': 'docker-repo'},
         }
         if rel_url:
-            if not rel_url.startswith('http'):
-                rel_url = self.cdnhost + rel_url
             stuff['notes']['relative_url'] = rel_url
         if distribution:
             try:
