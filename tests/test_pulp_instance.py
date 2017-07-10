@@ -570,11 +570,12 @@ class TestCrane(object):
             .and_return(response))
         crane.confirm(repos)
 
-    @pytest.mark.parametrize('signatures', [None, ['sig@shasum'], ['failedsig']])
+    @pytest.mark.parametrize('signatures', [None, ['sig@shasum'], ['failedsig'], ['failedcrane']])
     def test_test_sigstore(self, crane, signatures):
         if signatures is None:
             response = crane._test_sigstore(signatures)
-            assert response == {'error': False, 'missing_signatures': []}
+            assert response == {'error': False, 'sigs_in_pulp_not_crane': [],
+                                'sigs_in_crane_not_pulp': []}
             return
         url = 'foo/content/sigstore/'
         signature = signatures[0]
@@ -592,8 +593,27 @@ class TestCrane(object):
             .with_args(url + signature, verify=False)
             .once()
             .and_return(answer))
+        if signature == 'failedcrane':
+            answer2 = flexmock(
+                status_code='404',
+                ok=False)
+        else:
+            answer2 = flexmock(
+                status_code="200",
+                ok=True,
+                text='sig@shasum')
+        (requests
+            .should_receive('get')
+            .with_args(url + 'PULP_MANIFEST', verify=False)
+            .once()
+            .and_return(answer2))
         response = crane._test_sigstore(signatures)
         if signature == 'failedsig':
-            assert response == {'error': True, 'missing_signatures': ['failedsig']}
+            assert response == {'error': True, 'sigs_in_pulp_not_crane': ['failedsig'],
+                                'sigs_in_crane_not_pulp': ['sig@shasum']}
+        elif signature == 'failedcrane':
+            assert response == {'error': True, 'sigs_in_pulp_not_crane': [],
+                                'sigs_in_crane_not_pulp': []}
         else:
-            assert response == {'error': False, 'missing_signatures': []}
+            assert response == {'error': False, 'sigs_in_pulp_not_crane': [],
+                                'sigs_in_crane_not_pulp': []}
