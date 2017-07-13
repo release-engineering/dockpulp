@@ -601,7 +601,7 @@ class Crane(object):
 
     def _test_sigstore(self, signatures):
         """Confirm we can reach CDN and get data back from it."""
-        result = {'error': False, 'missing_signatures': []}
+        result = {'error': False, 'sigs_in_pulp_not_crane': [], 'sigs_in_crane_not_pulp': []}
         if not signatures:
             log.info('  No signatures to test')
             return result
@@ -614,7 +614,21 @@ class Crane(object):
             if not answer.ok:
                 log.error('  Signature missing in CDN: %s', signature)
                 result['error'] = True
-                result['missing_signatures'].append(signature)
+                result['sigs_in_pulp_not_crane'].append(signature)
+        log.info('  Confirming CDN signatures match Pulp')
+        log.debug('  contacting %s', url + 'PULP_MANIFEST')
+        answer = requests.get(url + 'PULP_MANIFEST', verify=False)
+        if not answer.ok:
+            log.error('  Pulp Manifest missing in CDN')
+            result['error'] = True
+            return result
+        csigs = answer.text.split('\n')
+        for csig in csigs:
+            sig = csig.split(',')[0]
+            if sig and sig not in signatures:
+                log.error('  Signature in CDN but not pulp: %s', sig)
+                result['error'] = True
+                result['sigs_in_crane_not_pulp'].append(sig)
         return result
 
 
