@@ -572,7 +572,10 @@ def do_list(bopts, bargs, parser):
                     for manifest in manifests:
                         tag = output[image][manifest]['tag']
                         is_active = output[image][manifest]['active']
-                        log.info('  Manifest: %s  Tag: %s%s', manifest, tag, is_active)
+                        if tag is None:
+                            log.info('  Manifest: %s', manifest)
+                        else:
+                            log.info('  Manifest: %s  Tag: %s%s', manifest, tag, is_active)
                         if is_active:
                             tagoutput.append(tag)
                     if not opts.manifests:
