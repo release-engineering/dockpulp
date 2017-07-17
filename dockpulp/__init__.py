@@ -1430,7 +1430,15 @@ class Pulp(object):
 
                     digest = manifest['metadata']['digest']
                     r['manifests'][digest] = {}
-                    r['manifests'][digest]['tag'] = manifest['metadata']['tag']
+                    tag = None
+                    if 'tag' not in manifest['metadata'].keys():
+                        for tag_dict in tags:
+                            if tag_dict['metadata']['manifest_digest'] == digest:
+                                tag = tag_dict['metadata']['name']
+                                break
+                    else:
+                        tag = manifest['metadata']['tag']
+                    r['manifests'][digest]['tag'] = tag
                     r['manifests'][digest]['layers'] = layers
 
                 for v2_blob, seen_ref in v2_blobs.items():
