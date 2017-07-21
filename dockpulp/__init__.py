@@ -1752,15 +1752,17 @@ class Pulp(object):
                                                    'http://example/url or https://example/url')
                 for distributorkey in delta['distributor_configs']:
                     delta['distributor_configs'][distributorkey][key] = update[key]
+        if 'signature' in update or 'distribution' in update:
+            delta['delta']['notes'] = {}
         if 'signature' in update:
             sig = self.getSignature(update['signature'])
-            delta['delta']['notes'] = {'signatures': sig}
+            delta['delta']['notes']['signatures'] = sig
         if 'distribution' in update:
             sig = self.distributionconf[update['distribution']]['signature']
-            delta['delta']['notes'] = {'distribution': update['distribution']}
+            delta['delta']['notes']['distribution'] = update['distribution']
             if 'signature' not in update and sig != "":
                 sig = self.getSignature(sig)
-                delta['delta']['notes'] = {'signatures': sig}
+                delta['delta']['notes']['signatures'] = sig
         for distributorkey in distributorkeys:
             delta['distributor_configs'][distributorkey] = {}
         if len(delta['distributor_configs']) == 0:
