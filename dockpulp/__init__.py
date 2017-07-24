@@ -29,6 +29,7 @@ import time
 import warnings
 from contextlib import closing
 from functools import wraps
+from urlparse import urlparse
 
 import multiprocessing
 
@@ -1029,6 +1030,9 @@ class Pulp(object):
                 registry_id = repo_id.replace(prefix_with, '').replace('-', '/', 1)
 
         rurl = url
+        if url and url.startswith('http'):
+            # want to strip off hostname info here
+            url = urlparse(url).path
         if rurl and not rurl.startswith('http'):
             rurl = self.cdnhost + url
         if not desc:
