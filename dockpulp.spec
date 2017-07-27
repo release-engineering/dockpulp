@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.42
+Version:	1.43
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -48,6 +48,22 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Thu Jul 27 2017 Brendan Reilly <breilly@redhat.com> 1.43-1
+- bumping version for release (breilly@redhat.com)
+- Fixed bug with cloning repos with distribution defined and rurl enforcement
+  (breilly@redhat.com)
+- Fixed bug with distribution update (breilly@redhat.com)
+- Don't show tag if manifest has tag set to None (vrutkovs@redhat.com)
+- New pulp (2.13) doesn't store tags along with manifest, so it should be
+  looked up additionally (vrutkovs@redhat.com)
+- Added crane vs pulp checking to sigstore confirm (breilly@redhat.com)
+- Removed host from rel-url to match new requirements (breilly@redhat.com)
+- Fixed bug with distribution and hidden repos (breilly@redhat.com)
+- Sigstore repo can now be listed and confirmed (breilly@redhat.com)
+- Set relative_url for redhat-sigstore (breilly@redhat.com)
+- Automatic commit of package [dockpulp] release [1.42-1]. (breilly@redhat.com)
+- Bumping version for release (breilly@redhat.com)
+
 * Thu Jun 22 2017 Brendan Reilly <breilly@redhat.com> 1.42-1
 - Bumping version for release (breilly@redhat.com)
 - Enforce distribution for certain envs (breilly@redhat.com)
