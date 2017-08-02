@@ -28,9 +28,9 @@ import tempfile
 import time
 import warnings
 from contextlib import closing
-from functools import wraps
 from urlparse import urlparse
-
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 import multiprocessing
 
 try:
@@ -79,8 +79,9 @@ log.addHandler(h)
 
 
 class RequestsHttpCaller(object):
-    def __init__(self, url):
+    def __init__(self, url, retries=0):
         self.url = url
+        self.retries = retries
         self.certificate = None
         self.key = None
         self.verify = False
@@ -89,6 +90,15 @@ class RequestsHttpCaller(object):
         self.certificate = cert_path
         self.key = key_path
 
+    def requests_retry_session(self, session=None):
+        session = session or requests.Session()
+        retry = Retry(total=self.retries, read=self.retries, connect=self.retries,
+                      backoff_factor=2, status_forcelist=(500, 502, 503, 504))
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
+        return session
+
     def _error(self, code, url):
         """Format a nice error message."""
         raise errors.DockPulpError('Received response %s from %s' % (code, url))
@@ -96,7 +106,7 @@ class RequestsHttpCaller(object):
     def __call__(self, meth, api, **kwargs):
         """Post an http request to a Pulp API."""
         log.debug('remote host is %s' % self.url)
-        c = getattr(requests, meth)
+        c = getattr(self.requests_retry_session(), meth)
         url = self.url + api
         if self.certificate:
             kwargs['cert'] = (self.certificate, self.key)
@@ -664,7 +674,13 @@ class Pulp(object):
         self.name_enforce = {}
         self.load_configuration(config_file)
         self._load_override_conf(config_override)
-        self._request = RequestsHttpCaller(self.url)
+        try:
+            self.retries
+        except AttributeError:
+            self.retries = 1
+        if self.retries is None or self.retries < 1:
+            self.retries = 1
+        self._request = RequestsHttpCaller(self.url, self.retries)
         self._request.set_cert_key_paths(self.certificate, self.key)
         if not os.path.exists(config_distributors):
                 log.error('could not load distributors json: %s' % config_distributors)
@@ -678,12 +694,6 @@ class Pulp(object):
             self.timeout = 180
         if self.timeout is None:
             self.timeout = 180
-        try:
-            self.retries
-        except AttributeError:
-            self.retries = 1
-        if self.retries is None or self.retries < 1:
-            self.retries = 1
         try:
             self.dists
         except AttributeError:
@@ -788,32 +798,15 @@ class Pulp(object):
         else:
             return []
 
-    def _pulp_retry(func):
-        @wraps(func)
-        def request_wrapper(self, api, **kwargs):
-            for r in xrange(self.retries):
-                try:
-                    req = func(self, api, **kwargs)
-                except requests.ConnectionError as err:
-                    continue
-                return req
-            log.debug("Retried pulp request %s times", self.retries)
-            raise err
-        return request_wrapper
-
-    @_pulp_retry
     def _get(self, api, **kwargs):
         return self._request('get', api, **kwargs)
 
-    @_pulp_retry
     def _post(self, api, **kwargs):
         return self._request('post', api, **kwargs)
 
-    @_pulp_retry
     def _put(self, api, **kwargs):
         return self._request('put', api, **kwargs)
 
-    @_pulp_retry
     def _delete(self, api, **kwargs):
         return self._request('delete', api, **kwargs)
 

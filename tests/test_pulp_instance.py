@@ -13,6 +13,7 @@ from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from contextlib import nested
 from flexmock import flexmock
+from requests.packages.urllib3.util import Retry
 log.setLevel(logging.CRITICAL)
 
 
@@ -206,6 +207,12 @@ class testHash(object):
         return self.output
 
 
+HTTP_RETRIES_STATUS_FORCELIST = (500, 502, 503, 504)
+fake_retry = Retry(total=1,
+                   backoff_factor=1,
+                   status_forcelist=HTTP_RETRIES_STATUS_FORCELIST)
+
+
 # tests
 class TestPulp(object):
     # Tests of methods from Pulp class.
@@ -227,33 +234,6 @@ class TestPulp(object):
             .once()
             .and_return(result))
         assert pulp.getTask(tid) == result
-
-    @pytest.mark.parametrize('tid, url', [
-        ('111', '/pulp/api/v2/tasks/111/')
-    ])
-    def test_getTaskRetries(self, pulp, tid, url):
-        result = 'task_received'
-        flexmock(RequestsHttpCaller)
-        (RequestsHttpCaller
-            .should_receive('__call__')
-            .with_args('get', url)
-            .twice()
-            .and_raise(requests.ConnectionError)
-            .and_return(result))
-        assert pulp.getTask(tid) == result
-
-    @pytest.mark.parametrize('tid, url', [
-        ('111', '/pulp/api/v2/tasks/111/')
-    ])
-    def test_getTaskRetriesFail(self, pulp, tid, url):
-        flexmock(RequestsHttpCaller)
-        (RequestsHttpCaller
-            .should_receive('__call__')
-            .with_args('get', url)
-            .twice()
-            .and_raise(requests.ConnectionError))
-        with pytest.raises(requests.ConnectionError):
-            pulp.getTask(tid)
 
     def test_getPrefix(self, pulp):
         assert pulp.getPrefix() == 'redhat-'
@@ -375,7 +355,7 @@ class TestPulp(object):
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
             .should_receive('__call__')
-            .twice()
+            .once()
             .and_raise(requests.exceptions.ConnectionError))
         response = pulp.checkLayers(repo, images)
         assert response['error']
@@ -423,7 +403,7 @@ class TestPulp(object):
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
             .should_receive('__call__')
-            .twice()
+            .once()
             .and_raise(requests.exceptions.ConnectionError))
         response = pulp.checkBlobs(repo, blobs)
         assert response['error']
@@ -617,3 +597,13 @@ class TestCrane(object):
         else:
             assert response == {'error': False, 'sigs_in_pulp_not_crane': [],
                                 'sigs_in_crane_not_pulp': []}
+
+
+class TestRequestsHttpCaller(object):
+    # Tests of methods from RequestsHttpCaller class.
+    @pytest.mark.parametrize('status_code', HTTP_RETRIES_STATUS_FORCELIST)
+    def test_getTaskRetriesFail(self, pulp, status_code):
+        rq = RequestsHttpCaller('http://httpbin.org/')
+        flexmock(Retry).new_instances = fake_retry
+        with pytest.raises(requests.exceptions.RetryError):
+            rq('get', '/status/%s' % status_code)
