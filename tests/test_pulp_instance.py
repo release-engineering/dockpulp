@@ -9,6 +9,7 @@ import json
 import requests
 import tarfile
 import logging
+import subprocess
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from contextlib import nested
@@ -40,6 +41,8 @@ def pulp(tmpdir):
             {name} = 2
             [signatures]
             foobar = foo
+            [sig_exception]
+            {name} = barfoo78
             """).format(name=name))
         fp.flush()
 
@@ -545,58 +548,81 @@ class TestCrane(object):
         flexmock(crane)
         (crane
             .should_receive('_test_sigstore')
-            .with_args(repoinfo[0]['sigstore'])
+            .with_args(repoinfo[0]['sigstore'], exception='barfoo78')
             .once()
             .and_return(response))
         crane.confirm(repos)
 
-    @pytest.mark.parametrize('signatures', [None, ['sig@shasum'], ['failedsig'], ['failedcrane']])
-    def test_test_sigstore(self, crane, signatures):
+    @pytest.mark.parametrize('signatures, status, ok, shasum, status2, ok2, expected_result', [
+        (None, None, None, None, None, None, None),
+        (['foo/bar-1@shasum=123/signature-1'], 200, True, '12345678\n', 200, True,
+         {'error': False, 'sigs_in_pulp_not_crane': [],
+          'sigs_in_crane_not_pulp': [], 'invalid_sigs': [],
+          'manifests_in_sigstore_not_repo': [],
+          'missing_repos_in_pulp': []}),
+        (['foo/bar-2@shasum=234/signature-1'], 404, False, '12345678\n', 200, True,
+         {'error': True, 'sigs_in_pulp_not_crane': ['foo/bar-2@shasum=234/signature-1'],
+          'sigs_in_crane_not_pulp': ['foo/bar-1@shasum=123/signature-1'], 'invalid_sigs': [],
+          'manifests_in_sigstore_not_repo': [],
+          'missing_repos_in_pulp': []}),
+        (['foo/bar-3@shasum=345/signature-1'], 200, True, '12345678\n', 404, False,
+         {'error': True, 'sigs_in_pulp_not_crane': [],
+          'sigs_in_crane_not_pulp': [], 'invalid_sigs': [],
+          'manifests_in_sigstore_not_repo': [],
+          'missing_repos_in_pulp': []}),
+        (['foo/bar-4@shasum=456/signature-1'], 200, True, '87654321\n', 200, True,
+         {'error': True, 'sigs_in_pulp_not_crane': [],
+          'sigs_in_crane_not_pulp': ['foo/bar-1@shasum=123/signature-1'],
+          'invalid_sigs': ['foo/bar-4@shasum=456/signature-1'],
+          'manifests_in_sigstore_not_repo': [],
+          'missing_repos_in_pulp': []})])
+    def test_test_sigstore(self, crane, pulp, signatures, status, ok, shasum, status2, ok2,
+                           expected_result):
         if signatures is None:
             response = crane._test_sigstore(signatures)
             assert response == {'error': False, 'sigs_in_pulp_not_crane': [],
-                                'sigs_in_crane_not_pulp': []}
+                                'sigs_in_crane_not_pulp': [], 'invalid_sigs': [],
+                                'manifests_in_sigstore_not_repo': [],
+                                'missing_repos_in_pulp': []}
             return
+        (repo, manifest) = crane._split_signature(signatures[0], 'redhat-')
+        prefix = pulp.getPrefix()
+        if not repo.startswith(prefix):
+            repo = prefix + repo
+        pulp_repos = [{'id': repo, 'signatures': '12345678', 'manifests': {manifest: 'foobar'}}]
+        flexmock(pulp)
+        (pulp
+            .should_receive('listRepos')
+            .once()
+            .and_return(pulp_repos))
         url = 'foo/content/sigstore/'
         signature = signatures[0]
-        if signature == 'failedsig':
-            answer = flexmock(
-                status_code="404",
-                ok=False)
-        else:
-            answer = flexmock(
-                status_code="200",
-                ok=True)
-        flexmock(requests)
-        (requests
+        answer = flexmock(
+            status_code=status,
+            ok=ok,
+            content="junkdata")
+        flexmock(requests.Session)
+        (requests.Session
             .should_receive('get')
             .with_args(url + signature, verify=False)
             .once()
             .and_return(answer))
-        if signature == 'failedcrane':
-            answer2 = flexmock(
-                status_code='404',
-                ok=False)
-        else:
-            answer2 = flexmock(
-                status_code="200",
-                ok=True,
-                text='sig@shasum')
-        (requests
+        flexmock(subprocess.Popen)
+        (subprocess.Popen
+            .should_receive('communicate')
+            .once()
+            .and_return(['', shasum]))
+        answer2 = flexmock(
+            status_code=status2,
+            ok=ok2,
+            text='foo/bar-1@shasum=123/signature-1')
+        (requests.Session
             .should_receive('get')
             .with_args(url + 'PULP_MANIFEST', verify=False)
             .once()
             .and_return(answer2))
         response = crane._test_sigstore(signatures)
-        if signature == 'failedsig':
-            assert response == {'error': True, 'sigs_in_pulp_not_crane': ['failedsig'],
-                                'sigs_in_crane_not_pulp': ['sig@shasum']}
-        elif signature == 'failedcrane':
-            assert response == {'error': True, 'sigs_in_pulp_not_crane': [],
-                                'sigs_in_crane_not_pulp': []}
-        else:
-            assert response == {'error': False, 'sigs_in_pulp_not_crane': [],
-                                'sigs_in_crane_not_pulp': []}
+        assert response == expected_result
 
 
 class TestRequestsHttpCaller(object):

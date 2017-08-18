@@ -27,6 +27,12 @@ import tarfile
 import tempfile
 import time
 import warnings
+try:
+    # Want to use gnupg here but there are issues with python 2.6
+    import gnupg
+except ImportError:
+    gnupg = None
+    import subprocess
 from contextlib import closing
 from urlparse import urlparse
 from requests.adapters import HTTPAdapter
@@ -157,6 +163,18 @@ class Crane(object):
         self.p = pulp
         self.cert = cert
         self.key = key
+        self.requests = RequestsHttpCaller(None, pulp.retries).requests_retry_session()
+
+    def _split_signature(self, signature, prefix_with):
+        # splits signatures from sigstore and returns (repo, manifest)
+        # signatures are in the form "productline/imagename@sha256=shasum/signature-1"
+        (repo, manifest) = signature.split('@')
+        if not repo.startswith(prefix_with):
+            repo = prefix_with + repo
+        repo = repo.replace('/', '-')
+        manifest = manifest.split('/')[0]
+        manifest = manifest.replace('=', ':')
+        return (repo, manifest)
 
     def confirm(self, repos, v1=True, v2=True, silent=True, check_layers=False):
 
@@ -175,7 +193,7 @@ class Crane(object):
             repoids[repo['id']] = {}
             errorids[repo['id']] = False
             if repo['id'] == SIGSTORE:
-                response = self._test_sigstore(repo['sigstore'])
+                response = self._test_sigstore(repo['sigstore'], exception=self.p.sig_exception)
                 if silent:
                     repoids[repo['id']].update(response)
                     if response['error']:
@@ -610,25 +628,70 @@ class Crane(object):
 
         return result
 
-    def _test_sigstore(self, signatures):
+    def _test_sigstore(self, signatures, prefix_with=PREFIX, exception=None):
         """Confirm we can reach CDN and get data back from it."""
-        result = {'error': False, 'sigs_in_pulp_not_crane': [], 'sigs_in_crane_not_pulp': []}
+        result = {'error': False, 'sigs_in_pulp_not_crane': [], 'sigs_in_crane_not_pulp': [],
+                  'manifests_in_sigstore_not_repo': [], 'invalid_sigs': [],
+                  'missing_repos_in_pulp': []}
+
         if not signatures:
             log.info('  No signatures to test')
             return result
-        url = self.p.cdnhost + '/content/sigstore/'
-        log.info('  Confirming CDN has signatures available')
+
+        log.info('  Confirming repos have expected manifests in Pulp')
+        manifests = {}
         for signature in signatures:
+            (repo, manifest) = self._split_signature(signature, prefix_with)
+            manifests.setdefault(repo, []).append(manifest)
+        signed_repos = self.p.listRepos(manifests.keys(), content=True, strict=False)
+        repo_sigs = {}
+        for repo in signed_repos:
+            repo_sigs[repo['id']] = repo['signatures']
+            sigstoremanifests = set(manifests[repo['id']])
+            mdiff = sigstoremanifests.difference(set(repo['manifests'].keys()))
+            if mdiff:
+                log.error('  Signatures in sigstore but not in repo %s:', repo['id'])
+                for m in list(mdiff):
+                    log.error('    %s', m)
+                    result['manifests_in_sigstore_not_repo'].append(m)
+                result['error'] = True
+
+        log.info('  Confirming CDN has valid signatures available')
+        url = self.p.cdnhost + '/content/sigstore/'
+        for signature in signatures:
+            (repo, manifest) = self._split_signature(signature, prefix_with)
+            if repo in result['missing_repos_in_pulp']:
+                continue
             log.debug('  contacting %s', url + signature)
-            answer = requests.get(url + signature, verify=False)
+            answer = self.requests.get(url + signature, verify=False)
             log.debug('  status code: %s', answer.status_code)
             if not answer.ok:
                 log.error('  Signature missing in CDN: %s', signature)
                 result['error'] = True
                 result['sigs_in_pulp_not_crane'].append(signature)
+            if gnupg:
+                gpg = gnupg.GPG()
+                data = gpg.decrypt(answer.content)
+                key_id = data.key_id
+            else:
+                data = subprocess.Popen(['gpg', '-d'], stdin=subprocess.PIPE,
+                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                key_id = data.communicate(answer.content)[1].split('\n')[0][-8:]
+            try:
+                if key_id and not key_id.endswith(repo_sigs[repo]):
+                    # allow exception sigs for QA environment test keys
+                    if not exception or not key_id.endswith(exception):
+                        log.error('  Signature %s not valid for repo %s' % (key_id, repo))
+                        result['error'] = True
+                        result['invalid_sigs'].append(signature)
+            except KeyError:
+                log.error('  Repo %s missing in Pulp', repo)
+                result['error'] = True
+                result['missing_repos_in_pulp'].append(repo)
+
         log.info('  Confirming CDN signatures match Pulp')
         log.debug('  contacting %s', url + 'PULP_MANIFEST')
-        answer = requests.get(url + 'PULP_MANIFEST', verify=False)
+        answer = self.requests.get(url + 'PULP_MANIFEST', verify=False)
         if not answer.ok:
             log.error('  Pulp Manifest missing in CDN')
             result['error'] = True
@@ -656,7 +719,8 @@ class Pulp(object):
                               ('timeout', "_set_int_attr", "timeout"),
                               ('retries', "_set_int_attr", "retries"),
                               ('distribution', "_set_bool", "dists"),
-                              ('signatures', "_set_independent_attr", "sigs"))
+                              ('signatures', "_set_independent_attr", "sigs"),
+                              ('sig_exception', "_set_env_attr", "sig_exception"))
     AUTH_CER_FILE = "pulp.cer"
     AUTH_KEY_FILE = "pulp.key"
 
@@ -698,6 +762,10 @@ class Pulp(object):
             self.dists
         except AttributeError:
             self.dists = False
+        try:
+            self.sig_exception
+        except AttributeError:
+            self.sig_exception = None
 
     def _set_bool(self, attrs):
         for key, boolean in attrs:
@@ -1275,7 +1343,7 @@ class Pulp(object):
         log.debug('getting list of orphaned %s' % content_type)
         return self._get('/pulp/api/v2/content/orphans/%s/' % content_type)
 
-    def listRepos(self, repos=None, content=False, history=False, labels=False):
+    def listRepos(self, repos=None, content=False, history=False, labels=False, strict=True):
         """Return information about pulp repositories.
 
         If repos is a string or list of strings, treat them as repo IDs
@@ -1291,8 +1359,14 @@ class Pulp(object):
             repos = [repos]
         # return information for each repo
         for repo in repos:
-            blobs.append(self._get('/pulp/api/v2/repositories/%s/' % repo,
-                                   params=params))
+            try:
+                blobs.append(self._get('/pulp/api/v2/repositories/%s/' % repo,
+                                       params=params))
+            except errors.DockPulpError as e:
+                if strict:
+                    raise e
+                else:
+                    continue
         clean = []
         # From here we trim out data nobody cares about
         # we assume distributors have the same configuration
