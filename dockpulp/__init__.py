@@ -808,8 +808,8 @@ class Pulp(object):
                               ('dist_switchover', "_set_independent_attr", "dist_switchover"),
                               ('switch_ver', "_set_independent_attr", "switch_ver"),
                               ('switch_release', "_set_env_attr", "switch_release"))
-    AUTH_CER_FILE = "pulp.cer"
-    AUTH_KEY_FILE = "pulp.key"
+    AUTH_CER_FILE = "pulp-%s.cer"
+    AUTH_KEY_FILE = "pulp-%s.key"
 
     def __init__(self, env='qa', config_file=DEFAULT_CONFIG_FILE,
                  config_override=None, config_distributors=DEFAULT_DISTRIBUTORS_FILE,
@@ -870,9 +870,9 @@ class Pulp(object):
         for key, cert_path in attrs:
             if self.env == key:
                 self.certificate = os.path.join(os.path.expanduser(cert_path),
-                                                self.AUTH_CER_FILE)
+                                                self.AUTH_CER_FILE % self.env)
                 self.key = os.path.join(os.path.expanduser(cert_path),
-                                        self.AUTH_KEY_FILE)
+                                        self.AUTH_KEY_FILE % self.env)
 
     def _set_independent_attr(self, attrs):
         # set environment independent attributes
@@ -1940,7 +1940,7 @@ class Pulp(object):
             log.info('session info saved in %s' % sessiondir)
             for part in ('certificate', 'key'):
                 # save the cert and key for future calls
-                f = os.path.join(sessiondir, 'pulp.' + part[:3])
+                f = os.path.join(sessiondir, ('pulp-%s.' % self.env) + part[:3])
                 fd = open(f, 'w')
                 fd.write(blob[part])
                 fd.close()
