@@ -325,6 +325,23 @@ class TestPulp(object):
         response = pulp.listRepos(repoid, content=True)
         assert response[0]['sigstore'][0] == 'testname'
 
+    def test_listSchema2(self, pulp):
+        blob = {'notes': {'_repo-type': 'docker-repo'}, 'id': 'testid', 'description': 'testdesc',
+                'display_name': 'testdisp', 'distributors': [], 'scratchpad': {}}
+        units = [{'unit_type_id': 'docker_manifest',
+                  'metadata': {'fs_layers': [{'blob_sum': 'test_layer'}], 'digest': 'testdig',
+                               'tag': 'testtag', 'config_layer': 'test_config'}},
+                 {'unit_type_id': 'docker_blob', 'metadata': {'digest': 'test_config'}},
+                 {'unit_type_id': 'docker_blob', 'metadata': {'digest': 'test_layer'}}]
+        flexmock(RequestsHttpCaller)
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .and_return(blob, units)
+            .one_by_one())
+        response = pulp.listRepos('testid', content=True)
+        assert response[0]['manifests']['testdig']['config'] == 'test_config'
+        assert response[0]['manifests']['testdig']['layers'][0] == 'test_layer'
+
     @pytest.mark.parametrize('repo, image', [('testrepo', 'testimg')])
     def test_checkLayers(self, pulp, repo, image):
         images = []
