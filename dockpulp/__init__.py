@@ -1508,6 +1508,13 @@ class Pulp(object):
                                 break
                     else:
                         tag = manifest['metadata']['tag']
+
+                    # schema 2 added config layers
+                    config_layer = manifest['metadata'].get('config_layer', None)
+                    if config_layer in v2_blobs:
+                        v2_blobs[config_layer] = True
+
+                    r['manifests'][digest]['config'] = config_layer
                     r['manifests'][digest]['tag'] = tag
                     r['manifests'][digest]['layers'] = layers
 

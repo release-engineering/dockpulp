@@ -558,6 +558,7 @@ def do_list(bopts, bargs, parser):
                             active_marker = ' (active)'
 
                     output[layer][manifest]['active'] = active_marker
+                    output[layer][manifest]['config'] = repo['manifests'][manifest]['config']
 
                     if (opts.history or opts.labels) and not repo['id'] == dockpulp.HIDDEN:
                         output[layer][manifest]['id'] = repo['manifests'][manifest]['v1id']
@@ -578,6 +579,9 @@ def do_list(bopts, bargs, parser):
                             log.info('  Manifest: %s  Tag: %s%s', manifest, tag, is_active)
                         if is_active:
                             tagoutput.append(tag)
+                        config = output[image][manifest]['config']
+                        if config:
+                            log.info('  Config Layer: %s', config)
                     if not opts.manifests:
                         log.info('    Blobs: ')
                         for layer in image:
