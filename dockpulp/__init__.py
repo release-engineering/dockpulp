@@ -169,8 +169,7 @@ class Crane(object):
         # splits signatures from sigstore and returns (repo, manifest)
         # signatures are in the form "productline/imagename@sha256=shasum/signature-1"
         (repo, manifest) = signature.split('@')
-        if not repo.startswith(prefix_with):
-            repo = prefix_with + repo
+        repo = prefix_with + repo
         repo = repo.replace('/', '-')
         manifest = manifest.split('/')[0]
         manifest = manifest.replace('=', ':')
