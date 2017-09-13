@@ -1514,9 +1514,12 @@ class Pulp(object):
                     if config_layer in v2_blobs:
                         v2_blobs[config_layer] = True
 
+                    schema_version = manifest['metadata'].get('schema_version', None)
+
                     r['manifests'][digest]['config'] = config_layer
                     r['manifests'][digest]['tag'] = tag
                     r['manifests'][digest]['layers'] = layers
+                    r['manifests'][digest]['schema_version'] = schema_version
 
                 for v2_blob, seen_ref in v2_blobs.items():
                     if not seen_ref:

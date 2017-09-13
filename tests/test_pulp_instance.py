@@ -291,7 +291,7 @@ class TestPulp(object):
                 'display_name': 'testdisp', 'distributors': [], 'scratchpad': {}}
         units = [{'unit_type_id': 'docker_manifest',
                   'metadata': {'fs_layers': [{'blob_sum': 'test'}], 'digest': 'testdig',
-                               'tag': 'testtag'}},
+                               'tag': 'testtag', 'schema_version': 1}},
                  {'unit_type_id': 'docker_image', 'metadata': {'image_id': 'v1idtest'}}]
         labels = {'config': {'Labels': {'label1': 'label2'}}}
         v1Compatibility = {'parent': 'testparent', 'id': 'testid',
@@ -330,7 +330,8 @@ class TestPulp(object):
                 'display_name': 'testdisp', 'distributors': [], 'scratchpad': {}}
         units = [{'unit_type_id': 'docker_manifest',
                   'metadata': {'fs_layers': [{'blob_sum': 'test_layer'}], 'digest': 'testdig',
-                               'tag': 'testtag', 'config_layer': 'test_config'}},
+                               'tag': 'testtag', 'config_layer': 'test_config',
+                               'schema_version': 2}},
                  {'unit_type_id': 'docker_blob', 'metadata': {'digest': 'test_config'}},
                  {'unit_type_id': 'docker_blob', 'metadata': {'digest': 'test_layer'}}]
         flexmock(RequestsHttpCaller)
@@ -341,6 +342,7 @@ class TestPulp(object):
         response = pulp.listRepos('testid', content=True)
         assert response[0]['manifests']['testdig']['config'] == 'test_config'
         assert response[0]['manifests']['testdig']['layers'][0] == 'test_layer'
+        assert response[0]['manifests']['testdig']['schema_version'] == 2
 
     @pytest.mark.parametrize('repo, image', [('testrepo', 'testimg')])
     def test_checkLayers(self, pulp, repo, image):
