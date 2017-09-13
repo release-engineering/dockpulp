@@ -581,7 +581,7 @@ def do_list(bopts, bargs, parser):
                             tagoutput.append(tag)
                         config = output[image][manifest]['config']
                         if config:
-                            log.info('  Config Layer: %s', config)
+                            log.info('    Config Layer: %s', config)
                     if not opts.manifests:
                         log.info('    Blobs: ')
                         for layer in image:
