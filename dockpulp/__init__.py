@@ -1000,7 +1000,7 @@ class Pulp(object):
         self.watch(tid)
 
     def copy_filters(self, drepo, source=HIDDEN, filters={}, v1=True, v2=True):
-        """Copy an contnet from one repo to another according to filters."""
+        """Copy content from one repo to another according to filters."""
         type_ids = []
         if v1:
             type_ids.append(V1_C_TYPE)
@@ -1766,11 +1766,15 @@ class Pulp(object):
         manifests.sort()
 
         # Need to maintain HIDDEN
-        if repo != HIDDEN:
+        if repo != HIDDEN and (imgs or manifests):
+            pulp_filter = {'unit': {}}
+            units = []
             for img in imgs:
-                self.copy(HIDDEN, img, repo)
+                units.append({'digest': img})
             for manifest in manifests:
-                self.copy(HIDDEN, manifest, repo)
+                units.append({'manifest_digest': manifest})
+            pulp_filter['unit']['$or'] = units
+            self.copy_filters(HIDDEN, repo, pulp_filter)
 
         return (imgs, manifests)
 
