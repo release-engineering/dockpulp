@@ -551,6 +551,38 @@ class TestPulp(object):
         response = restricted_pulp.createRepo(repo_id=repo_id, url='/foo/bar', library=True)
         assert response['id'] == repo_id
 
+    def test_sync(self, pulp):
+        repoinfoold = [{'id': 'redhat-foobar', 'images': {}, 'manifests': {'123456': 'foobar'}}]
+        repoinfonew = [{'id': 'redhat-foobar', 'images': {}, 'manifests': {'123456': 'foobar',
+                                                                           '567890': 'latest'}}]
+        pulp_filter = {'unit': {'$or': [{'manifest_digest': '567890'}]}}
+        flexmock(pulp)
+        (pulp
+            .should_receive('listRepos')
+            .with_args(repos='redhat-foobar', content=True)
+            .twice()
+            .and_return(repoinfoold, repoinfonew)
+            .one_by_one())
+        flexmock(RequestsHttpCaller)
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .once()
+            .and_return('123'))
+        (pulp
+            .should_receive('watch')
+            .with_args('123')
+            .once()
+            .and_return(None))
+        (pulp
+            .should_receive('copy_filters')
+            .with_args('redhat-everything', 'redhat-foobar', pulp_filter)
+            .once()
+            .and_return(None))
+        imgs, manifests = pulp.syncRepo(env='syncenv', repo='foobar', feed='fb',
+                                        upstream_name='foobar')
+        assert imgs == []
+        assert manifests == ['567890']
+
 
 class TestCrane(object):
     # Tests of methods of Crane class.
