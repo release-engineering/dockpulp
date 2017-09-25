@@ -551,11 +551,76 @@ class TestPulp(object):
         response = restricted_pulp.createRepo(repo_id=repo_id, url='/foo/bar', library=True)
         assert response['id'] == repo_id
 
+    @pytest.mark.parametrize('publish', [True, False])
+    def test_deleteRepo(self, pulp, publish):
+        repo = 'foobar'
+        flexmock(Pulp)
+        if publish:
+            (Pulp
+                .should_receive('emptyRepo')
+                .with_args(repo)
+                .once()
+                .and_return(None))
+            (Pulp
+                .should_receive('crane')
+                .with_args(repo, force_refresh=True)
+                .twice()
+                .and_return(None))
+        flexmock(RequestsHttpCaller)
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .with_args('delete', '/pulp/api/v2/repositories/%s/' % repo)
+            .once()
+            .and_return(123))
+        (Pulp
+            .should_receive('watch')
+            .with_args(123)
+            .once()
+            .and_return(None))
+        pulp.deleteRepo(repo, publish)
+
+    def test_emptyRepo(self, pulp):
+        repo = 'foobar'
+        flexmock(Pulp)
+        (Pulp
+            .should_receive('remove_filters')
+            .with_args(repo)
+            .once()
+            .and_return(None))
+        pulp.emptyRepo(repo)
+
+    def test_remove_filters(self, pulp):
+        repo = 'foobar'
+        type_ids = ['docker_image', 'docker_manifest', 'docker_blob', 'docker_tag',
+                    'docker_manifest_list']
+        data = {
+            'criteria': {
+                'type_ids': type_ids,
+                'filters': {},
+            },
+            'override_config': {},
+            'limit': 1
+        }
+        flexmock(RequestsHttpCaller)
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .with_args('post', '/pulp/api/v2/repositories/%s/actions/unassociate/' % repo,
+                       data=json.dumps(data))
+            .once()
+            .and_return(123))
+        flexmock(Pulp)
+        (Pulp
+            .should_receive('watch')
+            .with_args(123)
+            .once()
+            .and_return(None))
+        pulp.remove_filters(repo)
+
     def test_sync(self, pulp):
         repoinfoold = [{'id': 'redhat-foobar', 'images': {}, 'manifests': {'123456': 'foobar'}}]
         repoinfonew = [{'id': 'redhat-foobar', 'images': {}, 'manifests': {'123456': 'foobar',
                                                                            '567890': 'latest'}}]
-        pulp_filter = {'unit': {'$or': [{'manifest_digest': '567890'}]}}
+        pulp_filter = {'unit': {'$or': [{'digest': '567890'}]}}
         flexmock(pulp)
         (pulp
             .should_receive('listRepos')

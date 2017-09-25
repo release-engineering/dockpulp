@@ -58,6 +58,12 @@ class testPulp(object):
     def updateRepo(self, arg1, arg2):
         return
 
+    def deleteRepo(self, arg1, arg2):
+        return
+
+    def emptyRepo(self, arg1):
+        return
+
 
 # tests
 class TestCLI(object):
@@ -252,3 +258,38 @@ class TestCLI(object):
                 cli.do_create(bopts, bargs)
         else:
             assert cli.do_create(bopts, bargs) is None
+
+    @pytest.mark.parametrize('bargs', ['1', None])
+    def test_do_delete(self, bargs):
+        if bargs is not None:
+            bargs = bargs.split(" ")
+        bopts = testbOpts()
+        p = testPulp()
+        (flexmock(Pulp)
+            .new_instances(p)
+            .with_args(Pulp, env=bopts.server, config_file=bopts.config_file))
+        if bargs is None:
+            with pytest.raises(SystemExit):
+                cli.do_delete(bopts, bargs)
+        else:
+            (flexmock(testPulp)
+                .should_receive('listRepos')
+                .with_args(bargs[0], content=True)
+                .once()
+                .and_return([{'images': {}, 'manifests': {}}]))
+            assert cli.do_delete(bopts, bargs) is None
+
+    @pytest.mark.parametrize('bargs', ['1', None])
+    def test_do_empty(self, bargs):
+        if bargs is not None:
+            bargs = bargs.split(" ")
+        bopts = testbOpts()
+        p = testPulp()
+        (flexmock(Pulp)
+            .new_instances(p)
+            .with_args(Pulp, env=bopts.server, config_file=bopts.config_file))
+        if bargs is None:
+            with pytest.raises(SystemExit):
+                cli.do_empty(bopts, bargs)
+        else:
+            assert cli.do_empty(bopts, bargs) is None

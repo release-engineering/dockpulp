@@ -58,6 +58,7 @@ SIG_TYPE = 'iso'
 V2_C_TYPE = 'docker_manifest'
 V2_BLOB = 'docker_blob'
 V2_TAG = 'docker_tag'
+V2_LIST = 'docker_manifest_list'
 V1_C_TYPE = 'docker_image'         # pulp content type identifier for docker
 HIDDEN = 'redhat-everything'    # ID of a "hidden" repository for RCM
 SIGSTORE = 'redhat-sigstore'    # ID of an iso repo for docker manifest signatures
@@ -966,7 +967,7 @@ class Pulp(object):
             data = {
                 'source_repo_id': source,
                 'criteria': {
-                    'type_ids': [V2_C_TYPE, V2_BLOB, V2_TAG],
+                    'type_ids': [V2_C_TYPE, V2_BLOB, V2_TAG, V2_LIST],
                     'filters': {
                         'unit': {
                             "$or": [{'digest': img}, {'manifest_digest': img}]
@@ -1005,7 +1006,7 @@ class Pulp(object):
         if v1:
             type_ids.append(V1_C_TYPE)
         if v2:
-            type_ids.extend([V2_C_TYPE, V2_BLOB, V2_TAG])
+            type_ids.extend([V2_C_TYPE, V2_BLOB, V2_TAG, V2_LIST])
         data = {
             'source_repo_id': source,
             'criteria': {
@@ -1024,6 +1025,10 @@ class Pulp(object):
 
     def crane(self, repos=[], wait=True, skip=False, force_refresh=False):
         """Export pulp configuration to crane for one or more repositories."""
+        if not isinstance(repos, list):
+            assert isinstance(repos, str) or isinstance(repos, unicode)
+            repos = [repos]
+
         if len(repos) == 0:
             repos = self.getAllRepoIDs()
         tasks = []
@@ -1176,10 +1181,17 @@ class Pulp(object):
         self._post('/pulp/api/v2/repositories/', data=json.dumps(stuff))
         return stuff
 
-    def deleteRepo(self, id):
+    def deleteRepo(self, repo, publish=False):
         """Delete a repository; cannot be undone!."""
-        log.info('deleting repo: %s' % id)
-        tid = self._delete('/pulp/api/v2/repositories/%s/' % id)
+        if publish:
+            log.info('removing images and manifests from repo %s' % repo)
+            self.emptyRepo(repo)
+            log.info('publishing repo %s twice to remove all content from crane' % repo)
+            self.crane(repo, force_refresh=True)
+            # Need to publish twice due to order of distributors
+            self.crane(repo, force_refresh=True)
+        log.info('deleting repo %s' % repo)
+        tid = self._delete('/pulp/api/v2/repositories/%s/' % repo)
         self.watch(tid)
 
     def disassociate(self, dist_id, repo):
@@ -1194,6 +1206,10 @@ class Pulp(object):
                               sort_keys=True, indent=2)
         else:
             return json.dumps(self.listRepos(content=True))
+
+    def emptyRepo(self, repo):
+        self.remove_filters(repo)
+        log.info('%s emptied' % repo)
 
     def exists(self, rid):
         """Return True if a repository already exists, False otherwise."""
@@ -1645,7 +1661,7 @@ class Pulp(object):
 
             data = {
                 'criteria': {
-                    'type_ids': [V2_C_TYPE, V2_BLOB, V2_TAG],
+                    'type_ids': [V2_C_TYPE, V2_BLOB, V2_TAG, V2_LIST],
                     'filters': {
                         'unit': {
                             "$or": [{'digest': img}, {'manifest_digest': img}]
@@ -1673,6 +1689,29 @@ class Pulp(object):
         log.debug('removal request we are sending:')
         log.debug(pprint.pformat(data))
         log.info('removing %s from %s' % (img, repo))
+        tid = self._post(
+            '/pulp/api/v2/repositories/%s/actions/unassociate/' % repo,
+            data=json.dumps(data))
+        self.watch(tid)
+
+    def remove_filters(self, repo, filters={}, v1=True, v2=True):
+        """Remove content from a repo according to filters."""
+        type_ids = []
+        if v1:
+            type_ids.append(V1_C_TYPE)
+        if v2:
+            type_ids.extend([V2_C_TYPE, V2_BLOB, V2_TAG, V2_LIST])
+        data = {
+            'criteria': {
+                'type_ids': type_ids,
+                'filters': filters,
+            },
+            'override_config': {},
+            'limit': 1
+        }
+        log.debug('removal request we are sending:')
+        log.debug(pprint.pformat(data))
+        log.info('removing content from %s' % repo)
         tid = self._post(
             '/pulp/api/v2/repositories/%s/actions/unassociate/' % repo,
             data=json.dumps(data))
@@ -1770,9 +1809,9 @@ class Pulp(object):
             pulp_filter = {'unit': {}}
             units = []
             for img in imgs:
-                units.append({'digest': img})
+                units.append({'image_id': img})
             for manifest in manifests:
-                units.append({'manifest_digest': manifest})
+                units.append({'digest': manifest})
             pulp_filter['unit']['$or'] = units
             self.copy_filters(HIDDEN, repo, pulp_filter)
 
