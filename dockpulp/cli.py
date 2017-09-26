@@ -388,19 +388,26 @@ def do_delete(bopts, bargs, parser):
 
     dock-pulp delete [options] repo-id [repo-id...]
     """
+    parser.add_option('-p', '--publish', default=False, action='store_true',
+                      help='remove content from crane when deleting repo')
     opts, args = parser.parse_args(bargs)
     if len(args) < 1:
         parser.error('You must provide a repository ID')
     p = pulp_login(bopts)
     for repo in args:
         repoinfo = p.listRepos(repo, content=True)[0]
-        p.deleteRepo(repo)
+        p.deleteRepo(repo, opts.publish)
         log.info('deleted %s' % repo)
         if len(repoinfo['images']) > 0:
             log.info('Layers removed:')
             for img in repoinfo['images'].keys():
                 log.info('    %s', img)
             log.info('Layers still exist in redhat-everything')
+        if len(repoinfo['manifests']) > 0:
+            log.info('Manifests removed:')
+            for manifest in repoinfo['manifests'].keys():
+                log.info('    %s', manifest)
+            log.info('Manifests still exist in redhat-everything')
 
 
 @make_parser
@@ -427,16 +434,7 @@ def do_empty(bopts, bargs, parser):
         parser.error('You must provide a repository ID')
     p = pulp_login(bopts)
     for repo in args:
-        repoinfo = p.listRepos(repo, content=True)[0]
-        log.debug('repo details we check for images in:')
-        log.debug(repoinfo)
-        if len(repoinfo['images']) > 0:
-            log.info('removing all images from %s' % repo)
-            for img in repoinfo['images'].keys():
-                p.remove(repo, img)
-        else:
-            log.info('no images to remove')
-        log.info('%s emptied' % repo)
+        p.emptyRepo(repo)
 
 
 @make_parser
@@ -792,6 +790,8 @@ def do_sync(bopts, bargs, parser):
         for img in imgs:
             log.info(img)
     log.info('')
+
+    log.info('synced manifests:')
 
     if len(manifests) == 0:
         log.info('  No new manifests')
