@@ -1025,7 +1025,7 @@ class Pulp(object):
 
     def crane(self, repos=[], wait=True, skip=False, force_refresh=False):
         """Export pulp configuration to crane for one or more repositories."""
-        if not isinstance(repos, list):
+        if not hasattr(repos, '__iter__'):
             assert isinstance(repos, str) or isinstance(repos, unicode)
             repos = [repos]
 
@@ -1369,7 +1369,7 @@ class Pulp(object):
         if not repos:
             # get all repository IDs first since none were specified
             repos = self.getAllRepoIDs()
-        if not isinstance(repos, list):
+        if not hasattr(repos, '__iter__'):
             assert isinstance(repos, str) or isinstance(repos, unicode)
             repos = [repos]
         # return information for each repo
