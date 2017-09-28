@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.43
+Version:	1.44
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -49,6 +49,18 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Thu Sep 28 2017 Brendan Reilly <breilly@redhat.com> 1.44-1
+- Bumping version for release (breilly@redhat.com)
+- Fixed breaking change for atomic reactor (breilly@redhat.com)
+- Delete now has publish option to remove content from crane and empty more
+  efficient (breilly@redhat.com)
+- Improved sync with filter copy (breilly@redhat.com)
+- Small update to schema2 listing (breilly@redhat.com)
+- dockpulp can now handle schema2 manifests (breilly@redhat.com)
+- Fixed bug with prefix in sigstore repo confirm (breilly@redhat.com)
+- Improved sigstore repo checking (breilly@redhat.com)
+- Changed request retry implementation (breilly@redhat.com)
+
 * Thu Jul 27 2017 Brendan Reilly <breilly@redhat.com> 1.43-1
 - bumping version for release (breilly@redhat.com)
 - Fixed bug with cloning repos with distribution defined and rurl enforcement
