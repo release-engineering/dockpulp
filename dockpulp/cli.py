@@ -649,11 +649,11 @@ def do_release(bopts, bargs, parser):
 
     dock-pulp release [options] [repo-id...]
     """
-    parser.add_option('-s', '--skip-fast-forward', default=False, action='store_true',
-                      dest="skip", help='use skip fast forward for release')
-    parser.add_option('-r', '--force-refresh', default=False, action='store_true',
-                      dest="force_refresh",
-                      help='removes extra content on filer that is not in pulp')
+    parser.add_option('-f', '--force-full', '-s', '--skip-fast-forward',
+                      default=False, action='store_true', dest="force_full",
+                      help='use force_full for release')
+    parser.add_option('-d', '--delete', '-r', '--force-refresh', default=False, action='store_true',
+                      dest="delete", help='removes extra content on filer that is not in pulp')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     if p.env == 'prod':
@@ -672,7 +672,7 @@ def do_release(bopts, bargs, parser):
                     rids.extend(results)
             else:
                 rids.append(arg)
-        p.crane(repos=rids, skip=opts.skip, force_refresh=opts.force_refresh)
+        p.crane(repos=rids, skip=opts.force_full, force_refresh=opts.delete)
     log.info('pulp configuration(s) successfully exported')
 
 
