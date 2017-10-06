@@ -1051,9 +1051,9 @@ class Pulp(object):
                     pass
 
                 if skip:
-                    override['skip_fast_forward'] = skip
+                    override['force_full'] = skip
                 if force_refresh:
-                    override['force_refresh'] = force_refresh
+                    override['delete'] = force_refresh
                 log.info('updating distributor: %s' % dist_id)
                 url = '/pulp/api/v2/repositories/%s/actions/publish/' % repo
                 kwds = {"data": json.dumps({'id': dist_id, 'override_config': override})}
