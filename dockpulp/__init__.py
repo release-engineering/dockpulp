@@ -34,6 +34,7 @@ except ImportError:
     gnupg = None
     import subprocess
 from contextlib import closing
+from distutils.version import LooseVersion
 from urlparse import urlparse
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
@@ -720,7 +721,8 @@ class Pulp(object):
                               ('retries', "_set_int_attr", "retries"),
                               ('distribution', "_set_bool", "dists"),
                               ('signatures', "_set_independent_attr", "sigs"),
-                              ('sig_exception', "_set_env_attr", "sig_exception"))
+                              ('sig_exception', "_set_env_attr", "sig_exception"),
+                              ('dist_switchover', "_set_independent_attr", "dist_switchover"))
     AUTH_CER_FILE = "pulp.cer"
     AUTH_KEY_FILE = "pulp.key"
 
@@ -752,20 +754,16 @@ class Pulp(object):
         if not os.path.exists(config_distributions):
                 log.error('could not load distributions json: %s' % config_distributions)
         self.distributionconf = json.load(open(config_distributions, 'r'))
-        try:
-            self.timeout
-        except AttributeError:
+        if not hasattr(self, 'timeout'):
             self.timeout = 180
         if self.timeout is None:
             self.timeout = 180
-        try:
-            self.dists
-        except AttributeError:
+        if not hasattr(self, 'dists'):
             self.dists = False
-        try:
-            self.sig_exception
-        except AttributeError:
+        if not hasattr(self, 'sig_exception'):
             self.sig_exception = None
+        if not hasattr(self, 'dist_switchover'):
+            self.dist_switchover = {}
 
     def _set_bool(self, attrs):
         for key, boolean in attrs:
@@ -1162,9 +1160,30 @@ class Pulp(object):
         if self.distributors == "":
             distributors = False
         if distributors:
+            type_id = None
+            before_id = None
+            after_id = None
+            # dist_switchover is an optional section in dockpulp.conf
+            # Used for changes in Pulp distributor types
+            if self.dist_switchover:
+                pulpversion = self.getPulpVersion()
+            for key, value in self.dist_switchover.items():
+                if LooseVersion(pulpversion) >= LooseVersion(key):
+                    if value.count(',') != 1:
+                        raise errors.DockPulpConfigError(
+                            'dist_switchover must be a comma separated list of two values')
+                    before_id, after_id = value.split(",")
+                    type_id = after_id
+                    break
             stuff['distributors'] = []
             distributorkeys = self.distributors.strip().split(",")
             for key in distributorkeys:
+                if type_id:
+                    dtype = self.distributorconf[key]['distributor_type_id']
+                    # exclude default distributors
+                    if dtype == before_id:
+                        log.debug('Using new distributor type %s for distributor %s', type_id, key)
+                        self.distributorconf[key]['distributor_type_id'] = type_id
                 stuff['distributors'].append(self.distributorconf[key])
             for distributor in stuff['distributors']:
                 try:
@@ -1291,6 +1310,12 @@ class Pulp(object):
     def getPrefix(self):
         """Return repository prefix."""
         return PREFIX
+
+    def getPulpVersion(self):
+        """Get version of host Pulp."""
+        response = self._get('/pulp/api/v2/status')
+        log.debug(response)
+        return response['versions']['platform_version']
 
     def getRepos(self, rids, fields=None):
         """Return list of repo objects with given IDs."""
