@@ -1260,6 +1260,7 @@ class Pulp(object):
         # a rest call is made per parent, which impacts performance greatly
         data = {
             'criteria': {
+                'type_ids': [V1_C_TYPE],
                 'filters': {
                     'unit': {
                         'image_id': iid
@@ -1294,6 +1295,7 @@ class Pulp(object):
         """Return a list of layers already uploaded to the server."""
         data = json.dumps({
             'criteria': {
+                'type_ids': [V1_C_TYPE],
                 'filters': {
                     'unit': {
                         'image_id': {"$in": iids}
