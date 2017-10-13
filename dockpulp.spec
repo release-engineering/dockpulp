@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.44
+Version:	1.45
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -49,6 +49,12 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Fri Oct 13 2017 Brendan Reilly <breilly@redhat.com> 1.45-1
+- bumping version for release (breilly@redhat.com)
+- Limited image id search (breilly@redhat.com)
+- Added optional config for pulp distributor switchovers (breilly@redhat.com)
+- Changed release options to support rsync distributor (breilly@redhat.com)
+
 * Thu Sep 28 2017 Brendan Reilly <breilly@redhat.com> 1.44-1
 - Bumping version for release (breilly@redhat.com)
 - Fixed breaking change for atomic reactor (breilly@redhat.com)
