@@ -148,8 +148,6 @@ class RequestsHttpCaller(object):
             log.warning('No content in Pulp response')
         if answer.status_code == 403:
             raise errors.DockPulpLoginError('Received 403: Forbidden')
-        elif answer.status_code >= 500:
-            raise errors.DockPulpServerError('Received a 500 error')
         elif answer.status_code >= 400:
             self._error(answer.status_code, url)
         elif answer.status_code == 202:
