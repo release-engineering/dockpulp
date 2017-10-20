@@ -296,7 +296,7 @@ def do_confirm(bopts, bargs, parser):
 
     if opts.silent:
         log.addHandler(silent)
-        log.info(repoids)
+        log.info(json.dumps(repoids))
 
     if repoids['numerrors'] >= 1:
         sys.exit(1)
