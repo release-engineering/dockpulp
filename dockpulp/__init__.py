@@ -1090,6 +1090,15 @@ class Pulp(object):
             else:
                 registry_id = repo_id.replace(prefix_with, '').replace('-', '/', 1)
 
+        # restrict repoid names based on Crane requirements
+        repo_id_components = registry_id.split('/')
+        restricted = ['tags', 'manifests', 'blobs']
+        for r in restricted:
+            if r in repo_id_components:
+                raise errors.DockPulpError(
+                    'Pulp repo id cannot contain the following substrings: %s' %
+                    (', ').join(restricted))
+
         rurl = url
         if url and url.startswith('http'):
             # want to strip off hostname info here

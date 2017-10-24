@@ -451,7 +451,9 @@ class TestPulp(object):
     @pytest.mark.parametrize('repo_id, productline', [('redhat-foo-bar', 'foo'),
                                                       ('foo-bar', 'foo'),
                                                       ('foo', None),
-                                                      ('bar', 'foo-test')])
+                                                      ('bar', 'foo-test'),
+                                                      ('tags-bar', 'bar'),
+                                                      ('foo-blobs', 'blobs')])
     @pytest.mark.parametrize('repotype, importer_type_id, rel_url',
                              [('foo', 'bar', 'http://relurl'), (None, None, None)])
     @pytest.mark.parametrize('url', [None, 'http://test', '/content/test/foo-test/bar'])
@@ -471,6 +473,13 @@ class TestPulp(object):
                                     importer_type_id=importer_type_id, rel_url=rel_url)
                 return
         if distribution == 'beta' and productline and productline.endswith('test'):
+            with pytest.raises(errors.DockPulpError):
+                pulp.createRepo(repo_id=repo_id, url=url, registry_id=registry_id,
+                                distributors=distributors, productline=productline,
+                                library=library, distribution=distribution, repotype=repotype,
+                                importer_type_id=importer_type_id, rel_url=rel_url)
+            return
+        if not registry_id and (repo_id == 'tags' or productline == 'blobs'):
             with pytest.raises(errors.DockPulpError):
                 pulp.createRepo(repo_id=repo_id, url=url, registry_id=registry_id,
                                 distributors=distributors, productline=productline,
