@@ -8,6 +8,7 @@ import os
 import json
 import logging
 from flexmock import flexmock
+import shutil
 
 
 # wrapper classes
@@ -74,6 +75,9 @@ class testPulp(object):
 
     def syncRepo(self, arg1, arg2, arg3, feed=None, basic_auth_username=None,
                  basic_auth_password=None, ssl_validation=None, upstream_name=None):
+        return
+
+    def login(self, arg1, arg2):
         return
 
 
@@ -459,3 +463,32 @@ class TestCLI(object):
                 cli.do_update(bopts, bargs)
         else:
             assert cli.do_update(bopts, bargs) is None
+
+    @pytest.mark.parametrize('password', [True, False])
+    def test_do_login(self, password):
+        bopts = testbOpts()
+        bargs = []
+        if password:
+            p = testPulp()
+            (flexmock(Pulp)
+                .new_instances(p)
+                .with_args(Pulp, env=bopts.server, config_file=bopts.config_file))
+            bargs.append('--password=foobar')
+            (flexmock(os.path)
+                .should_receive('expanduser')
+                .once()
+                .and_return("dir"))
+            (flexmock(os.path)
+                .should_receive('exists')
+                .at_least.once()
+                .and_return(True))
+            (flexmock(shutil)
+                .should_receive('copy')
+                .twice()
+                .and_return(None))
+            assert cli.do_login(bopts, bargs) is None
+
+        else:
+            bargs.append('foobar')
+            with pytest.raises(SystemExit):
+                cli.do_login(bopts, bargs)

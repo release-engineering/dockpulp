@@ -683,6 +683,9 @@ def do_login(bopts, bargs, parser):
     parser.add_option('-p', '--password', help='specify an account password')
     parser.add_option('-u', '--username', default='admin', help='pick username')
     opts, args = parser.parse_args(bargs)
+    if len(args) > 0:
+        log.error("No arguments should be passed to login. Use the -p and -u options.")
+        sys.exit(1)
     if not opts.password:
         parser.error('You should provide a password too')
     p = dockpulp.Pulp(env=bopts.server, config_file=bopts.config_file)
