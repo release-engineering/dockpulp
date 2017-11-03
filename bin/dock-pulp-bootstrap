@@ -19,6 +19,7 @@ from optparse import OptionParser
 import dockpulp
 import logging
 import sys
+from distutils.version import LooseVersion
 
 log = dockpulp.log
 sh = logging.StreamHandler(sys.stdout)
@@ -80,9 +81,14 @@ def create_sigstore(dpo):
                        importer_type_id="iso_importer",
                        rel_url='/content/sigstore')
         # add iso distributors to the sigstore repo
+        type_id = None
+        # used for 2.14 distributor switchover
+        if LooseVersion(dpo.getPulpVersion()) >= LooseVersion('2.14'):
+            type_id = 'iso_rsync_distributor'
+        else:
+            dpo.associate('cdn_distributor', dockpulp.SIGSTORE)
         dpo.associate('iso_distributor_sigstore', dockpulp.SIGSTORE)
-        dpo.associate('cdn_distributor_sigstore', dockpulp.SIGSTORE)
-        dpo.associate('cdn_distributor', dockpulp.SIGSTORE)
+        dpo.associate('cdn_distributor_sigstore', dockpulp.SIGSTORE, type_id)
 
 
 if __name__ == '__main__':
