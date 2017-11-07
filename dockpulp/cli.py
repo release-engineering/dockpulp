@@ -467,6 +467,8 @@ def do_list(bopts, bargs, parser):
                       help='show labels')
     parser.add_option('-m', '--manifests', default=False, action='store_true',
                       help='only list manifests and their tags, no blobs')
+    parser.add_option('--schema', default=False, action='store_true',
+                      help='display schema version for each manifest')
     parser.add_option('-s', '--silent', default=False, action='store_true',
                       help='return a json object of the listing, no other output')
     opts, args = parser.parse_args(bargs)
@@ -557,6 +559,7 @@ def do_list(bopts, bargs, parser):
 
                     output[layer][manifest]['active'] = active_marker
                     output[layer][manifest]['config'] = repo['manifests'][manifest]['config']
+                    output[layer][manifest]['sv'] = repo['manifests'][manifest]['schema_version']
 
                     if (opts.history or opts.labels) and not repo['id'] == dockpulp.HIDDEN:
                         output[layer][manifest]['id'] = repo['manifests'][manifest]['v1id']
@@ -580,6 +583,9 @@ def do_list(bopts, bargs, parser):
                         config = output[image][manifest]['config']
                         if config:
                             log.info('    Config Layer: %s', config)
+                        sv = output[image][manifest]['sv']
+                        if opts.schema and sv:
+                            log.info('    Schema Version: %s', sv)
                     if not opts.manifests:
                         log.info('    Blobs: ')
                         for layer in image:
