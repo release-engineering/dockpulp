@@ -431,7 +431,8 @@ class TestPulp(object):
         assert response['error']
 
     @pytest.mark.parametrize('dist_id', ['foo', 'bar'])
-    def test_associate(self, pulp, dist_id):
+    @pytest.mark.parametrize('type_id', [None, 'foobar'])
+    def test_associate(self, pulp, dist_id, type_id):
         if dist_id == 'bar':
             flexmock(RequestsHttpCaller)
             (RequestsHttpCaller
@@ -440,12 +441,20 @@ class TestPulp(object):
             with pytest.raises(errors.DockPulpConfigError):
                 pulp.associate(dist_id, 'testrepo')
         else:
+            url = '/pulp/api/v2/repositories/testrepo/distributors/'
+            data = {
+                "distributor_type_id": "docker_distributor_web",
+                "distributor_config": {}
+            }
+            if type_id:
+                data['distributor_type_id'] = type_id
             flexmock(RequestsHttpCaller)
             (RequestsHttpCaller
                 .should_receive('__call__')
                 .once()
+                .with_args('post', url, data=json.dumps(data))
                 .and_return(None))
-            response = pulp.associate(dist_id, 'testrepo')
+            response = pulp.associate(dist_id, 'testrepo', type_id)
             assert response is None
 
     @pytest.mark.parametrize('repo_id, productline', [('redhat-foo-bar', 'foo'),

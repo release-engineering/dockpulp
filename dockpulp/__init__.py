@@ -886,7 +886,7 @@ class Pulp(object):
 
     # public methods start here, alphabetically
 
-    def associate(self, dist_id, repo):
+    def associate(self, dist_id, repo, type_id=None):
         """Associate a distributor with a repo."""
         try:
             data = self.distributorconf[dist_id]
@@ -894,6 +894,9 @@ class Pulp(object):
             raise errors.DockPulpConfigError(
                 'Distributor %s not listed in dockpulpdistributors.json' % dist_id)
 
+        # type_id override used for distributor transitions
+        if type_id:
+            data['distributor_type_id'] = type_id
         log.debug(data)
 
         result = self._post('/pulp/api/v2/repositories/%s/distributors/' % repo,
