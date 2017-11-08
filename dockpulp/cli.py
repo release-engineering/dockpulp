@@ -492,7 +492,8 @@ def do_list(bopts, bargs, parser):
                     rids.extend(results)
             else:
                 rids.append(arg)
-        repos = p.listRepos(repos=rids, content=opts.content, history=(opts.history or opts.labels),
+        repos = p.listRepos(repos=rids, content=(opts.content or opts.schema),
+                            history=(opts.history or opts.labels),
                             labels=opts.labels)
 
     if opts.silent:
@@ -511,7 +512,7 @@ def do_list(bopts, bargs, parser):
                     continue
                 else:
                     log.info('%s = %s', k, v)
-        if opts.content or opts.history or opts.labels:
+        if opts.content or opts.history or opts.labels or opts.schema:
             if repo['id'] == p.getSigstore():
                 log.info('  Signatures: ')
                 for sig in repo['sigstore']:
