@@ -720,7 +720,9 @@ class Pulp(object):
                               ('distribution', "_set_bool", "dists"),
                               ('signatures', "_set_independent_attr", "sigs"),
                               ('sig_exception', "_set_env_attr", "sig_exception"),
-                              ('dist_switchover', "_set_independent_attr", "dist_switchover"))
+                              ('dist_switchover', "_set_independent_attr", "dist_switchover"),
+                              ('switch_ver', "_set_independent_attr", "switch_ver"),
+                              ('switch_release', "_set_env_attr", "switch_release"))
     AUTH_CER_FILE = "pulp.cer"
     AUTH_KEY_FILE = "pulp.key"
 
@@ -762,6 +764,13 @@ class Pulp(object):
             self.sig_exception = None
         if not hasattr(self, 'dist_switchover'):
             self.dist_switchover = {}
+        if hasattr(self, 'switch_ver'):
+            if len(self.switch_ver) != 1:
+                raise errors.DockPulpConfigError('Only one switchover version can be defined')
+            for val in self.switch_ver.values():
+                if LooseVersion(self.getPulpVersion()) >= LooseVersion(val):
+                    if hasattr(self, 'switch_release'):
+                        self.release_order = self.switch_release
 
     def _set_bool(self, attrs):
         for key, boolean in attrs:
