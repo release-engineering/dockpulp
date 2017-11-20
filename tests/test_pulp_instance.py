@@ -219,6 +219,76 @@ fake_retry = Retry(total=1,
 # tests
 class TestPulp(object):
     # Tests of methods from Pulp class.
+    def test_switched_pulp(self):
+        # Test for dockpulp switchover
+        with nested(NamedTemporaryFile(mode='wt'), NamedTemporaryFile(mode='wt'),
+                    NamedTemporaryFile(mode='wt')) as (fp, df, dn):
+            name = 'test'
+            fp.write(dedent("""
+                [pulps]
+                {name} = foo
+                [registries]
+                {name} = foo
+                [filers]
+                {name} = foo
+                [redirect]
+                {name} = no
+                [distributors]
+                {name} = foo
+                [release_order]
+                {name} = foo
+                [switch_ver]
+                version = 10.0
+                [switch_release]
+                {name} = bar
+            """).format(name=name))
+            fp.flush()
+
+            df.write(dedent("""
+            {
+                "foo":{
+                    "distributor_type_id": "docker_distributor_web",
+                    "distributor_config": {}
+                },
+                "switch":{
+                    "distributor_type_id": "docker_distributor_web",
+                    "distributor_config": {}
+                }
+            }
+            """))
+            df.flush()
+
+            dn.write(dedent("""
+            {
+                "foo":{
+                    "signature": "",
+                    "name_enforce": "",
+                    "content_enforce": "",
+                    "name_restrict": []
+                }
+            }
+            """))
+            dn.flush()
+            url = '/pulp/api/v2/status'
+            response = {'versions': {'platform_version': '10.0'}}
+            flexmock(RequestsHttpCaller)
+            (RequestsHttpCaller
+                .should_receive('__call__')
+                .with_args('get', url)
+                .and_return(response))
+            switched_pulp = Pulp(env=name, config_file=fp.name, config_distributors=df.name,
+                                 config_distributions=dn.name)
+            assert switched_pulp.release_order == switched_pulp.switch_release
+            response = {'versions': {'platform_version': '1.0'}}
+
+            (RequestsHttpCaller
+                .should_receive('__call__')
+                .with_args('get', url)
+                .and_return(response))
+            switched_pulp = Pulp(env=name, config_file=fp.name, config_distributors=df.name,
+                                 config_distributions=dn.name)
+            assert switched_pulp.release_order != switched_pulp.switch_release
+
     @pytest.mark.parametrize('cert, key', [('foo', 'bar')])
     def test_set_certs(self, pulp, cert, key):
         pulp.set_certs(cert, key)
