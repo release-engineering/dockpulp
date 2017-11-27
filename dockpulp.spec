@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.45
+Version:	1.46
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -49,6 +49,21 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Mon Nov 27 2017 Brendan Reilly <breilly@redhat.com> 1.46-1
+- Bumping version for release (breilly@redhat.com)
+- Added conf info and unit testing for switchover (breilly@redhat.com)
+- Added switchover func for release order (breilly@redhat.com)
+- schema option now outputs image data as expected (breilly@redhat.com)
+- Added schema option to display schema version of each manifest
+  (breilly@redhat.com)
+- Added unit test for associate type_id (breilly@redhat.com)
+- Added switchover capability for sigstore distributors (breilly@redhat.com)
+- Added unittests for name restrictions (breilly@redhat.com)
+- Restrict repo id based on crane requirements (breilly@redhat.com)
+- Confirm directive now outputs proper json in silent mode
+  (amisstea@redhat.com)
+- Log the actual status code when >= 500 (twaugh@redhat.com)
+
 * Fri Oct 13 2017 Brendan Reilly <breilly@redhat.com> 1.45-1
 - bumping version for release (breilly@redhat.com)
 - Limited image id search (breilly@redhat.com)
