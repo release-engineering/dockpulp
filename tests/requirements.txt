@@ -1,6 +1,6 @@
-pytest
+pytest==3.2.5
 six
-pytest-capturelog
+pytest-capturelog==0.7
 responses
 requests
 flexmock
