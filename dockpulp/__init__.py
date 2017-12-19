@@ -202,11 +202,15 @@ class Crane(object):
                 continue
             imgs = repo['images'].keys()
             manifests = repo['manifests'].keys()
+            manifest_lists = repo['manifest_lists'].keys()
             blobs = []
             tags = []
-            for manifest in manifests:
-                blobs.extend(repo['manifests'][manifest]['layers'])
-                tags.append(repo['manifests'][manifest]['tag'])
+            for manifest_list in repo['manifest_lists'].values():
+                tags.extend(manifest_list['tags'])
+            for manifest in repo['manifests'].values():
+                blobs.extend(manifest['layers'])
+                if manifest['tag']:
+                    tags.append(manifest['tag'])
             # reduce duplicate blobs
             blobs = list(set(blobs))
             if v1:
@@ -227,8 +231,9 @@ class Crane(object):
                     log.debug('  /v2/ response not ok, will skip v2')
 
             if v2:
-                response = self._test_repoV2(repo['docker-id'], repo['redirect'], manifests, blobs,
-                                             tags, repo['protected'], silent)
+                response = self._test_repoV2(repo, repo['docker-id'], repo['id'],
+                                             repo['redirect'], manifests, manifest_lists,
+                                             blobs, tags, repo['protected'], silent)
                 if silent:
                     repoids[repo['id']].update(response)
                     if errorids[repo['id']]:
@@ -451,8 +456,8 @@ class Crane(object):
         result['missing_ancestor_layers'] = missing
         return result
 
-    def _test_repoV2(self, dockerid, redirect, pulp_manifests, pulp_blobs, pulp_tags,
-                     protected=False, silent=False):
+    def _test_repoV2(self, repo, dockerid, repoid, redirect, pulp_manifests, pulp_manifest_lists,
+                     pulp_blobs, pulp_tags, protected=False, silent=False):
         """Confirm we can reach crane and get data back from it."""
         result = {}
         result['error'] = False
@@ -476,28 +481,39 @@ class Crane(object):
         result['crane_manifests_incorrectly_named'] = []
         blobs_to_test = set()
         try:
+            s = requests.Session()
             for manifest in pulp_manifests:
-                answer = requests.get(url + '/' + manifest, verify=False,
-                                      cert=(self.cert, self.key))
+                schema_ver = repo['manifests'][manifest]['schema_version']
+                if schema_ver == 1:
+                    s.headers['Accept'] = '*/*'
+                else:
+                    s.headers['Accept'] = 'application/vnd.docker.distribution.manifest.v2+json'
+                answer = s.get(url + '/' + manifest, verify=False,
+                               cert=(self.cert, self.key))
                 log.debug('  crane content: %s', answer.content)
                 log.debug('  status code: %s', answer.status_code)
                 if not answer.ok:
                     continue
-
                 c_manifests.add(manifest)
 
                 manifest_json = answer.json()
 
                 # Find out which blobs it references
-                for fs_layer in manifest_json['fsLayers']:
-                    blobs_to_test.add(fs_layer['blobSum'])
+                if schema_ver == 1:
+                    for fs_layer in manifest_json['fsLayers']:
+                        blobs_to_test.add(fs_layer['blobSum'])
+                else:
+                    for fs_layer in manifest_json['layers']:
+                        blobs_to_test.add(fs_layer['digest'])
+                    blobs_to_test.add(manifest_json['config']['digest'])
 
-                manifest_name = manifest_json['name']
-                if manifest_name != dockerid:
-                    log.error('  Incorrect name (%s) in manifest: %s',
-                              manifest_name, manifest)
-                    result['error'] = True
-                    result['crane_manifests_incorrectly_named'].append(manifest)
+                if schema_ver == 1:
+                    manifest_name = manifest_json['name']
+                    if manifest_name != dockerid:
+                        log.error('  Incorrect name (%s) in manifest: %s',
+                                  manifest_name, manifest)
+                        result['error'] = True
+                        result['crane_manifests_incorrectly_named'].append(manifest)
 
         except requests.exceptions.SSLError:
             log.error('  Request failed due to invalid cert or key')
@@ -522,6 +538,45 @@ class Crane(object):
             return result
 
         result['reachable_manifests'] = pulp_manifests
+
+        log.info('  Testing Pulp and Crane manifest lists')
+        c_manifest_lists = set()
+        try:
+            s = requests.Session()
+            s.headers['Accept'] = 'application/vnd.docker.distribution.manifest.list.v2+json'
+            for manifest_list in pulp_manifest_lists:
+                answer = s.get(url + '/' + manifest_list, verify=False,
+                               cert=(self.cert, self.key))
+                log.debug('  crane content: %s', answer.content)
+                log.debug('  status code: %s', answer.status_code)
+                if not answer.ok:
+                    continue
+
+                c_manifest_lists.add(manifest_list)
+
+        except requests.exceptions.SSLError:
+            log.error('  Request failed due to invalid cert or key')
+            result['error'] = True
+            return result
+
+        p_manifest_lists = set(pulp_manifest_lists)
+
+        pdiff = p_manifest_lists - c_manifest_lists
+        pdiff = list(pdiff)
+        pdiff.sort()
+        result['manifest_lists_in_pulp_not_crane'] = pdiff
+
+        log.debug('  crane manifest lists: %s', c_manifest_lists)
+        log.debug('  pulp manifest lists: %s', p_manifest_lists)
+
+        if pdiff:
+            pdiff = ', '.join((p_manifest_lists - c_manifest_lists))
+            log.error('  Pulp manifest lists and Crane manifest lists are not the same:')
+            log.error('    In Pulp but not Crane: %s', pdiff)
+            result['error'] = True
+            return result
+
+        result['reachable_manifest_lists'] = pulp_manifests
 
         log.info('  Pulp and Crane manifests reconciled correctly, testing blobs')
         url = self.p.registry + '/v2/' + dockerid + '/blobs/'
@@ -576,7 +631,7 @@ class Crane(object):
         log.debug('  crane content: %s', answer.content)
         log.debug('  status code: %s', answer.status_code)
         if not answer.ok:
-            log.error('  Crane returned error')
+            log.warning('  Crane returned error')
             result['error'] = True
             return result
 
@@ -769,7 +824,7 @@ class Pulp(object):
                 raise errors.DockPulpConfigError('Only one switchover version can be defined')
             for val in self.switch_ver.values():
                 if LooseVersion(self.getPulpVersion()) >= LooseVersion(val):
-                    if hasattr(self, 'switch_release'):
+                    if hasattr(self, 'switch_release') and self.switch_release is not None:
                         self.release_order = self.switch_release
 
     def _set_bool(self, attrs):
@@ -1488,7 +1543,7 @@ class Pulp(object):
                 # Fetch all content in a single request
                 data = {
                     'criteria': {
-                        'type_ids': [V1_C_TYPE, V2_C_TYPE, V2_BLOB, V2_TAG, SIG_TYPE],
+                        'type_ids': [V1_C_TYPE, V2_C_TYPE, V2_BLOB, V2_TAG, V2_LIST, SIG_TYPE],
                         'filters': {
                             'unit': {}
                         }
@@ -1544,6 +1599,22 @@ class Pulp(object):
 
                 tags = [unit for unit in units
                         if unit['unit_type_id'] == V2_TAG]
+
+                manifest_lists = [unit for unit in units
+                                  if unit['unit_type_id'] == V2_LIST]
+
+                r['manifest_lists'] = {}
+                for mlist in manifest_lists:
+                    listdigest = mlist['metadata']['digest']
+                    r['manifest_lists'][listdigest] = {}
+                    mdigests = mlist['metadata']['manifests']
+                    r['manifest_lists'][listdigest]['mdigests'] = mdigests
+
+                    taglist = []
+                    for tag_dict in tags:
+                        if tag_dict['metadata']['manifest_digest'] == listdigest:
+                            taglist.append(tag_dict['metadata']['name'])
+                    r['manifest_lists'][listdigest]['tags'] = taglist
 
                 r['manifests'] = {}
                 for manifest in manifests:
