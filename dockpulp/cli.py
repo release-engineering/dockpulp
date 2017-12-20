@@ -469,6 +469,8 @@ def do_list(bopts, bargs, parser):
                       help='only list manifests and their tags, no blobs')
     parser.add_option('--schema', default=False, action='store_true',
                       help='display schema version for each manifest')
+    parser.add_option('--lists', default=False, action='store_true',
+                      help="display manifest lists")
     parser.add_option('-s', '--silent', default=False, action='store_true',
                       help='return a json object of the listing, no other output')
     opts, args = parser.parse_args(bargs)
@@ -477,6 +479,9 @@ def do_list(bopts, bargs, parser):
     if opts.silent:
         log.removeHandler(sh)
         log.addHandler(dockpulp.NullHandler())
+
+    if opts.schema or opts.lists:
+        opts.content = True
 
     if len(args) == 0:
         repos = p.listRepos(content=opts.content)
@@ -492,8 +497,7 @@ def do_list(bopts, bargs, parser):
                     rids.extend(results)
             else:
                 rids.append(arg)
-        repos = p.listRepos(repos=rids, content=(opts.content or opts.schema),
-                            history=(opts.history or opts.labels),
+        repos = p.listRepos(repos=rids, content=opts.content, history=(opts.history or opts.labels),
                             labels=opts.labels)
 
     if opts.silent:
@@ -512,7 +516,7 @@ def do_list(bopts, bargs, parser):
                     continue
                 else:
                     log.info('%s = %s', k, v)
-        if opts.content or opts.history or opts.labels or opts.schema:
+        if opts.content or opts.history or opts.labels:
             if repo['id'] == p.getSigstore():
                 log.info('  Signatures: ')
                 for sig in repo['sigstore']:
@@ -576,22 +580,23 @@ def do_list(bopts, bargs, parser):
                         output[layer]['manifests'][manifest]['parent'] = v1parent
                         output[layer]['manifests'][manifest]['labels'] = v1labels
 
-                    output[layer]['manifest_list'] = {}
-                    output[layer]['manifest_list']['exist'] = False
-                    if output[layer]['manifests'][manifest]['sv'] == 2:
-                        for manifest_list in manifest_lists:
-                            if manifest in repo['manifest_lists'][manifest_list]['mdigests']:
-                                output[layer]['manifest_list']['digest'] = manifest_list
-                                output[layer]['manifest_list']['exist'] = True
-                            mltags = repo['manifest_lists'][manifest_list]['tags']
-                            output[layer]['manifest_list']['tags'] = ', '.join(mltags)
+                    if opts.lists:
+                        output[layer]['manifest_list'] = {}
+                        output[layer]['manifest_list']['exist'] = False
+                        if output[layer]['manifests'][manifest]['sv'] == 2:
+                            for manifest_list in manifest_lists:
+                                if manifest in repo['manifest_lists'][manifest_list]['mdigests']:
+                                    output[layer]['manifest_list']['digest'] = manifest_list
+                                    output[layer]['manifest_list']['exist'] = True
+                                mltags = repo['manifest_lists'][manifest_list]['tags']
+                                output[layer]['manifest_list']['tags'] = ', '.join(mltags)
 
                 images = output.keys()
                 for image in images:
                     log.info('')
                     manifests = output[image]['manifests'].keys()
                     tagoutput = []
-                    if output[image]['manifest_list']['exist']:
+                    if opts.lists and output[image]['manifest_list']['exist']:
                         mltags = output[image]['manifest_list']['tags']
                         log.info('  Manifest List: %s', output[image]['manifest_list']['digest'])
                         if tags:
