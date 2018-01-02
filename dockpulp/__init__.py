@@ -197,7 +197,7 @@ class Crane(object):
                     repoids[repo['id']].update(response)
                     if response['error']:
                         errorids[repo['id']] = True
-                elif response['error']:
+                if response['error']:
                     errors += 1
                 continue
             imgs = repo['images'].keys()
@@ -220,7 +220,7 @@ class Crane(object):
                     repoids[repo['id']].update(response)
                     if response['error']:
                         errorids[repo['id']] = True
-                elif response['error']:
+                if response['error']:
                     errors += 1
             if v2 == auto:
                 log.debug('  Checking whether v2 is supported by crane')
@@ -238,7 +238,7 @@ class Crane(object):
                     repoids[repo['id']].update(response)
                     if errorids[repo['id']]:
                         repoids[repo['id']]['error'] = True
-                elif response['error']:
+                if response['error']:
                     errors += 1
 
             if check_layers:
@@ -250,7 +250,7 @@ class Crane(object):
                         repoids[repo['id']].update(response)
                         if errorids[repo['id']]:
                             repoids[repo['id']]['error'] = True
-                    elif response['error']:
+                    if response['error']:
                         errors += 1
 
                 if v2:
@@ -259,7 +259,7 @@ class Crane(object):
                         repoids[repo['id']].update(response)
                         if errorids[repo['id']]:
                             repoids[repo['id']]['error'] = True
-                    elif response['error']:
+                    if response['error']:
                         errors += 1
 
         repoids['numerrors'] = errors
