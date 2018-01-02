@@ -451,6 +451,25 @@ def do_imageids(bopts, bargs, parser):
     log.info(result)
 
 
+def _list_manifest_helper(output, manifest, schema):
+    tagoutput = None
+    tag = output['manifests'][manifest]['tag']
+    is_active = output['manifests'][manifest]['active']
+    if tag is None:
+        log.info('  Manifest: %s', manifest)
+    else:
+        log.info('  Manifest: %s  Tag: %s%s', manifest, tag, is_active)
+        if is_active:
+            tagoutput = tag
+        config = output['manifests'][manifest]['config']
+        if config:
+            log.info('    Config Layer: %s', config)
+        sv = output['manifests'][manifest]['sv']
+        if schema and sv:
+            log.info('    Schema Version: %s', sv)
+    return tagoutput
+
+
 @make_parser
 def do_list(bopts, bargs, parser):
     """List one or more repositories. Accepts regex.
@@ -548,12 +567,20 @@ def do_list(bopts, bargs, parser):
                 manifest_lists.sort()
                 tags = repo['tags']
                 output = {}
+                seenmanifests = {}
+                seenlayers = {}
+                manifest_layers = {}
 
                 for manifest in manifests:
+                    seenmanifests[manifest] = False
+
                     layer = tuple(repo['manifests'][manifest]['layers'])
+                    seenlayers[layer] = False
 
                     output.setdefault(layer, {'manifests': {}})
                     output[layer]['manifests'].setdefault(manifest, {})
+
+                    manifest_layers[manifest] = layer
 
                     tag = repo['manifests'][manifest]['tag']
                     output[layer]['manifests'][manifest]['tag'] = tag
@@ -580,42 +607,44 @@ def do_list(bopts, bargs, parser):
                         output[layer]['manifests'][manifest]['parent'] = v1parent
                         output[layer]['manifests'][manifest]['labels'] = v1labels
 
-                    if opts.lists:
-                        output[layer]['manifest_list'] = {}
-                        output[layer]['manifest_list']['exist'] = False
-                        if output[layer]['manifests'][manifest]['sv'] == 2:
-                            for manifest_list in manifest_lists:
-                                if manifest in repo['manifest_lists'][manifest_list]['mdigests']:
-                                    output[layer]['manifest_list']['digest'] = manifest_list
-                                    output[layer]['manifest_list']['exist'] = True
-                                mltags = repo['manifest_lists'][manifest_list]['tags']
-                                output[layer]['manifest_list']['tags'] = ', '.join(mltags)
+                if opts.lists:
+                    mloutput = {}
+                    for manifest_list in manifest_lists:
+                        mdigest = tuple(repo['manifest_lists'][manifest_list]['mdigests'])
+                        mloutput.setdefault(mdigest, {})
+                        mloutput[mdigest]['mldigest'] = manifest_list
+                        mltags = repo['manifest_lists'][manifest_list]['tags']
+                        mloutput[mdigest]['tags'] = ', '.join(mltags)
+
+                    mdigests = mloutput.keys()
+                    for mdigest in mdigests:
+                        log.info('')
+                        mltags = mloutput[mdigest]['tags']
+                        log.info('  Manifest List: %s', mloutput[mdigest]['mldigest'])
+                        if tags:
+                            log.info('    Tags: %s', mltags)
+                        for manifest in mdigest:
+                            seenmanifests[manifest] = True
+                            layers = manifest_layers[manifest]
+                            seenlayers[layers] = True
+                            _list_manifest_helper(output[layers], manifest, opts.schema)
+                            log.info('    Blobs: ')
+                            for layer in layers:
+                                log.info('      %s', layer)
 
                 images = output.keys()
                 for image in images:
-                    log.info('')
                     manifests = output[image]['manifests'].keys()
+                    if seenlayers[image]:
+                        continue
+                    log.info('')
                     tagoutput = []
-                    if opts.lists and output[image]['manifest_list']['exist']:
-                        mltags = output[image]['manifest_list']['tags']
-                        log.info('  Manifest List: %s', output[image]['manifest_list']['digest'])
-                        if tags:
-                            log.info('    Tags: %s', mltags)
                     for manifest in manifests:
-                        tag = output[image]['manifests'][manifest]['tag']
-                        is_active = output[image]['manifests'][manifest]['active']
-                        if tag is None:
-                            log.info('  Manifest: %s', manifest)
-                        else:
-                            log.info('  Manifest: %s  Tag: %s%s', manifest, tag, is_active)
-                        if is_active:
-                            tagoutput.append(tag)
-                        config = output[image]['manifests'][manifest]['config']
-                        if config:
-                            log.info('    Config Layer: %s', config)
-                        sv = output[image]['manifests'][manifest]['sv']
-                        if opts.schema and sv:
-                            log.info('    Schema Version: %s', sv)
+                        if seenmanifests[manifest]:
+                            continue
+                        tagout = _list_manifest_helper(output[image], manifest, opts.schema)
+                        if tagout:
+                            tagoutput.append(tagout)
                     if not opts.manifests:
                         log.info('    Blobs: ')
                         for layer in image:
