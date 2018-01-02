@@ -479,21 +479,31 @@ class Crane(object):
                 return result
 
         result['crane_manifests_incorrectly_named'] = []
+        result['incorrect_mediatype'] = []
         blobs_to_test = set()
         try:
             s = requests.Session()
+            # mediatype for schema 2 manifests
+            mediatype = 'application/vnd.docker.distribution.manifest.v2+json'
             for manifest in pulp_manifests:
                 schema_ver = repo['manifests'][manifest]['schema_version']
                 if schema_ver == 1:
                     s.headers['Accept'] = '*/*'
                 else:
-                    s.headers['Accept'] = 'application/vnd.docker.distribution.manifest.v2+json'
+                    s.headers['Accept'] = mediatype
                 answer = s.get(url + '/' + manifest, verify=False,
                                cert=(self.cert, self.key))
                 log.debug('  crane content: %s', answer.content)
                 log.debug('  status code: %s', answer.status_code)
                 if not answer.ok:
                     continue
+
+                if schema_ver == 2 and answer.json()['mediaType'] != mediatype:
+                    log.error('  Incorrect mediatype for schema 2 manifest: %s %s',
+                              manifest, answer.json()['mediaType'])
+                    result['error'] = True
+                    result['incorrect_mediatype'].append(manifest)
+
                 c_manifests.add(manifest)
 
                 manifest_json = answer.json()
@@ -541,9 +551,10 @@ class Crane(object):
 
         log.info('  Testing Pulp and Crane manifest lists')
         c_manifest_lists = set()
+        mediatype = 'application/vnd.docker.distribution.manifest.list.v2+json'
         try:
             s = requests.Session()
-            s.headers['Accept'] = 'application/vnd.docker.distribution.manifest.list.v2+json'
+            s.headers['Accept'] = mediatype
             for manifest_list in pulp_manifest_lists:
                 answer = s.get(url + '/' + manifest_list, verify=False,
                                cert=(self.cert, self.key))
@@ -551,6 +562,12 @@ class Crane(object):
                 log.debug('  status code: %s', answer.status_code)
                 if not answer.ok:
                     continue
+
+                if answer.json()['mediaType'] != mediatype:
+                    log.error('  Incorrect mediatype manifest list: %s %s',
+                              manifest_list, answer.json()['mediaType'])
+                    result['error'] = True
+                    result['incorrect_mediatype'].append(manifest)
 
                 c_manifest_lists.add(manifest_list)
 
