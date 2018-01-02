@@ -453,18 +453,18 @@ def do_imageids(bopts, bargs, parser):
 
 def _list_manifest_helper(output, manifest, schema):
     tagoutput = None
-    tag = output['manifests'][manifest]['tag']
-    is_active = output['manifests'][manifest]['active']
+    tag = output[manifest]['tag']
+    is_active = output[manifest]['active']
     if tag is None:
         log.info('  Manifest: %s', manifest)
     else:
         log.info('  Manifest: %s  Tag: %s%s', manifest, tag, is_active)
         if is_active:
             tagoutput = tag
-        config = output['manifests'][manifest]['config']
+        config = output[manifest]['config']
         if config:
             log.info('    Config Layer: %s', config)
-        sv = output['manifests'][manifest]['sv']
+        sv = output[manifest]['sv']
         if schema and sv:
             log.info('    Schema Version: %s', sv)
     return tagoutput
@@ -577,13 +577,12 @@ def do_list(bopts, bargs, parser):
                     layer = tuple(repo['manifests'][manifest]['layers'])
                     seenlayers[layer] = False
 
-                    output.setdefault(layer, {'manifests': {}})
-                    output[layer]['manifests'].setdefault(manifest, {})
-
+                    output.setdefault(layer, {})
+                    output[layer].setdefault(manifest, {})
                     manifest_layers[manifest] = layer
 
                     tag = repo['manifests'][manifest]['tag']
-                    output[layer]['manifests'][manifest]['tag'] = tag
+                    output[layer][manifest]['tag'] = tag
 
                     active_marker = ''
                     # Is there a docker_tag unit for this name?
@@ -595,17 +594,17 @@ def do_list(bopts, bargs, parser):
                     config = repo['manifests'][manifest]['config']
                     schema_version = repo['manifests'][manifest]['schema_version']
 
-                    output[layer]['manifests'][manifest]['active'] = active_marker
-                    output[layer]['manifests'][manifest]['config'] = config
-                    output[layer]['manifests'][manifest]['sv'] = schema_version
+                    output[layer][manifest]['active'] = active_marker
+                    output[layer][manifest]['config'] = config
+                    output[layer][manifest]['sv'] = schema_version
 
                     if (opts.history or opts.labels) and not repo['id'] == dockpulp.HIDDEN:
                         v1id = repo['manifests'][manifest]['v1id']
                         v1parent = repo['manifests'][manifest]['v1parent']
                         v1labels = repo['manifests'][manifest]['v1labels']
-                        output[layer]['manifests'][manifest]['id'] = v1id
-                        output[layer]['manifests'][manifest]['parent'] = v1parent
-                        output[layer]['manifests'][manifest]['labels'] = v1labels
+                        output[layer][manifest]['id'] = v1id
+                        output[layer][manifest]['parent'] = v1parent
+                        output[layer][manifest]['labels'] = v1labels
 
                 if opts.lists:
                     mloutput = {}
@@ -634,7 +633,7 @@ def do_list(bopts, bargs, parser):
 
                 images = output.keys()
                 for image in images:
-                    manifests = output[image]['manifests'].keys()
+                    manifests = output[image].keys()
                     if seenlayers[image]:
                         continue
                     log.info('')
@@ -651,21 +650,21 @@ def do_list(bopts, bargs, parser):
                             log.info('      %s', layer)
                     if opts.history and not repo['id'] == dockpulp.HIDDEN:
                         tagoutput.sort()
-                        if output[image]['manifests'][manifests[0]]['id'] or \
-                           output[image]['manifests'][manifests[0]]['parent']:
+                        if output[image][manifests[0]]['id'] or \
+                           output[image][manifests[0]]['parent']:
                             log.info('    v1Compatibility:')
-                            if output[image]['manifests'][manifests[0]]['id']:
+                            if output[image][manifests[0]]['id']:
                                 log.info('      %s (tags: %s)', output[image][manifests[0]]['id'],
                                          ', '.join(tagoutput))
-                            if output[image]['manifests'][manifests[0]]['parent']:
+                            if output[image][manifests[0]]['parent']:
                                 log.info('      %s (tags: )', output[image][manifests[0]]['parent'])
 
                     if opts.labels and not repo['id'] == dockpulp.HIDDEN:
-                        if output[image]['manifests'][manifests[0]]['labels']:
+                        if output[image][manifests[0]]['labels']:
                             log.info('    Labels:')
-                            for key in output[image]['manifests'][manifests[0]]['labels']:
+                            for key in output[image][manifests[0]]['labels']:
                                 log.info('      %s: %s', key,
-                                         output[image]['manifests'][manifests[0]]['labels'][key])
+                                         output[image][manifests[0]]['labels'][key])
 
         if opts.details or opts.content or opts.history:
             log.info('')
