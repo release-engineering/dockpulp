@@ -184,21 +184,19 @@ class Crane(object):
             v2 = auto  # auto, based on /v2/ response from crane
 
         repos = self.p.listRepos(repos=repos, content=True)
-        errors = 0
-        errorids = {}
+        self.error_counter = {'errors': 0}
+        self.errorids = {}
         repoids = {}
         for repo in repos:
             log.info('Testing %s' % repo['id'])
             repoids[repo['id']] = {}
-            errorids[repo['id']] = False
+            self.errorids[repo['id']] = False
             if repo['id'] == SIGSTORE:
                 response = self._test_sigstore(repo['sigstore'], exception=self.p.sig_exception)
                 if silent:
-                    repoids[repo['id']].update(response)
-                    if response['error']:
-                        errorids[repo['id']] = True
+                    self.handle_silent_output(response, repoids, repo['id'])
                 if response['error']:
-                    errors += 1
+                    self.check_response_error(response)
                 continue
             imgs = repo['images'].keys()
             manifests = repo['manifests'].keys()
@@ -217,11 +215,9 @@ class Crane(object):
                 response = self._test_repo(repo['docker-id'], repo['redirect'], imgs,
                                            repo['protected'], silent)
                 if silent:
-                    repoids[repo['id']].update(response)
-                    if response['error']:
-                        errorids[repo['id']] = True
+                    self.handle_silent_output(response, repoids, repo['id'])
                 if response['error']:
-                    errors += 1
+                    self.check_response_error(response)
             if v2 == auto:
                 log.debug('  Checking whether v2 is supported by crane')
                 v2 = requests.get(self.p.registry + '/v2/', verify=False).ok
@@ -235,11 +231,9 @@ class Crane(object):
                                              repo['redirect'], manifests, manifest_lists,
                                              blobs, tags, repo['protected'], silent)
                 if silent:
-                    repoids[repo['id']].update(response)
-                    if errorids[repo['id']]:
-                        repoids[repo['id']]['error'] = True
+                    self.handle_silent_output(response, repoids, repo['id'])
                 if response['error']:
-                    errors += 1
+                    self.check_response_error(response)
 
             if check_layers:
                 log.info('Testing each layer/blob in %s' % repo['id'])
@@ -247,23 +241,28 @@ class Crane(object):
                 if v1:
                     response = self.p.checkLayers(repo['id'], imgs)
                     if silent:
-                        repoids[repo['id']].update(response)
-                        if errorids[repo['id']]:
-                            repoids[repo['id']]['error'] = True
+                        self.handle_silent_output(response, repoids, repo['id'])
                     if response['error']:
-                        errors += 1
+                        self.check_response_error(response)
 
                 if v2:
                     response = self.p.checkBlobs(repo['id'], blobs)
                     if silent:
-                        repoids[repo['id']].update(response)
-                        if errorids[repo['id']]:
-                            repoids[repo['id']]['error'] = True
+                        self.handle_silent_output(response, repoids, repo['id'])
                     if response['error']:
-                        errors += 1
+                        self.check_response_error(response)
 
-        repoids['numerrors'] = errors
+        repoids['numerrors'] = self.error_counter['errors']
         return repoids
+
+    def check_response_error(self, response):
+        if response['error']:
+            self.error_counter['errors'] += 1
+
+    def handle_silent_output(self, response, repoids, repoid):
+        repoids[repoid].update(response)
+        if response['error']:
+            self.errorids[repoid] = True
 
     def _test_repo(self, dockerid, redirect, pulp_imgs, protected=False, silent=False):
         """Confirm we can reach crane and get data back from it."""

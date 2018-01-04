@@ -451,7 +451,7 @@ def do_imageids(bopts, bargs, parser):
     log.info(result)
 
 
-def _list_manifest_helper(output, manifest, schema):
+def _list_manifest_helper(output, manifest, show_schema):
     tagoutput = None
     tag = output[manifest]['tag']
     is_active = output[manifest]['active']
@@ -465,7 +465,7 @@ def _list_manifest_helper(output, manifest, schema):
         if config:
             log.info('    Config Layer: %s', config)
         sv = output[manifest]['sv']
-        if schema and sv:
+        if show_schema and sv:
             log.info('    Schema Version: %s', sv)
     return tagoutput
 
