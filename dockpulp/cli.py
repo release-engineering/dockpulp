@@ -523,7 +523,7 @@ def do_list(bopts, bargs, parser):
         log.addHandler(silent)
         repoinfo = json.dumps(repos)
         log.info(repoinfo)
-        return
+        return repoinfo
 
     for repo in repos:
         log.info(repo['id'])

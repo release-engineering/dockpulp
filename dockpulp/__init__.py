@@ -546,7 +546,7 @@ class Crane(object):
             result['error'] = True
             return result
 
-        result['reachable_manifests'] = pulp_manifests
+        result['reachable_manifests'] = list(p_manifests & c_manifests)
 
         log.info('  Testing Pulp and Crane manifest lists')
         c_manifest_lists = set()
@@ -592,7 +592,7 @@ class Crane(object):
             result['error'] = True
             return result
 
-        result['reachable_manifest_lists'] = pulp_manifests
+        result['reachable_manifest_lists'] = list(p_manifest_lists & c_manifest_lists)
 
         log.info('  Pulp and Crane manifests reconciled correctly, testing blobs')
         url = self.p.registry + '/v2/' + dockerid + '/blobs/'
@@ -629,7 +629,7 @@ class Crane(object):
             result['error'] = True
             return result
 
-        result['reachable_blobs'] = pulp_blobs
+        result['reachable_blobs'] = list(p_blobs & c_blobs)
 
         log.info('  Expected and available blobs reconciled correctly, testing tags')
 
@@ -692,7 +692,7 @@ class Crane(object):
             result['error'] = True
             return result
 
-        result['reachable_tags'] = pulp_tags
+        result['reachable_tags'] = list(p_tags & c_tags)
 
         log.info('  Pulp and Crane tags reconciled correctly, all content reachable')
 
