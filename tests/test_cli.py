@@ -5,6 +5,7 @@
 from dockpulp import Pulp, cli
 import pytest
 import os
+import json
 from flexmock import flexmock
 
 
@@ -46,13 +47,16 @@ class testPulp(object):
     def getPrefix(self):
         return
 
+    def getSigstore(self):
+        return 'SIGSTORE'
+
     def associate(self, arg1, arg2):
         return {'id': 0}
 
     def copy(self, arg1, arg2):
         return
 
-    def listRepos(self, arg1, content):
+    def listRepos(self, repos=None, content=None, history=None, labels=None):
         return
 
     def updateRepo(self, arg1, arg2):
@@ -293,3 +297,45 @@ class TestCLI(object):
                 cli.do_empty(bopts, bargs)
         else:
             assert cli.do_empty(bopts, bargs) is None
+
+    @pytest.mark.parametrize('silent', [True, False])
+    def test_do_list(self, silent):
+        bopts = testbOpts()
+        bargs = ['test-repo', '--content', '--details', '--labels', '--lists']
+        if silent:
+            bargs.append('--silent')
+        p = testPulp()
+        (flexmock(Pulp)
+            .new_instances(p)
+            .with_args(Pulp, env=bopts.server, config_file=bopts.config_file))
+        repos = [{'id': 'test-repo', 'detail': 'foobar',
+                  'images': {'testimage': ['testtag']},
+                  'v1_labels': {'testimage': {'testkey': 'testval'}},
+                  'manifests': {'testmanifest': {'layers': ['testlayer1'], 'tag': 'testtag',
+                                                 'config': 'testconfig', 'schema_version': 'testsv',
+                                                 'v1id': 'testv1id', 'v1parent': 'testv1parent',
+                                                 'v1labels': 'testv1labels'}},
+                  'manifest_lists': {'testmanifestlist': {'mdigests': ['testmanifest'],
+                                                          'tags': ['testtag']}},
+                  'tags': {'testtag': 'testmanifest'}}]
+
+        (flexmock(testPulp)
+            .should_receive('listRepos')
+            .with_args(repos=[bargs[0]], content=True, history=True, labels=True)
+            .and_return(repos))
+
+        if silent:
+            assert json.loads(cli.do_list(bopts, bargs)) == repos
+        else:
+            assert cli.do_list(bopts, bargs) is None
+
+    def test_list_manifest_helper(self):
+        manifest = 'testmanifest'
+        tag = 'testtag'
+        output = {manifest:
+                  {'tag': tag,
+                   'active': ' (active)',
+                   'config': 'testconfig',
+                   'sv': 'testsv'}}
+
+        assert cli._list_manifest_helper(output, manifest, True) == tag
