@@ -184,7 +184,7 @@ class Crane(object):
             v2 = auto  # auto, based on /v2/ response from crane
 
         repos = self.p.listRepos(repos=repos, content=True)
-        self.error_counter = {'errors': 0}
+        self.errors = 0
         self.errorids = {}
         repoids = {}
         for repo in repos:
@@ -252,12 +252,12 @@ class Crane(object):
                     if response['error']:
                         self.check_response_error(response)
 
-        repoids['numerrors'] = self.error_counter['errors']
+        repoids['numerrors'] = self.errors
         return repoids
 
     def check_response_error(self, response):
         if response['error']:
-            self.error_counter['errors'] += 1
+            self.errors += 1
 
     def handle_silent_output(self, response, repoids, repoid):
         repoids[repoid].update(response)
