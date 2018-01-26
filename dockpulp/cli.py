@@ -451,6 +451,130 @@ def do_imageids(bopts, bargs, parser):
     log.info(result)
 
 
+def _print_v1_images(repo, showlabels):
+    # Print out v1 image information
+    log.info('v1 image details:')
+    if len(repo['images'].keys()) == 0:
+        log.info('  No images')
+    else:
+        imgs = repo['images'].keys()
+        imgs.sort()
+        for img in imgs:
+            log.info('  %s (tags: %s)',
+                     img, ', '.join(repo['images'][img]))
+            if showlabels and repo['v1_labels'][img]:
+                log.info('    Labels:')
+                for key in repo['v1_labels'][img]:
+                    log.info('      %s: %s', key, repo['v1_labels'][img][key])
+    log.info('')
+
+
+def _print_v2_images(repo, showlists, justmanifests, showhistory, showlabels, showschema):
+    # Print out v2 image information
+    log.info('v2 manifest details:')
+    if len(repo['manifests'].keys()) == 0:
+        log.info('  No manifests')
+        return
+
+    manifests = repo['manifests'].keys()
+    manifests.sort()
+    manifest_lists = repo['manifest_lists'].keys()
+    manifest_lists.sort()
+    tags = repo['tags']
+    output = {}
+    # seenmanifests keeps track of what manifests have been printed under manifest lists
+    seenmanifests = {}
+    # seenlayers keeps track of what layer tuples have been printed under manifest lists
+    seenlayers = {}
+    # manifest_layers later used to pair layers with manifests under manifest lists
+    manifest_layers = {}
+
+    # Prepare our output dict, grouping manifests by their respective layers
+    for manifest in manifests:
+        seenmanifests[manifest] = False
+        layers = tuple(repo['manifests'][manifest]['layers'])
+        seenlayers[layers] = False
+
+        output.setdefault(layers, {})
+        output[layers][manifest] = repo['manifests'][manifest]
+
+        manifest_layers[manifest] = layers
+
+        tag = repo['manifests'][manifest]['tag']
+
+        active_marker = ''
+        # Is there a docker_tag unit for this name?
+        if tag in tags:
+            # Does it reference this manifest?
+            if tags[tag] == manifest:
+                active_marker = ' (active)'
+
+        output[layers][manifest]['active'] = active_marker
+
+    # Print out all manifest lists and associated manifests and layers
+    if showlists:
+        # mloutput groups manifest lists by manifest tuples for simple printing
+        mloutput = {}
+        for manifest_list in manifest_lists:
+            mdigests = tuple(repo['manifest_lists'][manifest_list]['mdigests'])
+            mltags = repo['manifest_lists'][manifest_list]['tags']
+            mloutput[mdigests] = {
+                'mldigest': manifest_list,
+                'tags': ', '.join(mltags)
+            }
+
+            for mdigests, listinfo in mloutput.items():
+                log.info('')
+                mltags = listinfo['tags']
+                log.info('  Manifest List: %s', listinfo['mldigest'])
+                if tags:
+                    log.info('    Tags: %s', mltags)
+                for manifest in mdigests:
+                    seenmanifests[manifest] = True
+                    layers = manifest_layers[manifest]
+                    seenlayers[layers] = True
+                    _print_manifest_metadata(output[layers], manifest, showschema)
+                    log.info('    Blobs: ')
+                    for layer in layers:
+                        log.info('      %s', layer)
+
+    # Print all manifests and layers not associated with a manifest list
+    for layers, manifestinfo in output.items():
+        manifests = manifestinfo.keys()
+        if seenlayers[layers]:
+            continue
+        log.info('')
+        tagoutput = []
+        # Print manifests
+        for manifest in manifests:
+            if seenmanifests[manifest]:
+                continue
+            tagout = _print_manifest_metadata(manifestinfo, manifest, showschema)
+            if tagout:
+                tagoutput.append(tagout)
+        # Print layers associated with each manifest printed above
+        if not justmanifests:
+            log.info('    Blobs: ')
+            for layer in layers:
+                log.info('      %s', layer)
+        # Print history information associated with manifests printed above
+        if showhistory and not repo['id'] == dockpulp.HIDDEN:
+            tagoutput.sort()
+            if manifestinfo[manifests[0]]['v1id'] or manifestinfo[manifests[0]]['v1parent']:
+                log.info('    v1Compatibility:')
+                if manifestinfo[manifests[0]]['v1id']:
+                    log.info('      %s (tags: %s)', manifestinfo[manifests[0]]['v1id'],
+                             ', '.join(tagoutput))
+                if manifestinfo[manifests[0]]['v1parent']:
+                    log.info('      %s (tags: )', manifestinfo[manifests[0]]['v1parent'])
+        # Print label information associated with manifests printed above
+        if showlabels and not repo['id'] == dockpulp.HIDDEN:
+            if manifestinfo[manifests[0]]['v1labels']:
+                log.info('    Labels:')
+                for key in manifestinfo[manifests[0]]['v1labels']:
+                    log.info('      %s: %s', key, manifestinfo[manifests[0]]['v1labels'][key])
+
+
 def _print_manifest_metadata(output, manifest, show_schema):
     # Print out manifest digest, tag, config layer and schema version.
     tagoutput = None
@@ -538,6 +662,7 @@ def do_list(bopts, bargs, parser):
                 else:
                     log.info('%s = %s', k, v)
         if opts.content or opts.history or opts.labels:
+            # sigstore repo handled in a special way
             if repo['id'] == p.getSigstore():
                 log.info('  Signatures: ')
                 for sig in repo['sigstore']:
@@ -545,120 +670,9 @@ def do_list(bopts, bargs, parser):
                 log.info('')
                 continue
 
-            log.info('v1 image details:')
-            if len(repo['images'].keys()) == 0:
-                log.info('  No images')
-            else:
-                imgs = repo['images'].keys()
-                imgs.sort()
-                for img in imgs:
-                    log.info('  %s (tags: %s)',
-                             img, ', '.join(repo['images'][img]))
-                    if opts.labels and repo['v1_labels'][img]:
-                        log.info('    Labels:')
-                        for key in repo['v1_labels'][img]:
-                            log.info('      %s: %s', key, repo['v1_labels'][img][key])
-            log.info('')
-            log.info('v2 manifest details:')
-            if len(repo['manifests'].keys()) == 0:
-                log.info('  No manifests')
-            else:
-                manifests = repo['manifests'].keys()
-                manifests.sort()
-                manifest_lists = repo['manifest_lists'].keys()
-                manifest_lists.sort()
-                tags = repo['tags']
-                output = {}
-                # seenmanifests keeps track of what manifests have been printed under manifest lists
-                seenmanifests = {}
-                # seenlayers keeps track of what layer tuples have been printed under manifest lists
-                seenlayers = {}
-                # manifest_layers later used to pair layers with manifests under manifest lists
-                manifest_layers = {}
-
-                for manifest in manifests:
-                    # prepare our output dict, grouping manifests by their respective layers
-                    seenmanifests[manifest] = False
-
-                    layers = tuple(repo['manifests'][manifest]['layers'])
-                    seenlayers[layers] = False
-
-                    output.setdefault(layers, {})
-                    output[layers][manifest] = repo['manifests'][manifest]
-
-                    manifest_layers[manifest] = layers
-
-                    tag = repo['manifests'][manifest]['tag']
-
-                    active_marker = ''
-                    # Is there a docker_tag unit for this name?
-                    if tag in tags:
-                        # Does it reference this manifest?
-                        if tags[tag] == manifest:
-                            active_marker = ' (active)'
-
-                    output[layers][manifest]['active'] = active_marker
-
-                if opts.lists:
-                    # mloutput groups manifest lists by manifest tuples for simple printing
-                    mloutput = {}
-                    for manifest_list in manifest_lists:
-                        mdigests = tuple(repo['manifest_lists'][manifest_list]['mdigests'])
-                        mltags = repo['manifest_lists'][manifest_list]['tags']
-                        mloutput[mdigests] = {
-                            'mldigest': manifest_list,
-                            'tags': ', '.join(mltags)
-                        }
-
-                    for mdigests, listinfo in mloutput.items():
-                        log.info('')
-                        mltags = listinfo['tags']
-                        log.info('  Manifest List: %s', listinfo['mldigest'])
-                        if tags:
-                            log.info('    Tags: %s', mltags)
-                        for manifest in mdigests:
-                            seenmanifests[manifest] = True
-                            layers = manifest_layers[manifest]
-                            seenlayers[layers] = True
-                            _print_manifest_metadata(output[layers], manifest, opts.schema)
-                            log.info('    Blobs: ')
-                            for layer in layers:
-                                log.info('      %s', layer)
-
-                for layers, manifestinfo in output.items():
-                    manifests = manifestinfo.keys()
-                    if seenlayers[layers]:
-                        continue
-                    log.info('')
-                    tagoutput = []
-                    for manifest in manifests:
-                        if seenmanifests[manifest]:
-                            continue
-                        tagout = _print_manifest_metadata(manifestinfo, manifest, opts.schema)
-                        if tagout:
-                            tagoutput.append(tagout)
-                    if not opts.manifests:
-                        log.info('    Blobs: ')
-                        for layer in layers:
-                            log.info('      %s', layer)
-                    if opts.history and not repo['id'] == dockpulp.HIDDEN:
-                        tagoutput.sort()
-                        if manifestinfo[manifests[0]]['v1id'] or \
-                           manifestinfo[manifests[0]]['v1parent']:
-                            log.info('    v1Compatibility:')
-                            if manifestinfo[manifests[0]]['v1id']:
-                                log.info('      %s (tags: %s)', manifestinfo[manifests[0]]['v1id'],
-                                         ', '.join(tagoutput))
-                            if manifestinfo[manifests[0]]['v1parent']:
-                                log.info('      %s (tags: )',
-                                         manifestinfo[manifests[0]]['v1parent'])
-
-                    if opts.labels and not repo['id'] == dockpulp.HIDDEN:
-                        if manifestinfo[manifests[0]]['v1labels']:
-                            log.info('    Labels:')
-                            for key in manifestinfo[manifests[0]]['v1labels']:
-                                log.info('      %s: %s', key,
-                                         manifestinfo[manifests[0]]['v1labels'][key])
+            _print_v1_images(repo, opts.labels)
+            _print_v2_images(repo, opts.lists, opts.manifests, opts.history, opts.labels,
+                             opts.schema)
 
         if opts.details or opts.content or opts.history:
             log.info('')
