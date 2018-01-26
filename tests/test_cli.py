@@ -6,6 +6,7 @@ from dockpulp import Pulp, cli
 import pytest
 import os
 import json
+import logging
 from flexmock import flexmock
 
 
@@ -299,7 +300,7 @@ class TestCLI(object):
             assert cli.do_empty(bopts, bargs) is None
 
     @pytest.mark.parametrize('silent', [True, False])
-    def test_do_list(self, silent):
+    def test_do_list(self, caplog, silent):
         bopts = testbOpts()
         bargs = ['test-repo', '--content', '--details', '--labels', '--lists']
         if silent:
@@ -324,18 +325,22 @@ class TestCLI(object):
             .with_args(repos=[bargs[0]], content=True, history=True, labels=True)
             .and_return(repos))
 
+        caplog.setLevel(logging.INFO, logger="dockpulp")
+        response = cli.do_list(bopts, bargs)
         if silent:
-            assert json.loads(cli.do_list(bopts, bargs)) == repos
+            output = caplog.text()
+            jsontext = output[output.find('['):]
+            assert json.loads(jsontext) == repos
         else:
-            assert cli.do_list(bopts, bargs) is None
+            assert response is None
 
-    def test_list_manifest_helper(self):
+    def test_print_manifest_metadata(self):
         manifest = 'testmanifest'
         tag = 'testtag'
         output = {manifest:
                   {'tag': tag,
                    'active': ' (active)',
                    'config': 'testconfig',
-                   'sv': 'testsv'}}
+                   'schema_version': 'testsv'}}
 
-        assert cli._list_manifest_helper(output, manifest, True) == tag
+        assert cli._print_manifest_metadata(output, manifest, True) == tag
