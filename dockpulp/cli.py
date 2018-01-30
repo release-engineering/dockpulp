@@ -496,7 +496,7 @@ def _print_v2_images(repo, showlists, justmanifests, showhistory, showlabels, sh
         seenlayers[layers] = False
 
         output.setdefault(layers, {})
-        output[layers][manifest] = repo['manifests'][manifest]
+        output[layers][manifest] = repo['manifests'][manifest].copy()
 
         manifest_layers[manifest] = layers
 
