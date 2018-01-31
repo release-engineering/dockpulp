@@ -497,6 +497,7 @@ class Crane(object):
                 if not answer.ok:
                     continue
 
+                # schema 1 does not have mediatype equivalent
                 if schema_ver == 2 and answer.json()['mediaType'] != mediatype:
                     log.error('  Incorrect mediatype for schema 2 manifest: %s %s',
                               manifest, answer.json()['mediaType'])

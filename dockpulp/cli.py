@@ -513,30 +513,21 @@ def _print_v2_images(repo, showlists, justmanifests, showhistory, showlabels, sh
 
     # Print out all manifest lists and associated manifests and layers
     if showlists:
-        # mloutput groups manifest lists by manifest tuples for simple printing
-        mloutput = {}
         for manifest_list in manifest_lists:
-            mdigests = tuple(repo['manifest_lists'][manifest_list]['mdigests'])
-            mltags = repo['manifest_lists'][manifest_list]['tags']
-            mloutput[mdigests] = {
-                'mldigest': manifest_list,
-                'tags': ', '.join(mltags)
-            }
-
-            for mdigests, listinfo in mloutput.items():
-                log.info('')
-                mltags = listinfo['tags']
-                log.info('  Manifest List: %s', listinfo['mldigest'])
-                if tags:
-                    log.info('    Tags: %s', mltags)
-                for manifest in mdigests:
-                    seenmanifests[manifest] = True
-                    layers = manifest_layers[manifest]
-                    seenlayers[layers] = True
-                    _print_manifest_metadata(output[layers], manifest, showschema)
-                    log.info('    Blobs: ')
-                    for layer in layers:
-                        log.info('      %s', layer)
+            manifest_list_info = repo['manifest_lists'][manifest_list]
+            log.info('')
+            log.info('  Manifest List: %s', manifest_list)
+            mltags = ', '.join(manifest_list_info['tags'])
+            if mltags:
+                log.info('    Tags: %s', mltags)
+            for manifest in manifest_list_info['mdigests']:
+                seenmanifests[manifest] = True
+                layers = manifest_layers[manifest]
+                seenlayers[layers] = True
+                _print_manifest_metadata(output[layers], manifest, showschema)
+                log.info('    Blobs: ')
+                for layer in layers:
+                    log.info('      %s', layer)
 
     # Print all manifests and layers not associated with a manifest list
     for layers, manifestinfo in output.items():
