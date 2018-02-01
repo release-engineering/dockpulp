@@ -184,21 +184,19 @@ class Crane(object):
             v2 = auto  # auto, based on /v2/ response from crane
 
         repos = self.p.listRepos(repos=repos, content=True)
-        errors = 0
-        errorids = {}
+        self.errors = 0
+        self.errorids = {}
         repoids = {}
         for repo in repos:
             log.info('Testing %s' % repo['id'])
             repoids[repo['id']] = {}
-            errorids[repo['id']] = False
+            self.errorids[repo['id']] = False
             if repo['id'] == SIGSTORE:
                 response = self._test_sigstore(repo['sigstore'], exception=self.p.sig_exception)
                 if silent:
-                    repoids[repo['id']].update(response)
-                    if response['error']:
-                        errorids[repo['id']] = True
-                elif response['error']:
-                    errors += 1
+                    self.handle_silent_output(response, repoids, repo['id'])
+                if response['error']:
+                    self.check_response_error(response)
                 continue
             imgs = repo['images'].keys()
             manifests = repo['manifests'].keys()
@@ -217,11 +215,9 @@ class Crane(object):
                 response = self._test_repo(repo['docker-id'], repo['redirect'], imgs,
                                            repo['protected'], silent)
                 if silent:
-                    repoids[repo['id']].update(response)
-                    if response['error']:
-                        errorids[repo['id']] = True
-                elif response['error']:
-                    errors += 1
+                    self.handle_silent_output(response, repoids, repo['id'])
+                if response['error']:
+                    self.check_response_error(response)
             if v2 == auto:
                 log.debug('  Checking whether v2 is supported by crane')
                 v2 = requests.get(self.p.registry + '/v2/', verify=False).ok
@@ -235,11 +231,9 @@ class Crane(object):
                                              repo['redirect'], manifests, manifest_lists,
                                              blobs, tags, repo['protected'], silent)
                 if silent:
-                    repoids[repo['id']].update(response)
-                    if errorids[repo['id']]:
-                        repoids[repo['id']]['error'] = True
-                elif response['error']:
-                    errors += 1
+                    self.handle_silent_output(response, repoids, repo['id'])
+                if response['error']:
+                    self.check_response_error(response)
 
             if check_layers:
                 log.info('Testing each layer/blob in %s' % repo['id'])
@@ -247,23 +241,28 @@ class Crane(object):
                 if v1:
                     response = self.p.checkLayers(repo['id'], imgs)
                     if silent:
-                        repoids[repo['id']].update(response)
-                        if errorids[repo['id']]:
-                            repoids[repo['id']]['error'] = True
-                    elif response['error']:
-                        errors += 1
+                        self.handle_silent_output(response, repoids, repo['id'])
+                    if response['error']:
+                        self.check_response_error(response)
 
                 if v2:
                     response = self.p.checkBlobs(repo['id'], blobs)
                     if silent:
-                        repoids[repo['id']].update(response)
-                        if errorids[repo['id']]:
-                            repoids[repo['id']]['error'] = True
-                    elif response['error']:
-                        errors += 1
+                        self.handle_silent_output(response, repoids, repo['id'])
+                    if response['error']:
+                        self.check_response_error(response)
 
-        repoids['numerrors'] = errors
+        repoids['numerrors'] = self.errors
         return repoids
+
+    def check_response_error(self, response):
+        if response['error']:
+            self.errors += 1
+
+    def handle_silent_output(self, response, repoids, repoid):
+        repoids[repoid].update(response)
+        if response['error']:
+            self.errorids[repoid] = True
 
     def _test_repo(self, dockerid, redirect, pulp_imgs, protected=False, silent=False):
         """Confirm we can reach crane and get data back from it."""
@@ -479,21 +478,32 @@ class Crane(object):
                 return result
 
         result['crane_manifests_incorrectly_named'] = []
+        result['incorrect_mediatype'] = []
         blobs_to_test = set()
         try:
             s = requests.Session()
+            # mediatype for schema 2 manifests
+            mediatype = 'application/vnd.docker.distribution.manifest.v2+json'
             for manifest in pulp_manifests:
                 schema_ver = repo['manifests'][manifest]['schema_version']
                 if schema_ver == 1:
                     s.headers['Accept'] = '*/*'
                 else:
-                    s.headers['Accept'] = 'application/vnd.docker.distribution.manifest.v2+json'
+                    s.headers['Accept'] = mediatype
                 answer = s.get(url + '/' + manifest, verify=False,
                                cert=(self.cert, self.key))
                 log.debug('  crane content: %s', answer.content)
                 log.debug('  status code: %s', answer.status_code)
                 if not answer.ok:
                     continue
+
+                # schema 1 does not have mediatype equivalent
+                if schema_ver == 2 and answer.json()['mediaType'] != mediatype:
+                    log.error('  Incorrect mediatype for schema 2 manifest: %s %s',
+                              manifest, answer.json()['mediaType'])
+                    result['error'] = True
+                    result['incorrect_mediatype'].append(manifest)
+
                 c_manifests.add(manifest)
 
                 manifest_json = answer.json()
@@ -537,13 +547,14 @@ class Crane(object):
             result['error'] = True
             return result
 
-        result['reachable_manifests'] = pulp_manifests
+        result['reachable_manifests'] = list(p_manifests & c_manifests)
 
         log.info('  Testing Pulp and Crane manifest lists')
         c_manifest_lists = set()
+        mediatype = 'application/vnd.docker.distribution.manifest.list.v2+json'
         try:
             s = requests.Session()
-            s.headers['Accept'] = 'application/vnd.docker.distribution.manifest.list.v2+json'
+            s.headers['Accept'] = mediatype
             for manifest_list in pulp_manifest_lists:
                 answer = s.get(url + '/' + manifest_list, verify=False,
                                cert=(self.cert, self.key))
@@ -551,6 +562,12 @@ class Crane(object):
                 log.debug('  status code: %s', answer.status_code)
                 if not answer.ok:
                     continue
+
+                if answer.json()['mediaType'] != mediatype:
+                    log.error('  Incorrect mediatype manifest list: %s %s',
+                              manifest_list, answer.json()['mediaType'])
+                    result['error'] = True
+                    result['incorrect_mediatype'].append(manifest)
 
                 c_manifest_lists.add(manifest_list)
 
@@ -576,7 +593,7 @@ class Crane(object):
             result['error'] = True
             return result
 
-        result['reachable_manifest_lists'] = pulp_manifests
+        result['reachable_manifest_lists'] = list(p_manifest_lists & c_manifest_lists)
 
         log.info('  Pulp and Crane manifests reconciled correctly, testing blobs')
         url = self.p.registry + '/v2/' + dockerid + '/blobs/'
@@ -613,7 +630,7 @@ class Crane(object):
             result['error'] = True
             return result
 
-        result['reachable_blobs'] = pulp_blobs
+        result['reachable_blobs'] = list(p_blobs & c_blobs)
 
         log.info('  Expected and available blobs reconciled correctly, testing tags')
 
@@ -676,7 +693,7 @@ class Crane(object):
             result['error'] = True
             return result
 
-        result['reachable_tags'] = pulp_tags
+        result['reachable_tags'] = list(p_tags & c_tags)
 
         log.info('  Pulp and Crane tags reconciled correctly, all content reachable')
 

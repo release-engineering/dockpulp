@@ -739,6 +739,68 @@ class TestPulp(object):
 
 class TestCrane(object):
     # Tests of methods of Crane class.
+    @pytest.mark.parametrize('error', [True, False])
+    def test_confirm(self, crane, pulp, error):
+        repos = 'test-repo'
+        repoinfo = [{'id': 'test-repo', 'detail': 'foobar',
+                     'images': {'testimage': ['testtag']},
+                     'v1_labels': {'testimage': {'testkey': 'testval'}},
+                     'manifests': {'testmanifest': {'layers': ['testlayer1'], 'tag': 'testtag',
+                                                    'config': 'testconfig',
+                                                    'schema_version': 'testsv',
+                                                    'v1id': 'testv1id',
+                                                    'v1parent': 'testv1parent',
+                                                    'v1labels': 'testv1labels'}},
+                     'manifest_lists': {'testmanifestlist': {'mdigests': ['testmanifest'],
+                                                             'tags': ['testtag']}},
+                     'tags': {'testtag': 'testmanifest'},
+                     'docker-id': 'testdockerid',
+                     'redirect': 'testredirect',
+                     'protected': False}]
+        imgs = ['testimage']
+        manifests = ['testmanifest']
+        manifest_lists = ['testmanifestlist']
+        blobs = ['testlayer1']
+        # duplicate tags allowed
+        tags = ['testtag', 'testtag']
+        repo = repoinfo[0]
+        repoids = {repo['id']: {}}
+        if error:
+            repoids['numerrors'] = 4
+        else:
+            repoids['numerrors'] = 0
+        repoids[repo['id']]['error'] = error
+        response = {'error': error}
+        flexmock(pulp)
+        (pulp
+            .should_receive('listRepos')
+            .with_args(repos=repos, content=True)
+            .once()
+            .and_return(repoinfo))
+        flexmock(crane)
+        (crane
+            .should_receive('_test_repo')
+            .with_args(repo['docker-id'], repo['redirect'], imgs, repo['protected'], True)
+            .once()
+            .and_return(response))
+        (crane
+            .should_receive('_test_repoV2')
+            .with_args(repo, repo['docker-id'], repo['id'], repo['redirect'], manifests,
+                       manifest_lists, blobs, tags, repo['protected'], True)
+            .once()
+            .and_return(response))
+        (pulp
+            .should_receive('checkLayers')
+            .with_args(repo['id'], imgs)
+            .once()
+            .and_return(response))
+        (pulp
+            .should_receive('checkBlobs')
+            .with_args(repo['id'], blobs)
+            .once()
+            .and_return(response))
+        assert crane.confirm(repos, check_layers=True) == repoids
+
     def test_confirm_sigstore(self, crane, pulp):
         repos = pulp.getSigstore()
         repoinfo = [{'id': repos, 'sigstore': 'image@shasum'}]
@@ -827,6 +889,120 @@ class TestCrane(object):
             .and_return(answer2))
         response = crane._test_sigstore(signatures)
         assert response == expected_result
+
+    @pytest.mark.parametrize('sslerror', [True, False])
+    @pytest.mark.parametrize('pulp_manifests', [[], ['testmanifest']])
+    def test_test_repoV2(self, crane, pulp, sslerror, pulp_manifests):
+        repo = {'id': 'test-repo', 'detail': 'foobar',
+                'images': {'testimage': ['testtag']},
+                'v1_labels': {'testimage': {'testkey': 'testval'}},
+                'manifests': {'testmanifest': {'layers': ['testlayer1'],
+                                               'tag': 'testtag',
+                                               'config': {'digest': 'testlayer1'},
+                                               'schema_version': '2',
+                                               'v1id': 'testv1id',
+                                               'v1parent': 'testv1parent',
+                                               'v1labels': 'testv1labels'}},
+                'manifest_lists': {'testmanifestlist': {'mdigests': ['testmanifest'],
+                                                        'tags': ['testtag']}},
+                'tags': {'testtag': 'testmanifest'},
+                'docker-id': 'testdockerid',
+                'redirect': 'testredirect',
+                'protected': False}
+        dockerid = 'testdockerid'
+        repoid = 'test-repo'
+        redirect = 'testredirect'
+        pulp_manifests = ['testmanifest']
+        pulp_manifest_lists = ['testmanifestlist']
+        # both config blob and digest blob have to be the same
+        # otherwise result will never match due to list(set()) in test_repoV2
+        pulp_blobs = ['testlayer1']
+        pulp_tags = ['testtag', 'testtag']
+        protected = False
+        silent = True
+        result = {'error': False}
+
+        if not pulp_manifests:
+            response = crane._test_repoV2(repo, dockerid, repoid, redirect, pulp_manifests,
+                                          pulp_manifest_lists, pulp_blobs, pulp_tags, protected,
+                                          silent)
+            assert response == result
+            return
+        result['crane_manifests_incorrectly_named'] = []
+        result['incorrect_mediatype'] = []
+        url = pulp.registry + '/v2/' + dockerid + '/manifests'
+
+        flexmock(requests.Session)
+        if sslerror:
+            (requests.Session
+                .should_receive('get')
+                .with_args(url + '/' + 'testmanifest', verify=False, cert=(crane.cert, crane.key))
+                .once()
+                .and_raise(requests.exceptions.SSLError))
+            result['error'] = True
+            response = crane._test_repoV2(repo, dockerid, repoid, redirect, pulp_manifests,
+                                          pulp_manifest_lists, pulp_blobs, pulp_tags, protected,
+                                          silent)
+            assert response == result
+            return
+
+        mediatype = 'application/vnd.docker.distribution.manifest.v2+json'
+        fake_answer = flexmock(json=lambda: {'mediaType': mediatype,
+                                             'layers': [{'digest': 'testlayer1'}],
+                                             'config': {'digest': 'testlayer1'}},
+                               content="testcontent",
+                               status_code="teststatus",
+                               ok=True)
+        (requests.Session
+            .should_receive('get')
+            .with_args(url + '/' + 'testmanifest', verify=False, cert=(crane.cert, crane.key))
+            .once()
+            .and_return(fake_answer))
+        result['manifests_in_pulp_not_crane'] = []
+        result['reachable_manifests'] = pulp_manifests
+
+        mediatype = 'application/vnd.docker.distribution.manifest.list.v2+json'
+        fake_answer = flexmock(json=lambda: {'mediaType': mediatype},
+                               content="testcontent",
+                               status_code="teststatus",
+                               ok=True)
+        (requests.Session
+            .should_receive('get')
+            .with_args(url + '/' + 'testmanifestlist', verify=False, cert=(crane.cert, crane.key))
+            .once()
+            .and_return(fake_answer))
+        result['manifest_lists_in_pulp_not_crane'] = []
+        result['reachable_manifest_lists'] = pulp_manifest_lists
+
+        url = pulp.registry + '/v2/' + dockerid + '/blobs/'
+        flexmock(requests)
+        (requests
+            .should_receive('head')
+            .with_args(url + 'testlayer1', verify=False, cert=(crane.cert, crane.key),
+                       allow_redirects=True)
+            .once()
+            .and_return(fake_answer))
+        result['blobs_in_pulp_not_crane'] = []
+        result['reachable_blobs'] = ['testlayer1']
+
+        url = pulp.registry + '/v2/' + dockerid + '/tags/list'
+        fake_answer = flexmock(json=lambda: {'mediatype': mediatype},
+                               content='{"name": "%s", "tags": ["testtag", "testtag"]}' % dockerid,
+                               status_code="teststatus",
+                               ok=True)
+        (requests
+            .should_receive('get')
+            .with_args(url, verify=False, cert=(crane.cert, crane.key))
+            .once()
+            .and_return(fake_answer))
+        result['tags_in_pulp_not_crane'] = []
+        result['tags_in_crane_not_pulp'] = []
+        result['reachable_tags'] = ['testtag']
+
+        response = crane._test_repoV2(repo, dockerid, repoid, redirect, pulp_manifests,
+                                      pulp_manifest_lists, pulp_blobs, pulp_tags, protected,
+                                      silent)
+        assert response == result
 
 
 class TestRequestsHttpCaller(object):
