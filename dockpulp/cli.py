@@ -344,6 +344,7 @@ def do_create(bopts, bargs, parser):
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     url = None
+    rel_url = None
     productid = None
     prefix_with = '' if opts.noprefix else p.getPrefix()
     if opts.library:
@@ -951,8 +952,6 @@ def do_update(bopts, bargs, parser):
             updates['redirect-url'] = opts.redirect
             if opts.redirect.find('/content/') != -1:
                 updates['rel-url'] = opts.redirect.find[opts.redirect.find('content/'):]
-        else:
-            updates['rel-url'] = repo
         if opts.title:
             updates['display_name'] = opts.title
         if opts.signature:
