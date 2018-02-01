@@ -378,7 +378,7 @@ def do_create(bopts, bargs, parser):
 
         # rel_url is simply url with leading '/' removed; make sure it is first char
         assert url.startswith('/')
-        rel_url = url[1:] # remove leading '/'
+        rel_url = url[1:]  # remove leading '/'
 
     p.createRepo(repoid, url, desc=opts.description, title=opts.title, protected=opts.protected,
                  productline=productid, library=opts.library, distribution=opts.distribution,
