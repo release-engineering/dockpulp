@@ -367,4 +367,3 @@ class TestCLI(object):
                 cli.do_update(bopts, bargs)
         else:
             assert cli.do_update(bopts, bargs) is None
-

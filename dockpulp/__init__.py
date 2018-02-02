@@ -1979,7 +1979,8 @@ class Pulp(object):
             if did['distributor_type_id'] in (webdist, exportdist):
                 validdistributorkeys.append(did['id'])
             else:
-                distributorkeys.append(did['id'])
+                # need to track both, not always equivalent
+                distributorkeys.append((did['id'], did['distributor_type_id']))
         for distributorkey in validdistributorkeys:
             delta['distributor_configs'][distributorkey] = {}
         # we intentionally ignore everything else
@@ -2024,11 +2025,11 @@ class Pulp(object):
             if 'signature' not in update and sig != "":
                 sig = self.getSignature(sig)
                 delta['delta']['notes']['signatures'] = sig
-        for distributorkey in distributorkeys:
-            delta['distributor_configs'][distributorkey] = {}
-            if distributorkey == rsyncdist and 'rel-url' in update:
-                delta['distributor_configs'][distributorkey]['repo_relative_path'] \
-                    = update['rel-url']
+        for distributorid, distributortype in distributorkeys:
+            config = {}
+            if distributortype == rsyncdist and 'rel-url' in update:
+                config['repo_relative_path'] = update['rel-url']
+            delta['distributor_configs'][distributorid] = config
         if len(delta['distributor_configs']) == 0:
             log.info('  no need to update the distributor configs')
             delta.pop('distributor_configs')

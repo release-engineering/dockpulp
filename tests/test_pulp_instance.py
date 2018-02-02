@@ -34,9 +34,9 @@ def pulp(tmpdir):
             [redirect]
             {name} = no
             [distributors]
-            {name} = foo
+            {name} = foo,docker_rsync
             [release_order]
-            {name} = foo
+            {name} = foo,docker_rsync
             [retries]
             {name} = 2
             [signatures]
@@ -323,7 +323,7 @@ class TestPulp(object):
     ])
     @pytest.mark.parametrize('dist', [None, 'beta'])
     def test_updateRedirect(self, pulp, rid, redirect, dist):
-        update = {'redirect-url': redirect, 'rel_url': 'content/'}
+        update = {'redirect-url': redirect, 'rel-url': 'content/'}
         blob = [{'distributor_type_id': 'testdist', 'id': 'test'},
                 {'distributor_type_id': 'docker_rsync_distributor', 'id': 'rsync_test'}]
         t = {'state': 'finished'}
