@@ -1282,6 +1282,9 @@ class Pulp(object):
                         distributor['distributor_config']['protected'] = protected
                         distributor['distributor_config']['repo-registry-id'] = registry_id
                         distributor['distributor_config']['redirect-url'] = rurl
+                    elif distributor['distributor_type_id'] == 'docker_rsync_distributor':
+                        if rel_url:
+                            distributor['distributor_config']['repo_relative_path'] = rel_url
                 except KeyError:
                     continue
         else:
@@ -1967,20 +1970,22 @@ class Pulp(object):
         validdistributorkeys = []
         webdist = 'docker_distributor_web'
         exportdist = 'docker_distributor_export'
+        rsyncdist = 'docker_rsync_distributor'
 
         disturl = '/pulp/api/v2/repositories/%s/distributors/' % rid
         log.debug("calling %s", disturl)
         blob = self._get(disturl)
         for did in blob:
-            if did['distributor_type_id'] == webdist or did['distributor_type_id'] == exportdist:
+            if did['distributor_type_id'] in (webdist, exportdist):
                 validdistributorkeys.append(did['id'])
             else:
-                distributorkeys.append(did['id'])
+                # need to track both, not always equivalent
+                distributorkeys.append((did['id'], did['distributor_type_id']))
         for distributorkey in validdistributorkeys:
             delta['distributor_configs'][distributorkey] = {}
         # we intentionally ignore everything else
         valid = ('redirect-url', 'protected', 'repo-registry-id', 'description', 'display_name',
-                 'tag', 'signature', 'distribution')
+                 'tag', 'signature', 'distribution', 'rel-url')
         for u in update.keys():
             if u not in valid:
                 log.warning('ignoring %s, not sure how to update' % u)
@@ -2020,8 +2025,11 @@ class Pulp(object):
             if 'signature' not in update and sig != "":
                 sig = self.getSignature(sig)
                 delta['delta']['notes']['signatures'] = sig
-        for distributorkey in distributorkeys:
-            delta['distributor_configs'][distributorkey] = {}
+        for distributorid, distributortype in distributorkeys:
+            config = {}
+            if distributortype == rsyncdist and 'rel-url' in update:
+                config['repo_relative_path'] = update['rel-url']
+            delta['distributor_configs'][distributorid] = config
         if len(delta['distributor_configs']) == 0:
             log.info('  no need to update the distributor configs')
             delta.pop('distributor_configs')

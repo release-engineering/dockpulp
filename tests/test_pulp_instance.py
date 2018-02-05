@@ -34,9 +34,9 @@ def pulp(tmpdir):
             [redirect]
             {name} = no
             [distributors]
-            {name} = foo
+            {name} = foo,docker_rsync
             [release_order]
-            {name} = foo
+            {name} = foo,docker_rsync
             [retries]
             {name} = 2
             [signatures]
@@ -50,6 +50,10 @@ def pulp(tmpdir):
             {
                 "foo":{
                     "distributor_type_id": "docker_distributor_web",
+                    "distributor_config": {}
+                },
+                "docker_rsync":{
+                    "distributor_type_id": "docker_rsync_distributor",
                     "distributor_config": {}
                 }
             }
@@ -319,11 +323,10 @@ class TestPulp(object):
     ])
     @pytest.mark.parametrize('dist', [None, 'beta'])
     def test_updateRedirect(self, pulp, rid, redirect, dist):
-        update = {'redirect-url': redirect}
-        blob = []
-        did = {'distributor_type_id': 'testdist', 'id': 'test'}
+        update = {'redirect-url': redirect, 'rel-url': 'content/'}
+        blob = [{'distributor_type_id': 'testdist', 'id': 'test'},
+                {'distributor_type_id': 'docker_rsync_distributor', 'id': 'rsync_test'}]
         t = {'state': 'finished'}
-        blob.append(did)
         if dist:
             update['notes'] = {'distribution': dist}
         flexmock(RequestsHttpCaller)
@@ -594,15 +597,20 @@ class TestPulp(object):
             sig = pulp.getDistributionSig(distribution)
             assert response['notes']['signatures'] == pulp.getSignature(sig)
         if distributors:
-            assert response['distributors'][0]['distributor_config']['repo-registry-id'] \
-                == registry_id
-            assert response['distributors'][0]['distributor_config']['redirect-url'] == rurl
+            for distributor in response['distributors']:
+                if distributor['distributor_type_id'] == 'docker_distributor_web':
+                    assert distributor['distributor_config']['repo-registry-id'] == registry_id
+                    assert distributor['distributor_config']['redirect-url'] == rurl
         if repotype:
             assert response['notes']['_repo-type'] == repotype
         if importer_type_id:
             assert response['importer_type_id'] == importer_type_id
         if rel_url:
             assert response['notes']['relative_url'] == rel_url
+            if distributors:
+                for distributor in response['distributors']:
+                    if distributor['distributor_type_id'] == 'docker_rsync_distributor':
+                        assert distributor['distributor_config']['repo_relative_path'] == rel_url
 
     def test_disassociate(self, pulp):
         repo = 'testrepo'

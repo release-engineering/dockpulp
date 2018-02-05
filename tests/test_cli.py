@@ -39,7 +39,7 @@ class testPulp(object):
 
     def createRepo(self, arg1, arg2, desc=None, title=None,
                    protected=None, productline=None, library=None,
-                   distribution=None, prefix_with=None):
+                   distribution=None, prefix_with=None, rel_url=None):
         return
 
     def getAncestors(self, arg):
@@ -249,9 +249,17 @@ class TestCLI(object):
         (testPulp
             .should_receive('isRedirect')
             .and_return(True))
-        (testPulp
-            .should_receive('createRepo')
-            .and_return(None))
+        if not lib and noprefix and args[-1].startswith('/content') and args[0] == 'foo':
+            (testPulp
+                .should_receive('createRepo')
+                .with_args('foo-bar', '/content/foo/bar', library=lib, protected=False, title=None,
+                           productline='foo', distribution=None, desc="No description",
+                           prefix_with='', rel_url='content/foo/bar')
+                .and_return(None))
+        else:
+            (testPulp
+                .should_receive('createRepo')
+                .and_return(None))
         if lib and len(args) != 2:
             with pytest.raises(SystemExit):
                 cli.do_create(bopts, bargs)
@@ -344,3 +352,18 @@ class TestCLI(object):
                    'schema_version': 'testsv'}}
 
         assert cli._print_manifest_metadata(output, manifest, True) == tag
+
+    @pytest.mark.parametrize('bargs', ['test-repo -r /contentdist', None])
+    def test_do_update(self, bargs):
+        if bargs is not None:
+            bargs = bargs.split(" ")
+        bopts = testbOpts()
+        p = testPulp()
+        (flexmock(Pulp)
+            .new_instances(p)
+            .with_args(Pulp, env=bopts.server, config_file=bopts.config_file))
+        if bargs is None:
+            with pytest.raises(SystemExit):
+                cli.do_update(bopts, bargs)
+        else:
+            assert cli.do_update(bopts, bargs) is None

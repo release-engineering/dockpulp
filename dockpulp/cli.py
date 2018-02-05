@@ -344,6 +344,7 @@ def do_create(bopts, bargs, parser):
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     url = None
+    rel_url = None
     productid = None
     prefix_with = '' if opts.noprefix else p.getPrefix()
     if opts.library:
@@ -376,9 +377,13 @@ def do_create(bopts, bargs, parser):
         if not url.rstrip('/').endswith(suffix):
             parser.error('the content-url needs to end with %s' % suffix)
 
+        # rel_url is simply url with leading '/' removed; make sure it is first char
+        assert url.startswith('/')
+        rel_url = url[1:]  # remove leading '/'
+
     p.createRepo(repoid, url, desc=opts.description, title=opts.title, protected=opts.protected,
                  productline=productid, library=opts.library, distribution=opts.distribution,
-                 prefix_with=prefix_with)
+                 prefix_with=prefix_with, rel_url=rel_url)
     log.info('repository created')
 
 
@@ -937,22 +942,24 @@ def do_update(bopts, bargs, parser):
     if len(args) < 1:
         parser.error('You must specify a repo ID (not the docker name)')
     p = pulp_login(bopts)
-    updates = {}
-    if opts.description:
-        updates['description'] = opts.description
-    if opts.dockerid:
-        updates['repo-registry-id'] = opts.dockerid
-    if opts.redirect:
-        updates['redirect-url'] = opts.redirect
-    if opts.title:
-        updates['display_name'] = opts.title
-    if opts.signature:
-        updates['signature'] = opts.signature
-    if opts.distribution:
-        updates['distribution'] = opts.distribution
-    if opts.protected:
-        updates['protected'] = get_bool_from_string(opts.protected)
     for repo in args:
+        updates = {}
+        if opts.description:
+            updates['description'] = opts.description
+        if opts.dockerid:
+            updates['repo-registry-id'] = opts.dockerid
+        if opts.redirect:
+            updates['redirect-url'] = opts.redirect
+            if opts.redirect.find('/content/') != -1:
+                updates['rel-url'] = opts.redirect.find[opts.redirect.find('content/'):]
+        if opts.title:
+            updates['display_name'] = opts.title
+        if opts.signature:
+            updates['signature'] = opts.signature
+        if opts.distribution:
+            updates['distribution'] = opts.distribution
+        if opts.protected:
+            updates['protected'] = get_bool_from_string(opts.protected)
         p.updateRepo(repo, updates)
         log.info('repo successfully updated')
 
