@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.47
+Version:	1.48
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -49,6 +49,32 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Thu Feb 08 2018 Brendan Reilly <breilly@redhat.com> 1.48-1
+- Bumped version for release (breilly@redhat.com)
+- Fixed unit tests, bug with updateRepo (breilly@redhat.com)
+- Initialized rel_url as None in the case of no url being supplied
+  (breilly@redhat.com)
+- Added unit tests (breilly@redhat.com)
+- Added rel-url for docker_rsync_distributor (breilly@redhat.com)
+- Removed unnecessary dictionary (breilly@redhat.com)
+- Made repo to output copy shallow (breilly@redhat.com)
+- Restructured do_list for clarity (breilly@redhat.com)
+- Added caplog to do_list test (breilly@redhat.com)
+- Changed error dict to variable (breilly@redhat.com)
+- Cleaned up do_list code and made variables more clear (breilly@redhat.com)
+- Added unit tests for do_list and confirm (breilly@redhat.com)
+- Fixed 'reachable' to actually reflect reachable content; added return to
+  do_list for unit testing (breilly@redhat.com)
+- Added helper function for error checking in confirm (breilly@redhat.com)
+- Cleaning up unneeded dictionary key (breilly@redhat.com)
+- Silent confirm now reports number of failing repos (breilly@redhat.com)
+- Added confirmation of mediatype (breilly@redhat.com)
+- Fixed grouping issue with manifest list (breilly@redhat.com)
+- Made manifest list output an option (breilly@redhat.com)
+- Added support for listing and confirming manifest lists (breilly@redhat.com)
+- Automatic commit of package [dockpulp] release [1.47-1]. (breilly@redhat.com)
+- bumping version for release (breilly@redhat.com)
+
 * Fri Dec 01 2017 Brendan Reilly <breilly@redhat.com> 1.47-1
 - bumping version for release (breilly@redhat.com)
 - install specific versions of test package to avoid test package update breaks
