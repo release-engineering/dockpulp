@@ -37,9 +37,9 @@ class testPulp(object):
     def isRedirect():
         return
 
-    def createRepo(self, arg1, arg2, desc=None, title=None,
-                   protected=None, productline=None, library=None,
-                   distribution=None, prefix_with=None, rel_url=None):
+    def createRepo(self, arg1, arg2, desc=None, title=None, protected=None, productline=None,
+                   library=None, distribution=None, prefix_with=None, rel_url=None,
+                   download=None):
         return
 
     def getAncestors(self, arg):
@@ -225,9 +225,10 @@ class TestCLI(object):
 
     @pytest.mark.parametrize('lib', [True, False])
     @pytest.mark.parametrize('noprefix', [True, False])
+    @pytest.mark.parametrize('download', ["true", "False"])
     @pytest.mark.parametrize('args', ['1 2 3', '1 2',
                                       'test /content/test', 'foo bar /content/foo/bar'])
-    def test_do_create(self, args, lib, noprefix):
+    def test_do_create(self, args, lib, noprefix, download):
         bopts = testbOpts()
         p = testPulp()
         (flexmock(Pulp)
@@ -240,6 +241,8 @@ class TestCLI(object):
             bargs.append('-l')
         if noprefix:
             bargs.append('--noprefix')
+        bargs.append('--download')
+        bargs.append(download)
         flexmock(testPulp)
         if not noprefix:
             (testPulp
@@ -249,12 +252,13 @@ class TestCLI(object):
         (testPulp
             .should_receive('isRedirect')
             .and_return(True))
-        if not lib and noprefix and args[-1].startswith('/content') and args[0] == 'foo':
+        if not lib and noprefix and download == "true" and args[-1].startswith('/content') \
+           and args[0] == 'foo':
             (testPulp
                 .should_receive('createRepo')
                 .with_args('foo-bar', '/content/foo/bar', library=lib, protected=False, title=None,
                            productline='foo', distribution=None, desc="No description",
-                           prefix_with='', rel_url='content/foo/bar')
+                           prefix_with='', rel_url='content/foo/bar', download=True)
                 .and_return(None))
         else:
             (testPulp
@@ -326,7 +330,8 @@ class TestCLI(object):
                                                  'v1labels': 'testv1labels'}},
                   'manifest_lists': {'testmanifestlist': {'mdigests': ['testmanifest'],
                                                           'tags': ['testtag']}},
-                  'tags': {'testtag': 'testmanifest'}}]
+                  'tags': {'testtag': 'testmanifest'},
+                  'include_in_download_service': "True"}]
 
         (flexmock(testPulp)
             .should_receive('listRepos')
@@ -353,7 +358,7 @@ class TestCLI(object):
 
         assert cli._print_manifest_metadata(output, manifest, True) == tag
 
-    @pytest.mark.parametrize('bargs', ['test-repo -r /contentdist', None])
+    @pytest.mark.parametrize('bargs', ['test-repo -r /contentdist --download True', None])
     def test_do_update(self, bargs):
         if bargs is not None:
             bargs = bargs.split(" ")
