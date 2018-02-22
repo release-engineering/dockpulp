@@ -1155,7 +1155,8 @@ class Pulp(object):
 
     def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None, protected=False,
                    distributors=True, prefix_with=PREFIX, productline=None, library=False,
-                   distribution=None, repotype=None, importer_type_id=None, rel_url=None):
+                   distribution=None, repotype=None, importer_type_id=None, rel_url=None,
+                   download=None):
         """Create a docker repository in pulp.
 
         id and description are required
@@ -1207,6 +1208,10 @@ class Pulp(object):
         }
         if rel_url:
             stuff['notes']['relative_url'] = rel_url
+        if download is not None:
+            # field only accepts "True"/"False", need to convert bool to str
+            stuff['notes']['include_in_download_service'] = str(download)
+
         if distribution:
             try:
                 distconf = self.distributionconf[distribution]
@@ -1558,6 +1563,11 @@ class Pulp(object):
                 r['distribution'] = blob['notes']['distribution']
             except KeyError:
                 log.debug("no distribution for repo-id %s", r['id'])
+
+            try:
+                r['include_in_download_service'] = blob['notes']['include_in_download_service']
+            except KeyError:
+                log.debug("no 'include_in_download_service' for repo-id %s", r['id'])
 
             if content or history:
                 # Fetch all content in a single request
@@ -1985,7 +1995,7 @@ class Pulp(object):
             delta['distributor_configs'][distributorkey] = {}
         # we intentionally ignore everything else
         valid = ('redirect-url', 'protected', 'repo-registry-id', 'description', 'display_name',
-                 'tag', 'signature', 'distribution', 'rel-url')
+                 'tag', 'signature', 'distribution', 'rel-url', 'download')
         for u in update.keys():
             if u not in valid:
                 log.warning('ignoring %s, not sure how to update' % u)
@@ -2014,7 +2024,7 @@ class Pulp(object):
                                                    'http://example/url or https://example/url')
                 for distributorkey in delta['distributor_configs']:
                     delta['distributor_configs'][distributorkey][key] = update[key]
-        if 'signature' in update or 'distribution' in update:
+        if 'signature' in update or 'distribution' in update or 'download' in update:
             delta['delta']['notes'] = {}
         if 'signature' in update:
             sig = self.getSignature(update['signature'])
@@ -2025,6 +2035,9 @@ class Pulp(object):
             if 'signature' not in update and sig != "":
                 sig = self.getSignature(sig)
                 delta['delta']['notes']['signatures'] = sig
+        if 'download' in update:
+            # field only accepts "True"/"False", need to convert bool to str
+            delta['delta']['notes']['include_in_download_service'] = str(update['download'])
         for distributorid, distributortype in distributorkeys:
             config = {}
             if distributortype == rsyncdist and 'rel-url' in update:

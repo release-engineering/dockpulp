@@ -337,6 +337,8 @@ def do_create(bopts, bargs, parser):
                       default=False, action='store_true')
     parser.add_option('-t', '--title', help='set the title for the repo')
     parser.add_option('--distribution', help='set the distribution field for the repo')
+    parser.add_option('--download', help='set the include_in_download_service bit. '
+                      'Accepts (t, true, True) for True, (f, false, False) for False. ')
     parser.add_option('-p', '--protected', help='set the protected bit to true for the repo',
                       default=False, action='store_true')
     parser.add_option('--noprefix', help='do not add prefix to the repo id', default=False,
@@ -347,6 +349,10 @@ def do_create(bopts, bargs, parser):
     rel_url = None
     productid = None
     prefix_with = '' if opts.noprefix else p.getPrefix()
+    if opts.download:
+        download = get_bool_from_string(opts.download)
+    else:
+        download = None
     if opts.library:
         if len(args) != 2 and p.isRedirect():
             parser.error('You need a name for a library-level repo and a content-url')
@@ -383,7 +389,7 @@ def do_create(bopts, bargs, parser):
 
     p.createRepo(repoid, url, desc=opts.description, title=opts.title, protected=opts.protected,
                  productline=productid, library=opts.library, distribution=opts.distribution,
-                 prefix_with=prefix_with, rel_url=rel_url)
+                 prefix_with=prefix_with, rel_url=rel_url, download=download)
     log.info('repository created')
 
 
@@ -935,6 +941,8 @@ def do_update(bopts, bargs, parser):
     parser.add_option('-t', '--title', help='set the title (short desc)')
     parser.add_option('-s', '--signature', help='set the signatures field for the repo')
     parser.add_option('--distribution', help='set the distribution field for the repo')
+    parser.add_option('--download', help='set the include_in_download_service field for the repo. '
+                      'Accepts (t, true, True) for True, (f, false, False) for False')
     parser.add_option('-p', '--protected',
                       help='set the protected bit. Accepts (t, true, True) for True, '
                            '(f, false, False) for False')
@@ -958,6 +966,8 @@ def do_update(bopts, bargs, parser):
             updates['signature'] = opts.signature
         if opts.distribution:
             updates['distribution'] = opts.distribution
+        if opts.download:
+            updates['download'] = get_bool_from_string(opts.download)
         if opts.protected:
             updates['protected'] = get_bool_from_string(opts.protected)
         p.updateRepo(repo, updates)

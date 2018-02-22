@@ -322,13 +322,18 @@ class TestPulp(object):
         ('test-repo', 'https://www.example.com/url/foo/bar')
     ])
     @pytest.mark.parametrize('dist', [None, 'beta'])
-    def test_updateRedirect(self, pulp, rid, redirect, dist):
+    @pytest.mark.parametrize('download', [True, False, None])
+    def test_updateRedirect(self, pulp, rid, redirect, dist, download):
         update = {'redirect-url': redirect, 'rel-url': 'content/'}
         blob = [{'distributor_type_id': 'testdist', 'id': 'test'},
                 {'distributor_type_id': 'docker_rsync_distributor', 'id': 'rsync_test'}]
         t = {'state': 'finished'}
         if dist:
+            update.setdefault('notes', {})
             update['notes'] = {'distribution': dist}
+        if download is not None:
+            update.setdefault('notes', {})
+            update['notes']['include_in_download_service'] = download
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
             .should_receive('__call__')
@@ -399,8 +404,9 @@ class TestPulp(object):
         assert response[0]['sigstore'][0] == 'testname'
 
     def test_listSchema2(self, pulp):
-        blob = {'notes': {'_repo-type': 'docker-repo'}, 'id': 'testid', 'description': 'testdesc',
-                'display_name': 'testdisp', 'distributors': [], 'scratchpad': {}}
+        blob = {'notes': {'_repo-type': 'docker-repo', 'include_in_download_service': 'False'},
+                'id': 'testid', 'description': 'testdesc', 'display_name': 'testdisp',
+                'distributors': [], 'scratchpad': {}}
         units = [{'unit_type_id': 'docker_manifest',
                   'metadata': {'fs_layers': [{'blob_sum': 'test_layer'}], 'digest': 'testdig',
                                'tag': 'testtag', 'config_layer': 'test_config',
@@ -416,6 +422,7 @@ class TestPulp(object):
         assert response[0]['manifests']['testdig']['config'] == 'test_config'
         assert response[0]['manifests']['testdig']['layers'][0] == 'test_layer'
         assert response[0]['manifests']['testdig']['schema_version'] == 2
+        assert response[0]['include_in_download_service'] == 'False'
 
     @pytest.mark.parametrize('repo, image', [('testrepo', 'testimg')])
     def test_checkLayers(self, pulp, repo, image):
@@ -542,9 +549,11 @@ class TestPulp(object):
     @pytest.mark.parametrize('registry_id', [None, 'foo/bar'])
     @pytest.mark.parametrize('distributors', [True, False])
     @pytest.mark.parametrize('library', [True, False])
-    @pytest.mark.parametrize('distribution', ['beta', 'test', None])
+    # making repo notes dependent to reduce complexity
+    @pytest.mark.parametrize('distribution, download', [('beta', True), ('test', False),
+                                                        (None, None)])
     def test_createRepo(self, pulp, repo_id, url, registry_id, distributors, productline,
-                        library, distribution, repotype, importer_type_id, rel_url):
+                        library, distribution, repotype, importer_type_id, rel_url, download):
         if distribution == 'test':
             if (url != '/content/test/foo-test/bar' and url is not None) or \
                ((productline is not None or library) and productline != 'foo-test'):
@@ -552,21 +561,24 @@ class TestPulp(object):
                     pulp.createRepo(repo_id=repo_id, url=url, registry_id=registry_id,
                                     distributors=distributors, productline=productline,
                                     library=library, distribution=distribution, repotype=repotype,
-                                    importer_type_id=importer_type_id, rel_url=rel_url)
+                                    importer_type_id=importer_type_id, rel_url=rel_url,
+                                    download=download)
                 return
         if distribution == 'beta' and productline and productline.endswith('test'):
             with pytest.raises(errors.DockPulpError):
                 pulp.createRepo(repo_id=repo_id, url=url, registry_id=registry_id,
                                 distributors=distributors, productline=productline,
                                 library=library, distribution=distribution, repotype=repotype,
-                                importer_type_id=importer_type_id, rel_url=rel_url)
+                                importer_type_id=importer_type_id, rel_url=rel_url,
+                                download=download)
             return
         if not registry_id and (repo_id == 'tags' or productline == 'blobs'):
             with pytest.raises(errors.DockPulpError):
                 pulp.createRepo(repo_id=repo_id, url=url, registry_id=registry_id,
                                 distributors=distributors, productline=productline,
                                 library=library, distribution=distribution, repotype=repotype,
-                                importer_type_id=importer_type_id, rel_url=rel_url)
+                                importer_type_id=importer_type_id, rel_url=rel_url,
+                                download=download)
             return
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
@@ -576,7 +588,8 @@ class TestPulp(object):
         response = pulp.createRepo(repo_id=repo_id, url=url, registry_id=registry_id,
                                    distributors=distributors, productline=productline,
                                    library=library, distribution=distribution, repotype=repotype,
-                                   importer_type_id=importer_type_id, rel_url=rel_url)
+                                   importer_type_id=importer_type_id, rel_url=rel_url,
+                                   download=download)
         if not repo_id.startswith(pulp.getPrefix()):
             repo_id = pulp.getPrefix() + repo_id
         if registry_id is None:
@@ -611,6 +624,11 @@ class TestPulp(object):
                 for distributor in response['distributors']:
                     if distributor['distributor_type_id'] == 'docker_rsync_distributor':
                         assert distributor['distributor_config']['repo_relative_path'] == rel_url
+        if download is not None:
+            if download:
+                assert response['notes']['include_in_download_service'] == "True"
+            else:
+                assert response['notes']['include_in_download_service'] == "False"
 
     def test_disassociate(self, pulp):
         repo = 'testrepo'
