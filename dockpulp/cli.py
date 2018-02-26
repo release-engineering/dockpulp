@@ -843,16 +843,26 @@ def do_sync(bopts, bargs, parser):
     parser.add_option('-p', '--password', help='specify a password')
     parser.add_option('-u', '--username', help='specify a username')
     parser.add_option('--upstream', help='specify an upstream name docker id to sync from')
+    parser.add_option('--feed', help='specify an upstream feed url to sync from')
+    parser.add_option('-s', '--sslvalidation', help='Use SSL validation', default=False,
+                      action='store_true',)
     opts, args = parser.parse_args(bargs)
-    if len(args) < 2:
+    if len(args) < 2 and opts.feed is None:
         parser.error('You must provide an environment to sync from and a repo id')
+    elif len(args) < 1:
+        parser.error('You must provide a repo id')
     p = pulp_login(bopts)
-    env = args[0]
-    repo = args[1]
+    if opts.feed:
+        env = None
+        repo = args[0]
+    else:
+        env = args[0]
+        repo = args[1]
 
-    imgs, manifests, manifest_lists = p.syncRepo(env, repo, bopts.config_file,
+    imgs, manifests, manifest_lists = p.syncRepo(env, repo, bopts.config_file, feed=opts.feed,
                                                  basic_auth_username=opts.username,
                                                  basic_auth_password=opts.password,
+                                                 ssl_validation=opts.sslvalidation,
                                                  upstream_name=opts.upstream)
 
     log.info(repo)
