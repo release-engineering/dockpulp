@@ -959,7 +959,7 @@ def do_update(bopts, bargs, parser):
         if opts.redirect:
             updates['redirect-url'] = opts.redirect
             if opts.redirect.find('/content/') != -1:
-                updates['rel-url'] = opts.redirect.find[opts.redirect.find('content/'):]
+                updates['rel-url'] = opts.redirect[opts.redirect.find('content/'):]
         if opts.title:
             updates['display_name'] = opts.title
         if opts.signature:
