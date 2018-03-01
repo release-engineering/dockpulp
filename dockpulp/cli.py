@@ -588,12 +588,12 @@ def _print_manifest_metadata(output, manifest, show_schema):
         log.info('  Manifest: %s  Tag: %s%s', manifest, tag, is_active)
         if is_active:
             tagoutput = tag
-        config = output[manifest]['config']
-        if config:
-            log.info('    Config Layer: %s', config)
-        sv = output[manifest]['schema_version']
-        if show_schema and sv:
-            log.info('    Schema Version: %s', sv)
+    config = output[manifest]['config']
+    if config:
+        log.info('    Config Layer: %s', config)
+    sv = output[manifest]['schema_version']
+    if show_schema and sv:
+        log.info('    Schema Version: %s', sv)
     # tagoutput is later used to apply appropriate tags to v1 history metadata
     return tagoutput
 
