@@ -69,6 +69,9 @@ class testPulp(object):
     def emptyRepo(self, arg1):
         return
 
+    def getTask(self, tids):
+        return
+
 
 # tests
 class TestCLI(object):
@@ -344,6 +347,39 @@ class TestCLI(object):
             output = caplog.text()
             jsontext = output[output.find('['):]
             assert json.loads(jsontext) == repos
+        else:
+            assert response is None
+
+    @pytest.mark.parametrize('silent', [True, False])
+    @pytest.mark.parametrize('num_tasks', (1, 2, 30))
+    def test_do_task(self, caplog, silent, num_tasks):
+        task_ids = list('abc%d' % x for x in range(num_tasks))
+        bopts = testbOpts()
+        bargs = list(task_ids)  # Make copy to avoid unwanted side effects
+        if silent:
+            bargs.append('--silent')
+        p = testPulp()
+        (flexmock(Pulp)
+            .new_instances(p)
+            .with_args(Pulp, env=bopts.server, config_file=bopts.config_file))
+
+        tasks = []
+        for task_id in task_ids:
+            taskinfo = {'task_id': task_id}
+
+            tasks.append(taskinfo)
+
+            (flexmock(testPulp)
+                .should_receive('getTask')
+                .with_args(task_id)
+                .and_return(taskinfo))
+
+        caplog.setLevel(logging.INFO, logger="dockpulp")
+        response = cli.do_task(bopts, bargs)
+        if silent:
+            output = caplog.text()
+            jsontext = output[output.find('['):]
+            assert json.loads(jsontext) == tasks
         else:
             assert response is None
 

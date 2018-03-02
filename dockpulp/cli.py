@@ -912,12 +912,26 @@ def do_task(bopts, bargs, parser):
 
     dock-pulp task [options] task-id [task-id...]
     """
+    parser.add_option('-s', '--silent', default=False, action='store_true',
+                      help='return a json object of the tasks, no other output')
     opts, args = parser.parse_args(bargs)
+
+    if opts.silent:
+        log.removeHandler(sh)
+        log.addHandler(dockpulp.NullHandler())
+
     if len(args) < 1:
         parser.error('You must provide a task ID')
     p = pulp_login(bopts)
-    for task in args:
-        taskinfo = p.getTask(task)
+
+    tasks_info = [p.getTask(task) for task in args]
+
+    if opts.silent:
+        log.addHandler(silent)
+        log.info(json.dumps(tasks_info))
+        return
+
+    for taskinfo in tasks_info:
         log.info(taskinfo['task_id'])
         log.info('-' * 36)
         for field in ('state', 'error', 'task_type', 'queue', 'start_time',
