@@ -1699,11 +1699,21 @@ class Pulp(object):
                         clean.sort()
                         continue
                     for manifest in r['manifests'].keys():
-                        try:
-                            data = self._get('/pulp/docker/v2/%s/manifests/%s' % (
-                                blob['id'], manifest))
-                        except errors.DockPulpError:
-                            log.warning("Manifest unreachable, skipping %s", manifest)
+                        manifestpaths = [manifest]
+                        sver = r['manifests'][manifest].get('schema_version', None)
+                        if sver:
+                            # Try new path first, then fall back to old path
+                            manifestpaths.insert(0, '%s/%s' % (sver, manifest))
+                        for manifestpath in manifestpaths:
+                            try:
+                                data = self._get('/pulp/docker/v2/%s/manifests/%s' % (
+                                    blob['id'], manifestpath))
+                                break
+                            except errors.DockPulpError:
+                                pass
+                        else:
+                            log.warning("Manifest history info unreachable, skipping %s",
+                                        manifest)
                             r['manifests'][manifest]['v1parent'] = None
                             r['manifests'][manifest]['v1id'] = None
                             r['manifests'][manifest]['v1labels'] = None
