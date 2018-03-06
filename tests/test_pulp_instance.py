@@ -375,11 +375,42 @@ class TestPulp(object):
         v1Compatibility = {'parent': 'testparent', 'id': 'testid',
                            'config': {'Labels': {'testlab1': 'testlab2'}}}
         data = {'history': [{'v1Compatibility': json.dumps(v1Compatibility)}]}
+        params = {'details': True}
+        unitdata = {
+            'criteria': {
+                'type_ids': ['docker_image', 'docker_manifest', 'docker_blob', 'docker_tag',
+                             'docker_manifest_list', 'iso'],
+                'filters': {
+                    'unit': {}
+                }
+            }
+        }
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
             .should_receive('__call__')
-            .and_return(blob, units, labels, data)
-            .one_by_one())
+            .with_args('get', '/pulp/api/v2/repositories/test-repo/', params=params)
+            .and_return(blob)
+            .once()
+            .ordered())
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .with_args('post', '/pulp/api/v2/repositories/testid/search/units/',
+                       data=json.dumps(unitdata))
+            .and_return(units)
+            .once()
+            .ordered())
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .with_args('get', '/pulp/docker/v1/testid/v1idtest/json')
+            .and_return(labels)
+            .once()
+            .ordered())
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .with_args('get', '/pulp/docker/v2/testid/manifests/1/testdig')
+            .once()
+            .and_return(data)
+            .ordered())
         history = pulp.listRepos(repos, content, history, label)
         for key in history[0]['manifests']:
             assert history[0]['manifests'][key]['v1parent'] == v1Compatibility['parent']
