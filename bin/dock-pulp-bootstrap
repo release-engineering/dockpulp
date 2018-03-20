@@ -60,7 +60,7 @@ def create_everything(dpo):
                        '/content/this/does/not/matter',
                        desc='hidden repository for RCM use that contains everything',
                        title='RCM Hidden repository',
-                       distributors=False)
+                       distributors=False, is_origin=True)
     # remove distributors from the hidden repository so it is never published
 
 
@@ -79,7 +79,8 @@ def create_sigstore(dpo):
                        distributors=False,
                        repotype="iso-repo",
                        importer_type_id="iso_importer",
-                       rel_url='/content/sigstore')
+                       rel_url='/content/sigstore',
+                       is_origin=True)
         # add iso distributors to the sigstore repo
         type_id = 'cdn_distributor'
         # used for 2.14 distributor switchover

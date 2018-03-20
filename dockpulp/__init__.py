@@ -67,6 +67,7 @@ DEFAULT_CONFIG_FILE = '/etc/dockpulp.conf'
 DEFAULT_DISTRIBUTORS_FILE = '/etc/dockpulpdistributors.json'
 DEFAULT_DISTRIBUTIONS_FILE = '/etc/dockpulpdistributions.json'
 PREFIX = 'redhat-'
+ORIGIN_PREFIX = 'origin-'
 
 
 # Setup our logger
@@ -965,6 +966,27 @@ class Pulp(object):
             new_repos.append(new_repo_key)
         return new_repos
 
+    def _find_content_source(self, content_id, content_filter, content_types):
+        # content_filter: 'digest' or 'image_id'
+        # content_types: [V2_C_TYPE, V2_LIST, V2_BLOB] or [V1_C_TYPE]
+
+        search_data = json.dumps({
+            'criteria': {
+                'filters': {
+                    content_filter: content_id
+                },
+            },
+            'include_repos': True
+        })
+        for content_type in content_types:
+            result = self._post('/pulp/api/v2/content/units/%s/search/' % content_type,
+                                data=search_data)
+            if result:
+                source = result[0]['repository_memberships'][0]
+                return source
+
+        raise errors.DockPulpError('Image cannot be found in Pulp: %s' % content_id)
+
     # public methods start here, alphabetically
 
     def associate(self, dist_id, repo, type_id=None):
@@ -1040,14 +1062,17 @@ class Pulp(object):
         for upload in uploads:
             self._deleteUploadRequest(upload)
 
-    def copy(self, drepo, img, source=HIDDEN):
+    def copy(self, drepo, img, source=None):
         """Copy an image from one repo to another."""
         if img.startswith("sha256:"):
+            content_types = [V2_C_TYPE, V2_LIST, V2_BLOB]
+            if source is None:
+                source = self._find_content_source(img, 'digest', content_types)
 
             data = {
                 'source_repo_id': source,
                 'criteria': {
-                    'type_ids': [V2_C_TYPE, V2_BLOB, V2_TAG, V2_LIST],
+                    'type_ids': content_types,
                     'filters': {
                         'unit': {
                             "$or": [{'digest': img}, {'manifest_digest': img}]
@@ -1058,11 +1083,14 @@ class Pulp(object):
             }
 
         else:
+            content_types = [V1_C_TYPE]
+            if source is None:
+                source = self._find_content_source(img, 'image_id', content_types)
 
             data = {
                 'source_repo_id': source,
                 'criteria': {
-                    'type_ids': [V1_C_TYPE],
+                    'type_ids': content_types,
                     'filters': {
                         'unit': {
                             'image_id': img
@@ -1153,10 +1181,20 @@ class Pulp(object):
         else:
             return tasks
 
+    def createOriginRepo(self, repo_id):
+        if not repo_id.startswith(ORIGIN_PREFIX):
+            repo_id = ORIGIN_PREFIX + repo_id
+        try:
+            self.listRepos(repos=[repo_id])
+        except errors.DockPulpError:
+            # only create origin repo if it does not exist
+            self.createRepo(repo_id, None, distributors=False, prefix_with=ORIGIN_PREFIX,
+                            is_origin=True)
+
     def createRepo(self, repo_id, url, registry_id=None, desc=None, title=None, protected=False,
                    distributors=True, prefix_with=PREFIX, productline=None, library=False,
                    distribution=None, repotype=None, importer_type_id=None, rel_url=None,
-                   download=None):
+                   download=None, is_origin=False):
         """Create a docker repository in pulp.
 
         id and description are required
@@ -1246,7 +1284,7 @@ class Pulp(object):
                 sig = self.getSignature(distconf['signature'])
                 stuff['notes']['signatures'] = sig
             stuff['notes']['distribution'] = distribution
-        elif self.dists and repo_id != HIDDEN and repo_id != SIGSTORE:
+        elif self.dists and repo_id != HIDDEN and repo_id != SIGSTORE and not is_origin:
             raise errors.DockPulpError("Env %s requires distribution defined at repo creation" %
                                        self.env)
         if repotype:
@@ -1294,6 +1332,12 @@ class Pulp(object):
                     continue
         else:
             stuff['distributors'] = []
+
+        if not is_origin and repo_id != HIDDEN and repo_id != SIGSTORE:
+            # want to create origin- repo for every new repo
+            # do this at the end in case of errors
+            self.createOriginRepo(repo_id)
+
         log.debug('data sent in request:')
         log.debug(pprint.pformat(stuff))
         self._post('/pulp/api/v2/repositories/', data=json.dumps(stuff))
@@ -1354,16 +1398,15 @@ class Pulp(object):
         repos.remove(HIDDEN)  # remove the RCM-internal repository
         return repos
 
-    def getAncestors(self, iid, parents=[]):
+    def getAncestors(self, iid, parents=None):
         """Return the list of layers (ancestors) of a given image."""
         # a rest call is made per parent, which impacts performance greatly
+        if parents is None:
+            parents = []
         data = {
             'criteria': {
-                'type_ids': [V1_C_TYPE],
                 'filters': {
-                    'unit': {
-                        'image_id': iid
-                    }
+                    'image_id': iid
                 },
                 'limit': 1,
             },
@@ -1371,14 +1414,13 @@ class Pulp(object):
         log.debug('search request:')
         log.debug(json.dumps(data))
         try:
-            img = self._post('/pulp/api/v2/repositories/%s/search/units/' % HIDDEN,
+            img = self._post('/pulp/api/v2/content/units/%s/search/' % V1_C_TYPE,
                              data=json.dumps(data))[0]
         except IndexError:
             log.info('missing parent layer %s', iid)
             log.info('skipping layer')
             return parents
-        img['metadata'].setdefault('parent_id', None)
-        par = img['metadata']['parent_id']
+        par = img.setdefault('parent_id', None)
         if par is not None:
             parents.append(par)
             return self.getAncestors(par, parents=parents)
@@ -1394,23 +1436,24 @@ class Pulp(object):
         """Return a list of layers already uploaded to the server."""
         data = json.dumps({
             'criteria': {
-                'type_ids': [V1_C_TYPE],
                 'filters': {
-                    'unit': {
-                        'image_id': {"$in": iids}
-                    }
+                    'image_id': {"$in": iids}
                 },
             },
         })
         log.debug('checking imageids %s', ', '.join(iids))
         log.debug(data)
-        result = self._post('/pulp/api/v2/repositories/%s/search/units/' % HIDDEN, data=data)
+        result = self._post('/pulp/api/v2/content/units/%s/search/' % V1_C_TYPE, data=data)
         log.debug(result)
-        return [c['metadata']['image_id'] for c in result]
+        return [c['image_id'] for c in result]
 
     def getPrefix(self):
         """Return repository prefix."""
         return PREFIX
+
+    def getOriginPrefix(self):
+        """Return origin repository prefix."""
+        return ORIGIN_PREFIX
 
     def getPulpVersion(self):
         """Get version of host Pulp."""
@@ -1903,11 +1946,13 @@ class Pulp(object):
         log.setLevel(logging.DEBUG)
 
     def syncRepo(self, env=None, repo=None, config_file=DEFAULT_CONFIG_FILE,
-                 prefix_with=PREFIX, feed=None, basic_auth_username=None,
-                 basic_auth_password=None, ssl_validation=None, upstream_name=None):
+                 prefix_with=PREFIX, origin_prefix=ORIGIN_PREFIX, feed=None,
+                 basic_auth_username=None, basic_auth_password=None, ssl_validation=None,
+                 upstream_name=None):
         """Sync repo."""
         if not repo.startswith(prefix_with):
             repo = prefix_with + repo
+        origin_repo = origin_prefix + repo
 
         repoinfo = self.listRepos(repo, True)
         if not upstream_name:
@@ -1943,39 +1988,32 @@ class Pulp(object):
 
         repoinfo = repoinfo[0]
 
-        if len(repoinfo['images'].keys()) == 0:
-            oldimgs = []
-        else:
-            oldimgs = repoinfo['images'].keys()
-
-        if len(repoinfo['manifests'].keys()) == 0:
-            oldmanifests = []
-        else:
-            oldmanifests = repoinfo['manifests'].keys()
+        oldimgs = set(repoinfo['images'])
+        oldmanifests = set(repoinfo['manifests'])
+        oldmanifestlists = set(repoinfo['manifest_lists'])
 
         repoinfo = self.listRepos(repo, True)
         repoinfo = repoinfo[0]
 
-        newimgs = repoinfo['images'].keys()
-        imgs = list(set(newimgs) - set(oldimgs))
+        newimgs = set(repoinfo['images'])
+        imgs = list(newimgs - oldimgs)
         imgs.sort()
 
-        newmanifests = repoinfo['manifests'].keys()
-        manifests = list(set(newmanifests) - set(oldmanifests))
+        newmanifests = set(repoinfo['manifests'])
+        manifests = list(newmanifests - oldmanifests)
         manifests.sort()
 
-        # Need to maintain HIDDEN
-        if repo != HIDDEN and (imgs or manifests):
-            pulp_filter = {'unit': {}}
-            units = []
-            for img in imgs:
-                units.append({'image_id': img})
-            for manifest in manifests:
-                units.append({'digest': manifest})
-            pulp_filter['unit']['$or'] = units
-            self.copy_filters(HIDDEN, repo, pulp_filter)
+        newmanifestlists = set(repoinfo['manifest_lists'])
+        manifest_lists = list(newmanifestlists - oldmanifestlists)
+        manifest_lists.sort()
 
-        return (imgs, manifests)
+        # Need to maintain origin repo
+        self.createOriginRepo(origin_repo)
+
+        # copy with no filter. Pulp will handle already copied units automatically
+        self.copy_filters(origin_repo, repo)
+
+        return (imgs, manifests, manifest_lists)
 
     def updateRepo(self, rid, update):
         """Update metadata on a repository.
@@ -2085,13 +2123,15 @@ class Pulp(object):
             self.watch(tid)
         return tid
 
-    def upload(self, image):
+    def upload(self, image, drepo=HIDDEN):
         """
         Upload an image to pulp. This does not associate it with any repository.
 
         :param image: str, pathname
         """
         # TODO: support a hidden repo for "no-channel" style uploads
+        metadata = imgutils.get_metadata(image)
+        newimgs = imgutils.get_metadata_pulp(metadata).keys()
         rid = self._createUploadRequest()
         size = int(os.path.getsize(image))
         curr = 0
@@ -2127,15 +2167,25 @@ class Pulp(object):
                 'filename': os.path.basename(image)
             }
         }
-        log.info('adding %s to %s' % (iid, HIDDEN))
+        if drepo != HIDDEN and not drepo.startswith(ORIGIN_PREFIX):
+            origin_drepo = ORIGIN_PREFIX + drepo
+        else:
+            origin_drepo = drepo
+        if drepo != HIDDEN:
+            self.createOriginRepo(drepo)
+        log.info('adding %s to %s' % (iid, origin_drepo))
         log.debug('repo import request data:')
         log.debug(pprint.pformat(data))
         tid = self._post(
-            '/pulp/api/v2/repositories/%s/actions/import_upload/' % HIDDEN,
+            '/pulp/api/v2/repositories/%s/actions/import_upload/' % origin_drepo,
             data=json.dumps(data))
         timer = max(self.timeout, (size / mb) * 2)  # wait 2 seconds per megabyte, or timeout,
         self.watch(tid, timeout=timer)  # whichever is greater
         self._deleteUploadRequest(rid)
+        # use filter to copy all new images
+        pulp_filter = {'unit': {
+            '$or': [{'image_id': img} for img in newimgs]}}
+        self.copy_filters(drepo, source=origin_drepo, filters=pulp_filter, v1=True, v2=False)
 
     def watch(self, tid, timeout=None, poll=5):
         """Watch a task ID and return when it finishes or fails."""
