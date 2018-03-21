@@ -1418,7 +1418,7 @@ class Pulp(object):
         log.debug(response)
         return response['versions']['platform_version']
 
-    def getRepos(self, rids, fields=None):
+    def getRepos(self, rids, fields=None, distributors=False):
         """Return list of repo objects with given IDs."""
         data = {
             "criteria": {
@@ -1430,6 +1430,9 @@ class Pulp(object):
 
         if fields:
             data["fields"] = fields
+
+        if distributors:
+            data["distributors"] = distributors
 
         log.debug('getting repositories %s', ', '.join(rids))
         return self._post('/pulp/api/v2/repositories/search/',
@@ -2005,7 +2008,7 @@ class Pulp(object):
             delta['distributor_configs'][distributorkey] = {}
         # we intentionally ignore everything else
         valid = ('redirect-url', 'protected', 'repo-registry-id', 'description', 'display_name',
-                 'tag', 'signature', 'distribution', 'rel-url', 'download')
+                 'tag', 'signature', 'distribution', 'rel-url', 'auto_publish', 'download')
         for u in update.keys():
             if u not in valid:
                 log.warning('ignoring %s, not sure how to update' % u)
@@ -2060,6 +2063,27 @@ class Pulp(object):
         tid = self._put('/pulp/api/v2/repositories/%s/' % rid,
                         data=json.dumps(delta))
         self.watch(tid)
+
+        if 'auto_publish' in update:
+            dist_tids = []
+            for did in blob:
+                dist_tids.append(self.updateAutoPublish(rid, did['id'],
+                                                        update['auto_publish'], watch=False))
+            for dtid in dist_tids:
+                self.watch(dtid)
+
+    def updateAutoPublish(self, rid, dist_id, auto_publish, watch=True):
+        if auto_publish not in [True, False]:
+            raise ValueError('Invalid value for auto_publish')
+        d = {
+            "distributor_config": {},
+            "delta": {
+                "auto_publish": auto_publish}}
+        tid = self._put('/pulp/api/v2/repositories/%s/distributors/%s/' % (rid, dist_id),
+                        data=json.dumps(d))
+        if watch:
+            self.watch(tid)
+        return tid
 
     def upload(self, image):
         """

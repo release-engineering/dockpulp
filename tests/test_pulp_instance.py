@@ -323,11 +323,13 @@ class TestPulp(object):
     ])
     @pytest.mark.parametrize('dist', [None, 'beta'])
     @pytest.mark.parametrize('download', [True, False, None])
-    def test_updateRedirect(self, pulp, rid, redirect, dist, download):
-        update = {'redirect-url': redirect, 'rel-url': 'content/'}
+    @pytest.mark.parametrize('auto_publish', [True, False])
+    def test_updateRedirect(self, pulp, rid, redirect, dist, download, auto_publish):
+        update = {'redirect-url': redirect, 'rel-url': 'content/', 'auto_publish': auto_publish}
         blob = [{'distributor_type_id': 'testdist', 'id': 'test'},
                 {'distributor_type_id': 'docker_rsync_distributor', 'id': 'rsync_test'}]
         t = {'state': 'finished'}
+
         if dist:
             update.setdefault('notes', {})
             update['notes'] = {'distribution': dist}
@@ -337,7 +339,7 @@ class TestPulp(object):
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
             .should_receive('__call__')
-            .and_return(blob, '111', t)
+            .and_return(blob, '111', t, '123', '124', t, t)
             .one_by_one())
         assert pulp.updateRepo(rid, update) is None
 
@@ -358,6 +360,22 @@ class TestPulp(object):
             .and_return(blob, '111', t)
             .one_by_one())
         with pytest.raises(errors.DockPulpError):
+            pulp.updateRepo(rid, update)
+
+    @pytest.mark.parametrize('auto_publish', ['horse', None])
+    def test_updateAutoPublishFail(self, pulp, auto_publish):
+        rid = 'test-repo'
+        update = {'auto_publish': auto_publish}
+        blob = []
+        did = {'distributor_type_id': 'testdist', 'id': 'test'}
+        t = {'state': 'finished'}
+        blob.append(did)
+        flexmock(RequestsHttpCaller)
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .and_return(blob, '111', t)
+            .one_by_one())
+        with pytest.raises(ValueError):
             pulp.updateRepo(rid, update)
 
     @pytest.mark.parametrize('repos, content, history, label', [

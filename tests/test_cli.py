@@ -394,7 +394,9 @@ class TestCLI(object):
 
         assert cli._print_manifest_metadata(output, manifest, True) == tag
 
-    @pytest.mark.parametrize('bargs', ['test-repo -r /contentdist --download True', None])
+    @pytest.mark.parametrize('bargs',
+                             ['test-repo -r /contentdist --download True --auto-publish false',
+                              None])
     def test_do_update(self, bargs):
         if bargs is not None:
             bargs = bargs.split(" ")

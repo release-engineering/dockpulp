@@ -957,6 +957,9 @@ def do_update(bopts, bargs, parser):
     parser.add_option('--distribution', help='set the distribution field for the repo')
     parser.add_option('--download', help='set the include_in_download_service field for the repo. '
                       'Accepts (t, true, True) for True, (f, false, False) for False')
+    parser.add_option('-a', '--auto-publish', help='set the auto publish bit for the repo. '
+                      'Accepts (t, true, True) for True, (f, false, False) for False',
+                      dest='autopublish')
     parser.add_option('-p', '--protected',
                       help='set the protected bit. Accepts (t, true, True) for True, '
                            '(f, false, False) for False')
@@ -982,6 +985,8 @@ def do_update(bopts, bargs, parser):
             updates['distribution'] = opts.distribution
         if opts.download:
             updates['download'] = get_bool_from_string(opts.download)
+        if opts.autopublish:
+            updates['auto_publish'] = get_bool_from_string(opts.autopublish)
         if opts.protected:
             updates['protected'] = get_bool_from_string(opts.protected)
         p.updateRepo(repo, updates)
