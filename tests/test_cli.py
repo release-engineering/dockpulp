@@ -327,7 +327,7 @@ class TestCLI(object):
         repos = [{'id': 'test-repo', 'detail': 'foobar',
                   'images': {'testimage': ['testtag']},
                   'v1_labels': {'testimage': {'testkey': 'testval'}},
-                  'manifests': {'testmanifest': {'layers': ['testlayer1'], 'tag': 'testtag',
+                  'manifests': {'testmanifest': {'layers': ['testlayer1'], 'tags': ['testtag'],
                                                  'config': 'testconfig', 'schema_version': 'testsv',
                                                  'v1id': 'testv1id', 'v1parent': 'testv1parent',
                                                  'v1labels': 'testv1labels'}},
@@ -387,12 +387,12 @@ class TestCLI(object):
         manifest = 'testmanifest'
         tag = 'testtag'
         output = {manifest:
-                  {'tag': tag,
+                  {'tags': [tag],
                    'active': ' (active)',
                    'config': 'testconfig',
                    'schema_version': 'testsv'}}
 
-        assert cli._print_manifest_metadata(output, manifest, True) == tag
+        assert cli._print_manifest_metadata(output, manifest, True) == [tag]
 
     @pytest.mark.parametrize('bargs',
                              ['test-repo -r /contentdist --download True --auto-publish false',
