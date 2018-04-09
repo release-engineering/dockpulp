@@ -508,14 +508,16 @@ def _print_v2_images(repo, showlists, justmanifests, showhistory, showlabels, sh
 
         manifest_layers[manifest] = layers
 
-        tag = repo['manifests'][manifest]['tag']
+        taglist = repo['manifests'][manifest]['tags']
 
         active_marker = ''
         # Is there a docker_tag unit for this name?
-        if tag in tags:
-            # Does it reference this manifest?
-            if tags[tag] == manifest:
-                active_marker = ' (active)'
+        for tag in taglist:
+            if tag in tags:
+                # Does it reference this manifest?
+                if tags[tag] == manifest:
+                    active_marker = ' (active)'
+                    break
 
         output[layers][manifest]['active'] = active_marker
 
@@ -550,7 +552,7 @@ def _print_v2_images(repo, showlists, justmanifests, showhistory, showlabels, sh
                 continue
             tagout = _print_manifest_metadata(manifestinfo, manifest, showschema)
             if tagout:
-                tagoutput.append(tagout)
+                tagoutput.extend(tagout)
         # Print layers associated with each manifest printed above
         if not justmanifests:
             log.info('    Blobs: ')
@@ -577,14 +579,14 @@ def _print_v2_images(repo, showlists, justmanifests, showhistory, showlabels, sh
 def _print_manifest_metadata(output, manifest, show_schema):
     # Print out manifest digest, tag, config layer and schema version.
     tagoutput = None
-    tag = output[manifest]['tag']
+    taglist = output[manifest]['tags']
     is_active = output[manifest]['active']
-    if tag is None:
+    if not taglist:
         log.info('  Manifest: %s', manifest)
     else:
-        log.info('  Manifest: %s  Tag: %s%s', manifest, tag, is_active)
+        log.info('  Manifest: %s  Tag: %s%s', manifest, ', '.join(taglist), is_active)
         if is_active:
-            tagoutput = tag
+            tagoutput = taglist
     config = output[manifest]['config']
     if config:
         log.info('    Config Layer: %s', config)

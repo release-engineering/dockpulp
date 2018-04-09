@@ -1709,14 +1709,13 @@ class Pulp(object):
 
                     digest = manifest['metadata']['digest']
                     r['manifests'][digest] = {}
-                    tag = None
+                    taglist = []
                     if 'tag' not in manifest['metadata'].keys():
                         for tag_dict in tags:
                             if tag_dict['metadata']['manifest_digest'] == digest:
-                                tag = tag_dict['metadata']['name']
-                                break
+                                taglist.append(tag_dict['metadata']['name'])
                     else:
-                        tag = manifest['metadata']['tag']
+                        taglist = list(manifest['metadata']['tag'])
 
                     # schema 2 added config layers
                     config_layer = manifest['metadata'].get('config_layer', None)
@@ -1726,7 +1725,7 @@ class Pulp(object):
                     schema_version = manifest['metadata'].get('schema_version', None)
 
                     r['manifests'][digest]['config'] = config_layer
-                    r['manifests'][digest]['tag'] = tag
+                    r['manifests'][digest]['tags'] = taglist
                     r['manifests'][digest]['layers'] = layers
                     r['manifests'][digest]['schema_version'] = schema_version
 
