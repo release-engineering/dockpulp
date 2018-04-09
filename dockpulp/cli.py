@@ -315,10 +315,7 @@ def do_copy(bopts, bargs, parser):
         parser.error('You must provide a destination repository and image-id')
     p = pulp_login(bopts)
     for img in args[1:]:
-        if opts.source:
-            p.copy(args[0], img, opts.source)
-        else:
-            p.copy(args[0], img)
+        p.copy(args[0], img, opts.source)
         log.info('copying successful')
 
 
@@ -851,14 +848,16 @@ def do_sync(bopts, bargs, parser):
     env = args[0]
     repo = args[1]
 
-    imgs, manifests = p.syncRepo(env, repo, bopts.config_file, basic_auth_username=opts.username,
-                                 basic_auth_password=opts.password, upstream_name=opts.upstream)
+    imgs, manifests, manifest_lists = p.syncRepo(env, repo, bopts.config_file,
+                                                 basic_auth_username=opts.username,
+                                                 basic_auth_password=opts.password,
+                                                 upstream_name=opts.upstream)
 
     log.info(repo)
     log.info('-' * len(repo))
     log.info('synced images:')
 
-    if len(imgs) == 0:
+    if not imgs:
         log.info('  No new images')
     else:
         for img in imgs:
@@ -867,11 +866,20 @@ def do_sync(bopts, bargs, parser):
 
     log.info('synced manifests:')
 
-    if len(manifests) == 0:
+    if not manifests:
         log.info('  No new manifests')
     else:
         for manifest in manifests:
             log.info(manifest)
+    log.info('')
+
+    log.info('synced manifest lists:')
+
+    if not manifest_lists:
+        log.info('  No new manifest lists')
+    else:
+        for manifest_list in manifest_lists:
+            log.info(manifest_list)
     log.info('')
 
 
@@ -997,7 +1005,7 @@ def do_update(bopts, bargs, parser):
 def do_upload(bopts, bargs, parser):
     """Upload an image to a pulp repository.
 
-    dock-pulp upload image-path [repo-id...]
+    dock-pulp upload image-path repo-id
     dock-pulp upload --list-uploads [--delete]
     """
     parser.add_option('-l', '--list-uploads', default=False, action='store_true',
@@ -1018,6 +1026,9 @@ def do_upload(bopts, bargs, parser):
             p.cleanUploadRequests()
             log.info('upload requests cleaned up')
         sys.exit(0)
+    if len(args) < 2:
+        log.warning('%s is deprecated', dockpulp.HIDDEN)
+        log.warning('Please supply repos to upload to in the future')
     if len(args) < 1:
         parser.error('You must provide an image to upload')
     if not os.path.exists(args[0]):
@@ -1068,9 +1079,9 @@ def do_upload(bopts, bargs, parser):
         log.error('and try again.')
         sys.exit(5)
     p = pulp_login(bopts)
-    p.upload(args[0])
     if len(args) > 1:
-        for repo in args[1:]:
-            for img in newimgs:
-                p.copy(repo, img)
+        p.upload(args[0], drepo=args[1])
+    else:
+        p.upload(args[0])
+
     log.info('Upload complete')
