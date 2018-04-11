@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.50
+Version:	1.51
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -49,6 +49,16 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Wed Apr 11 2018 Brendan Reilly <breilly@redhat.com> 1.51-1
+- bumped version for release (breilly@redhat.com)
+- Updated unit tests to support manifest tag lists (breilly@redhat.com)
+- Multiple tags can now be displayed for manifests (breilly@redhat.com)
+- Updated unit tests to reflect HIDDEN deprecation (breilly@redhat.com)
+- Deprecating HIDDEN repo by providing hidden origin repos for each repo
+  (breilly@redhat.com)
+- Add autopublish update to updateRepo (bfontecc@redhat.com)
+- Output tasks json in silent mode (lucarval@redhat.com)
+
 * Thu Mar 15 2018 Brendan Reilly <breilly@redhat.com> 1.50-1
 - Bumping version for release (breilly@redhat.com)
 - Added unit tests (breilly@redhat.com)
