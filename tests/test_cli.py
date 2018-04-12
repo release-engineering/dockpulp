@@ -72,6 +72,10 @@ class testPulp(object):
     def getTask(self, tids):
         return
 
+    def syncRepo(self, arg1, arg2, arg3, feed=None, basic_auth_username=None,
+                 basic_auth_password=None, ssl_validation=None, upstream_name=None):
+        return
+
 
 # tests
 class TestCLI(object):
@@ -393,6 +397,48 @@ class TestCLI(object):
                    'schema_version': 'testsv'}}
 
         assert cli._print_manifest_metadata(output, manifest, True) == [tag]
+
+    @pytest.mark.parametrize('bargs', ['test-repo', None])
+    @pytest.mark.parametrize('feed', ['--feed https://upstream.url', None])
+    @pytest.mark.parametrize('env', ['qa', None])
+    @pytest.mark.parametrize('options', ['-u user -p pw --upstream test -s', None])
+    def test_do_sync(self, bargs, feed, env, options):
+        bopts = testbOpts()
+        p = testPulp()
+        (flexmock(Pulp)
+            .new_instances(p)
+            .with_args(Pulp, env=bopts.server, config_file=bopts.config_file))
+        if bargs is None or (env is None and feed is None):
+            bargs = []
+            with pytest.raises(SystemExit):
+                cli.do_sync(bopts, bargs)
+        else:
+            user = None
+            password = None
+            upstream = None
+            ssl = False
+            bargs = bargs.split(" ")
+            if options is not None:
+                bargs.extend(options.split(" "))
+                user = 'user'
+                password = 'pw'
+                upstream = 'test'
+                ssl = True
+            if feed is not None:
+                feed = feed.split(" ")
+                bargs.extend(feed)
+                feed = feed[-1]
+                env = None
+            if env is not None:
+                bargs.insert(0, env)
+            response = ([], [], [])
+            (flexmock(testPulp)
+                .should_receive('syncRepo')
+                .with_args(env, 'test-repo', bopts.config_file, feed=feed,
+                           basic_auth_username=user, basic_auth_password=password,
+                           ssl_validation=ssl, upstream_name=upstream)
+                .and_return(response))
+            assert cli.do_sync(bopts, bargs) is None
 
     @pytest.mark.parametrize('bargs',
                              ['test-repo -r /contentdist --download True --auto-publish false',
