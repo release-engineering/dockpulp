@@ -234,7 +234,7 @@ class TestCLI(object):
     @pytest.mark.parametrize('noprefix', [True, False])
     @pytest.mark.parametrize('download', ["true", "False"])
     @pytest.mark.parametrize('args', ['1 2 3', '1 2',
-                                      'test /content/test', 'foo bar /content/foo/bar'])
+                                      'test /content/test', 'foo bar /content/foo-bar'])
     def test_do_create(self, args, lib, noprefix, download):
         bopts = testbOpts()
         p = testPulp()
@@ -263,9 +263,9 @@ class TestCLI(object):
            and args[0] == 'foo':
             (testPulp
                 .should_receive('createRepo')
-                .with_args('foo-bar', '/content/foo/bar', library=lib, protected=False, title=None,
-                           productline='foo', distribution=None, desc="No description",
-                           prefix_with='', rel_url='content/foo/bar', download=True)
+                .with_args('foo-bar', '/content/foo-bar', library=lib, protected=False,
+                           title=None, productline='foo', distribution=None, desc="No description",
+                           prefix_with='', rel_url='content/foo-bar', download=True)
                 .and_return(None))
         else:
             (testPulp
@@ -278,6 +278,9 @@ class TestCLI(object):
             with pytest.raises(SystemExit):
                 cli.do_create(bopts, bargs)
         elif not args[-1].startswith('/content'):
+            with pytest.raises(SystemExit):
+                cli.do_create(bopts, bargs)
+        elif not noprefix:
             with pytest.raises(SystemExit):
                 cli.do_create(bopts, bargs)
         else:
