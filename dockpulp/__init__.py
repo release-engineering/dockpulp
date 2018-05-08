@@ -2220,7 +2220,7 @@ class Pulp(object):
             # Used by Distributors
             if 'result' in task["result"]:
                 # Used by Yum distributor
-                return task['result']['result'] == 'success'
+                return task['result']['result'] in ('success', 'skipped')
             elif 'success_flag' in task["result"]:
                 # Used by CDN distributor
                 return task["result"]['success_flag']
