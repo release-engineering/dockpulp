@@ -1093,6 +1093,29 @@ class TestCrane(object):
                                       silent)
         assert response == result
 
+    @pytest.mark.parametrize('expect,task', [
+        # state=error means failure regardless of other fields
+        (False, {'state': 'error'}),
+        (False, {'state': 'error', 'result': {'result': 'success', 'success_flag': True}}),
+        (False, {'state': 'error', 'result': {'result': 'skipped', 'success_flag': True}}),
+
+
+        # state=canceled means failure, unless subtasks completed
+        (False, {'state': 'canceled', 'result': {'success_flag': False}}),
+        (True, {'state': 'canceled', 'result': {'result': 'success', 'success_flag': True}}),
+        (True, {'state': 'canceled', 'result': {'result': 'skipped', 'success_flag': True}}),
+
+        (True, {'state': 'finished', 'result': {'result': 'success'}}),
+        (True, {'state': 'finished', 'result': {'result': 'skipped'}}),
+        (True, {'state': 'finished', 'result': {'success_flag': True}}),
+        (False, {'state': 'finished', 'result': {'success_flag': False}}),
+        (True, {'state': 'finished', 'result': []}),
+        (True, {'state': 'finished', 'result': {}}),
+    ])
+    def test_is_task_successful(self, pulp, expect, task):
+        retval = pulp.is_task_successful(task)
+        assert retval == expect
+
 
 class TestRequestsHttpCaller(object):
     # Tests of methods from RequestsHttpCaller class.
