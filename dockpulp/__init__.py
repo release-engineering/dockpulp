@@ -146,7 +146,7 @@ class RequestsHttpCaller(object):
             log.debug('raw response data:')
             log.debug(pprint.pformat(r))
         except ValueError:
-            log.warning('No content in Pulp response')
+            raise errors.DockPulpError('No content in Pulp response')
         if answer.status_code == 403:
             raise errors.DockPulpLoginError('Received 403: Forbidden')
         elif answer.status_code >= 400:
