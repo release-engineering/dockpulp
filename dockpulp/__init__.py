@@ -702,9 +702,9 @@ class Crane(object):
 
     def _test_sigstore(self, signatures, prefix_with=PREFIX, exception=None):
         """Confirm we can reach CDN and get data back from it."""
-        result = {'error': False, 'sigs_in_pulp_not_crane': [], 'sigs_in_crane_not_pulp': [],
-                  'manifests_in_sigstore_not_repo': [], 'invalid_sigs': [],
-                  'missing_repos_in_pulp': []}
+        result = {'error': False, 'sigs_in_pulp_not_crane': [],
+                  'manifests_in_sigstore_not_repo': [],
+                  'invalid_sigs': [], 'missing_repos_in_pulp': []}
 
         if not signatures:
             log.info('  No signatures to test')
@@ -761,20 +761,6 @@ class Crane(object):
                 result['error'] = True
                 result['missing_repos_in_pulp'].append(repo)
 
-        log.info('  Confirming CDN signatures match Pulp')
-        log.debug('  contacting %s', url + 'PULP_MANIFEST')
-        answer = self.requests.get(url + 'PULP_MANIFEST', verify=False)
-        if not answer.ok:
-            log.error('  Pulp Manifest missing in CDN')
-            result['error'] = True
-            return result
-        csigs = answer.text.split('\n')
-        for csig in csigs:
-            sig = csig.split(',')[0]
-            if sig and sig not in signatures:
-                log.error('  Signature in CDN but not pulp: %s', sig)
-                result['error'] = True
-                result['sigs_in_crane_not_pulp'].append(sig)
         return result
 
 

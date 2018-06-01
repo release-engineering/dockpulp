@@ -908,36 +908,23 @@ class TestCrane(object):
             .and_return(response))
         crane.confirm(repos)
 
-    @pytest.mark.parametrize('signatures, status, ok, shasum, status2, ok2, expected_result', [
-        (None, None, None, None, None, None, None),
-        (['foo/bar-1@shasum=123/signature-1'], 200, True, '12345678\n', 200, True,
-         {'error': False, 'sigs_in_pulp_not_crane': [],
-          'sigs_in_crane_not_pulp': [], 'invalid_sigs': [],
-          'manifests_in_sigstore_not_repo': [],
-          'missing_repos_in_pulp': []}),
-        (['foo/bar-2@shasum=234/signature-1'], 404, False, '12345678\n', 200, True,
+    @pytest.mark.parametrize('signatures, status, ok, shasum, expected_result', [
+        (None, None, None, None, None),
+        (['foo/bar-1@shasum=123/signature-1'], 200, True, '12345678\n',
+         {'error': False, 'sigs_in_pulp_not_crane': [], 'invalid_sigs': [],
+          'manifests_in_sigstore_not_repo': [], 'missing_repos_in_pulp': []}),
+        (['foo/bar-2@shasum=234/signature-1'], 404, False, '12345678\n',
          {'error': True, 'sigs_in_pulp_not_crane': ['foo/bar-2@shasum=234/signature-1'],
-          'sigs_in_crane_not_pulp': ['foo/bar-1@shasum=123/signature-1'], 'invalid_sigs': [],
-          'manifests_in_sigstore_not_repo': [],
-          'missing_repos_in_pulp': []}),
-        (['foo/bar-3@shasum=345/signature-1'], 200, True, '12345678\n', 404, False,
+          'invalid_sigs': [], 'manifests_in_sigstore_not_repo': [], 'missing_repos_in_pulp': []}),
+        (['foo/bar-4@shasum=456/signature-1'], 200, True, '87654321\n',
          {'error': True, 'sigs_in_pulp_not_crane': [],
-          'sigs_in_crane_not_pulp': [], 'invalid_sigs': [],
-          'manifests_in_sigstore_not_repo': [],
-          'missing_repos_in_pulp': []}),
-        (['foo/bar-4@shasum=456/signature-1'], 200, True, '87654321\n', 200, True,
-         {'error': True, 'sigs_in_pulp_not_crane': [],
-          'sigs_in_crane_not_pulp': ['foo/bar-1@shasum=123/signature-1'],
           'invalid_sigs': ['foo/bar-4@shasum=456/signature-1'],
-          'manifests_in_sigstore_not_repo': [],
-          'missing_repos_in_pulp': []})])
-    def test_test_sigstore(self, crane, pulp, signatures, status, ok, shasum, status2, ok2,
-                           expected_result):
+          'manifests_in_sigstore_not_repo': [], 'missing_repos_in_pulp': []})])
+    def test_test_sigstore(self, crane, pulp, signatures, status, ok, shasum, expected_result):
         if signatures is None:
             response = crane._test_sigstore(signatures)
             assert response == {'error': False, 'sigs_in_pulp_not_crane': [],
-                                'sigs_in_crane_not_pulp': [], 'invalid_sigs': [],
-                                'manifests_in_sigstore_not_repo': [],
+                                'invalid_sigs': [], 'manifests_in_sigstore_not_repo': [],
                                 'missing_repos_in_pulp': []}
             return
         (repo, manifest) = crane._split_signature(signatures[0], 'redhat-')
@@ -967,15 +954,6 @@ class TestCrane(object):
             .should_receive('communicate')
             .once()
             .and_return(['', shasum]))
-        answer2 = flexmock(
-            status_code=status2,
-            ok=ok2,
-            text='foo/bar-1@shasum=123/signature-1')
-        (requests.Session
-            .should_receive('get')
-            .with_args(url + 'PULP_MANIFEST', verify=False)
-            .once()
-            .and_return(answer2))
         response = crane._test_sigstore(signatures)
         assert response == expected_result
 
