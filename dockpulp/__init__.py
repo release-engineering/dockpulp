@@ -713,7 +713,11 @@ class Crane(object):
         log.info('  Confirming repos have expected manifests in Pulp')
         manifests = {}
         for signature in signatures:
-            (repo, manifest) = self._split_signature(signature, prefix_with)
+            try:
+                (repo, manifest) = self._split_signature(signature, prefix_with)
+            except ValueError:
+                log.warning("signature %s is missing '@', skipping", signature)
+                continue
             manifests.setdefault(repo, []).append(manifest)
         signed_repos = self.p.listRepos(manifests.keys(), content=True, strict=False)
         repo_sigs = {}
@@ -731,7 +735,11 @@ class Crane(object):
         log.info('  Confirming CDN has valid signatures available')
         url = self.p.cdnhost + '/content/sigstore/'
         for signature in signatures:
-            (repo, manifest) = self._split_signature(signature, prefix_with)
+            try:
+                (repo, manifest) = self._split_signature(signature, prefix_with)
+            except ValueError:
+                log.warning("signature %s is missing '@', skipping", signature)
+                continue
             if repo in result['missing_repos_in_pulp']:
                 continue
             log.debug('  contacting %s', url + signature)
