@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.51
+Version:	1.52
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -49,6 +49,20 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Thu Jun 14 2018 Brendan Reilly <breilly@redhat.com> 1.52-1
+- confirm sigstore will ignore invalid signatures instead of failing
+  (breilly@redhat.com)
+- Updated unit tests to support removal of PULP_MANIFEST check from sigstore
+  confirm (breilly@redhat.com)
+- Removed check based on PULP_MANIFEST to follow new requirements
+  (breilly@redhat.com)
+- No Pulp response fails instead of warns (breilly@redhat.com)
+- Added unit test for is_task_successful (breilly@redhat.com)
+- Skipped result will now be treated correctly (breilly@redhat.com)
+- Changed redirect verification to expect repo id (breilly@redhat.com)
+- Added unit tests (breilly@redhat.com)
+- Added option to specify feed for sync (breilly@redhat.com)
+
 * Wed Apr 11 2018 Brendan Reilly <breilly@redhat.com> 1.51-1
 - bumped version for release (breilly@redhat.com)
 - Updated unit tests to support manifest tag lists (breilly@redhat.com)
