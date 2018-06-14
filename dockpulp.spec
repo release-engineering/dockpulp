@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.52
+Version:	1.53
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -49,6 +49,9 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Thu Jun 14 2018 Brendan Reilly <breilly@redhat.com> 1.53-1
+- Bumping version for release (breilly@redhat.com)
+
 * Thu Jun 14 2018 Brendan Reilly <breilly@redhat.com> 1.52-1
 - confirm sigstore will ignore invalid signatures instead of failing
   (breilly@redhat.com)
