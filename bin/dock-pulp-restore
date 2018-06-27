@@ -57,13 +57,13 @@ def precheck(dpo, jfile):
     log.info('performing pre-checks in (empty) %s environment' % dpo.env)
     try:
         repos = json.load(open(jfile, 'r'))
-    except ValueError, e:
+    except ValueError as e:
         log.error('%s does not contain valid json' % jfile)
         die(e)
     # make sure the hidden repository is available
     try:
         hidden = p.listRepos(repos=dockpulp.HIDDEN, content=True)[0]
-    except dockpulp.errors.DockPulpError, e:
+    except dockpulp.errors.DockPulpError as e:
         if '404' in str(e):
             log.error(
                 '  This command expects the %s repository to be available' %
@@ -76,7 +76,7 @@ def precheck(dpo, jfile):
     # ensure it contains all images we need
     img_need = set()
     for repo in repos:
-        for img in repo['images'].keys():
+        for img in repo['images']:
             img_need.add(img)
     img_have = set(hidden['images'].keys())
     ndiff = ', '.join((img_need - img_have))
@@ -105,7 +105,7 @@ def restore(dpo, jdata):
         url = dockpulp.split_content_url(repo['redirect'])[1]
         dpo.createRepo(repo['id'], url, desc=repo['description'],
                        title=repo['title'])
-        for img in repo['images'].keys():
+        for img in repo['images']:
             dpo.copy(repo['id'], img)
             tags = {'tag': '%s:%s' % (','.join(repo['images'][img]), img)}
             dpo.updateRepo(repo['id'], tags)

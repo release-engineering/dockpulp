@@ -13,9 +13,10 @@
 # You should have received a copy of the GNU General Public License
 # along with dockpulp.  If not, see <http://www.gnu.org/licenses/>.
 
+import six
 import atexit
-import ConfigParser
 from datetime import datetime
+import configparser
 import hashlib
 import logging
 import os
@@ -36,7 +37,7 @@ except ImportError:
     import subprocess
 from contextlib import closing
 from distutils.version import LooseVersion
-from urlparse import urlparse
+from six.moves.urllib.parse import urlparse
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 import multiprocessing
@@ -51,8 +52,8 @@ except ImportError:
         # json on python 2.6 does not behave like simplejson
         raise
 
-import errors
-import imgutils
+from . import errors
+from . import imgutils
 
 __version__ = "1.56"
 
@@ -214,12 +215,12 @@ class Crane(object):
                 if response['error']:
                     self.check_response_error(response)
                 continue
-            imgs = repo['images'].keys()
-            manifests = repo['manifests'].keys()
-            manifest_lists = repo['manifest_lists'].keys()
+            imgs = list(repo['images'].keys())
+            manifests = list(repo['manifests'].keys())
+            manifest_lists = list(repo['manifest_lists'].keys())
             blobs = []
             tags = []
-            for manifest_list in repo['manifest_lists'].values():
+            for manifest_list in list(repo['manifest_lists'].values()):
                 tags.extend(manifest_list['tags'])
             for manifest in repo['manifests'].values():
                 blobs.extend(manifest['layers'])
@@ -734,7 +735,7 @@ class Crane(object):
                 log.warning("signature %s is missing '@', skipping", signature)
                 continue
             manifests.setdefault(repo, []).append(manifest)
-        signed_repos = self.p.listRepos(manifests.keys(), content=True, strict=False,
+        signed_repos = self.p.listRepos(list(manifests.keys()), content=True, strict=False,
                                         paginate=paginate)
         repo_sigs = {}
         for repo in signed_repos:
@@ -930,7 +931,7 @@ class Pulp(object):
 
     def _getRepo(self, env, config_file=DEFAULT_CONFIG_FILE):
         """Set up hostname for sync."""
-        conf = ConfigParser.ConfigParser()
+        conf = configparser.ConfigParser()
         if not config_file:
             raise errors.DockPulpConfigError('Missing config file')
         conf.readfp(open(config_file))
@@ -1143,8 +1144,7 @@ class Pulp(object):
 
     def crane(self, repos=[], wait=True, skip=False, force_refresh=False):
         """Export pulp configuration to crane for one or more repositories."""
-        if not hasattr(repos, '__iter__'):
-            assert isinstance(repos, str) or isinstance(repos, unicode)
+        if isinstance(repos, six.text_type) or isinstance(repos, six.binary_type):
             repos = [repos]
 
         if len(repos) == 0:
@@ -1552,8 +1552,7 @@ class Pulp(object):
         if not repos:
             # get all repository IDs first since none were specified
             repos = self.getAllRepoIDs()
-        if not hasattr(repos, '__iter__'):
-            assert isinstance(repos, str) or isinstance(repos, unicode)
+        if isinstance(repos, six.text_type) or isinstance(repos, six.binary_type):
             repos = [repos]
         # return information for each repo
         for repo in repos:
@@ -1636,7 +1635,6 @@ class Pulp(object):
                     }
 
                 units = self._collect_repo_units(blob['id'], filter_unit, paginate=paginate)
-
                 if blob['id'] == SIGSTORE:
                     r['sigstore'] = []
                     sigs = [unit for unit in units
@@ -1904,7 +1902,7 @@ class Pulp(object):
         return self._get('/pulp/api/v2/content/uploads/')['upload_ids']
 
     def load_configuration(self, conf_file):
-        conf = ConfigParser.ConfigParser()
+        conf = configparser.ConfigParser()
         if not conf_file:
             raise errors.DockPulpConfigError('Missing config file')
         conf.readfp(open(conf_file))
@@ -2153,7 +2151,7 @@ class Pulp(object):
         # we intentionally ignore everything else
         valid = ('redirect-url', 'protected', 'repo-registry-id', 'description', 'display_name',
                  'tag', 'signature', 'distribution', 'rel-url', 'auto_publish', 'download')
-        for u in update.keys():
+        for u in update:
             if u not in valid:
                 log.warning('ignoring %s, not sure how to update' % u)
         for key in ('description', 'display_name'):
@@ -2237,7 +2235,7 @@ class Pulp(object):
         """
         # TODO: support a hidden repo for "no-channel" style uploads
         metadata = imgutils.get_metadata(image)
-        newimgs = imgutils.get_metadata_pulp(metadata).keys()
+        newimgs = list(imgutils.get_metadata_pulp(metadata).keys())
         rid = self._createUploadRequest()
         size = int(os.path.getsize(image))
         curr = 0
@@ -2396,11 +2394,11 @@ class Pulp(object):
                     finished.append(t)
             for t in [t for t in finished if not self.is_task_successful(t)]:
                 if t.get("exception", None):
-                    exception = u''.join(t["exception"])
+                    exception = ''.join(t["exception"])
                 else:
                     exception = None
                 if t.get("traceback", None):
-                    traceback = u''.join(t["traceback"])
+                    traceback = ''.join(t["traceback"])
                 else:
                     traceback = None
                 try:
@@ -2408,7 +2406,7 @@ class Pulp(object):
                 except AttributeError:
                     result = t.get("result", {}) if t.get("result", {}) else {}
                     reasons = result.get('reasons', [])
-                log.error(u"Pulp task [%s] failed:\n"
+                log.error("Pulp task [%s] failed:\n"
                           "Details:\n%s\nTags:\n%s\nReasons:\n%s\nException:\n%s\nTraceback:\n%s" %
                           (t["task_id"],
                            pprint.pformat(result.get('details', '')),
@@ -2430,7 +2428,7 @@ class Pulp(object):
                 log.debug("Waiting on the following %d Pulp tasks: %s" % (
                     len(running), ",".join(sorted(running))))
                 running_count = len(running)
-        return results.values()
+        return list(results.values())
 
 
 def split_content_url(url):
