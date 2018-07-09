@@ -2003,8 +2003,19 @@ class Pulp(object):
         # Need to maintain origin repo
         self.createOriginRepo(origin_repo)
 
-        # copy with no filter. Pulp will handle already copied units automatically
-        self.copy_filters(origin_repo, repo)
+        # copy with filter to only select the new units
+        new_units = []
+        filters = {}
+        if imgs:
+            img_ids = {"image_id": {"$in": imgs}}
+            new_units.append(img_ids)
+        if manifests or manifest_lists:
+            digests = [manifest for manifest in manifests]
+            digests.extend([manifest_list for manifest_list in manifest_lists])
+            new_units.append({"manifest_digest": {"$in": digests}})
+        if new_units:
+            filters["unit"] = {"$or": new_units}
+        self.copy_filters(origin_repo, repo, filters)
 
         return (imgs, manifests, manifest_lists)
 

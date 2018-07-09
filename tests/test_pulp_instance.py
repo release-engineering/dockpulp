@@ -785,12 +785,34 @@ class TestPulp(object):
             .and_return(None))
         pulp.remove_filters(repo)
 
-    def test_sync(self, pulp):
+    @pytest.mark.parametrize(('new_images', 'image_results'), [
+        ([], []),
+        (set(['foobar']), ['foobar']),
+        (set(['foobar', 'barfoo']), ['barfoo', 'foobar']),
+    ])
+    @pytest.mark.parametrize(('new_manifests', 'new_manifest_lists', 'manifest_filter',
+                              'manifest_results', 'manifest_list_results'), [
+        ({'123456': 'foobar'}, {}, None, [], []),
+        ({'123456': 'foobar', '567890': 'latest'}, {}, ['567890'], ['567890'], []),
+        ({'923412': 'barfoo', '123456': 'foobar', '567890': 'latest'}, {},
+         ['567890', '923412'], ['567890', '923412'], []),
+        ({}, {'123456': 'foobar'}, ['123456'], [], ['123456']),
+        ({}, {'923412': 'barfoo', '123456': 'foobar'}, ['123456', '923412'],
+         [], ['123456', '923412']),
+        ({'123456': 'foobar', '567890': 'latest'}, {'123456': 'foobar', '923412': 'barfoo'},
+         ['567890', '123456', '923412'],
+         ['567890'], ['123456', '923412']),
+    ])
+    def test_sync(self, new_images, image_results,
+                  new_manifests, new_manifest_lists, manifest_filter,
+                  manifest_results, manifest_list_results,
+                  pulp):
         repoinfoold = [{'id': 'redhat-foobar', 'images': {}, 'manifests': {'123456': 'foobar'},
                         'manifest_lists': {}}]
-        repoinfonew = [{'id': 'redhat-foobar', 'images': {}, 'manifests': {'123456': 'foobar',
-                                                                           '567890': 'latest'},
-                        'manifest_lists': {}}]
+        repoinfonew = [{'id': 'redhat-foobar',
+                        'images': new_images,
+                        'manifests': new_manifests,
+                        'manifest_lists': new_manifest_lists}]
         origin_repo = pulp.getOriginPrefix() + 'redhat-foobar'
         flexmock(pulp)
         (pulp
@@ -814,16 +836,25 @@ class TestPulp(object):
             .with_args(origin_repo)
             .once()
             .and_return(None))
+        unit_list = []
+        if new_images:
+            unit_list.append({"image_id": {"$in": image_results}})
+        if manifest_filter:
+            unit_list.append({"manifest_digest": {"$in": manifest_filter}})
+        filters = {}
+        if unit_list:
+            filters["unit"] = {"$or": unit_list}
+
         (pulp
             .should_receive('copy_filters')
-            .with_args(origin_repo, 'redhat-foobar')
+            .with_args(origin_repo, 'redhat-foobar', filters)
             .once()
             .and_return(None))
         imgs, manifests, manifest_lists = pulp.syncRepo(env='syncenv', repo='foobar', feed='fb',
                                                         upstream_name='foobar')
-        assert imgs == []
-        assert manifests == ['567890']
-        assert manifest_lists == []
+        assert imgs == image_results
+        assert manifests == manifest_results
+        assert manifest_lists == manifest_list_results
 
 
 class TestCrane(object):
