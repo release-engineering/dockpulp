@@ -47,8 +47,8 @@ class TestImgutils(object):
         filename = str(tmpdir.join("archive.tar"))
 
         with TarWriter(filename, directory='test/dir') as t:
-            t.write_file(path, tarjson)
-            t.write_file('testmember', 'testdata')
+            t.write_file(path, str.encode(tarjson))
+            t.write_file('testmember', str.encode('testdata'))
 
         if path == '':
             assert imgutils.check_repo(filename) == 1

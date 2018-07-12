@@ -2,11 +2,15 @@
 # -*- coding: utf-8 -*-
 
 
-from dockpulp import Pulp, cli
+from dockpulp import cli
 import pytest
 import os
 import json
 import logging
+try:
+    from unittest.mock import patch
+except ImportError:
+    from mock import patch
 from flexmock import flexmock
 
 
@@ -86,12 +90,11 @@ class TestCLI(object):
     @pytest.mark.parametrize('cert, key',
                              [(None, True), (True, None),
                               (True, True), (None, None)])
-    def test_pulp_login(self, debug, cert, key, error):
+    @patch('dockpulp.Pulp')
+    def test_pulp_login(self, mocked_pulp, debug, cert, key, error):
         bopts = testbOpts("testserv", "testconf", debug, cert, key)
         p = testPulp()
-        (flexmock(Pulp)
-            .new_instances(p)
-            .with_args(Pulp, env=bopts.server, config_file=bopts.config_file))
+        mocked_pulp.side_effect = [p]
         if debug:
             flexmock(testPulp)
             (testPulp
@@ -115,13 +118,12 @@ class TestCLI(object):
         assert cli.pulp_login(bopts) is p
 
     @pytest.mark.parametrize('bargs', ['1', '1 2'])
-    def test_do_ancestry(self, bargs):
+    @patch('dockpulp.Pulp')
+    def test_do_ancestry(self, mocked_pulp, bargs):
         bargs = bargs.split(" ")
         bopts = testbOpts()
         p = testPulp()
-        (flexmock(Pulp)
-            .new_instances(p)
-            .with_args(Pulp, env=bopts.server, config_file=bopts.config_file))
+        mocked_pulp.side_effect = [p]
         if len(bargs) != 1:
             with pytest.raises(SystemExit):
                 cli.do_ancestry(bopts, bargs)
@@ -129,13 +131,12 @@ class TestCLI(object):
             assert cli.do_ancestry(bopts, bargs) is None
 
     @pytest.mark.parametrize('bargs', ['1', '1 2'])
-    def test_do_associate(self, bargs):
+    @patch('dockpulp.Pulp')
+    def test_do_associate(self, mocked_pulp, bargs):
         bargs = bargs.split(" ")
         bopts = testbOpts()
         p = testPulp()
-        (flexmock(Pulp)
-            .new_instances(p)
-            .with_args(Pulp, env=bopts.server, config_file=bopts.config_file))
+        mocked_pulp.side_effect = [p]
         if len(bargs) != 2:
             with pytest.raises(SystemExit):
                 cli.do_associate(bopts, bargs)
@@ -147,9 +148,11 @@ class TestCLI(object):
     @pytest.mark.parametrize('manifest', [True, False])
     @pytest.mark.parametrize('noprefix', [True, False])
     @pytest.mark.parametrize('args', ['1 2 3', '1 2', '1'])
-    def test_do_clone(self, args, lib, img, manifest, noprefix):
+    @patch('dockpulp.Pulp')
+    def test_do_clone(self, mocked_pulp, args, lib, img, manifest, noprefix):
         bopts = testbOpts()
         p = testPulp()
+        mocked_pulp.side_effect = [p]
         if img:
             images = {'1': '1'}
         else:
@@ -161,10 +164,6 @@ class TestCLI(object):
 
         oldinfo = [{'redirect': None, 'description': None, 'title': None,
                     'protected': "False", "images": images, "manifests": manifests}]
-        (flexmock(Pulp)
-            .new_instances(p)
-            .once()
-            .with_args(Pulp, env=bopts.server, config_file=bopts.config_file))
         args = args.split(" ")
         bargs = args[:]
         if lib:
@@ -236,13 +235,11 @@ class TestCLI(object):
     @pytest.mark.parametrize('download', ["true", "False"])
     @pytest.mark.parametrize('args', ['1 2 3', '1 2',
                                       'test /content/test', 'foo bar /content/foo-bar'])
-    def test_do_create(self, args, lib, noprefix, download):
+    @patch('dockpulp.Pulp')
+    def test_do_create(self, mocked_pulp, args, lib, noprefix, download):
         bopts = testbOpts()
         p = testPulp()
-        (flexmock(Pulp)
-            .new_instances(p)
-            .once()
-            .with_args(Pulp, env=bopts.server, config_file=bopts.config_file))
+        mocked_pulp.side_effect = [p]
         args = args.split(" ")
         bargs = args[:]
         if lib:
@@ -288,14 +285,13 @@ class TestCLI(object):
             assert cli.do_create(bopts, bargs) is None
 
     @pytest.mark.parametrize('bargs', ['1', None])
-    def test_do_delete(self, bargs):
+    @patch('dockpulp.Pulp')
+    def test_do_delete(self, mocked_pulp, bargs):
         if bargs is not None:
             bargs = bargs.split(" ")
         bopts = testbOpts()
         p = testPulp()
-        (flexmock(Pulp)
-            .new_instances(p)
-            .with_args(Pulp, env=bopts.server, config_file=bopts.config_file))
+        mocked_pulp.side_effect = [p]
         if bargs is None:
             with pytest.raises(SystemExit):
                 cli.do_delete(bopts, bargs)
@@ -308,14 +304,13 @@ class TestCLI(object):
             assert cli.do_delete(bopts, bargs) is None
 
     @pytest.mark.parametrize('bargs', ['1', None])
-    def test_do_empty(self, bargs):
+    @patch('dockpulp.Pulp')
+    def test_do_empty(self, mocked_pulp, bargs):
         if bargs is not None:
             bargs = bargs.split(" ")
         bopts = testbOpts()
         p = testPulp()
-        (flexmock(Pulp)
-            .new_instances(p)
-            .with_args(Pulp, env=bopts.server, config_file=bopts.config_file))
+        mocked_pulp.side_effect = [p]
         if bargs is None:
             with pytest.raises(SystemExit):
                 cli.do_empty(bopts, bargs)
@@ -323,15 +318,14 @@ class TestCLI(object):
             assert cli.do_empty(bopts, bargs) is None
 
     @pytest.mark.parametrize('silent', [True, False])
-    def test_do_list(self, caplog, silent):
+    @patch('dockpulp.Pulp')
+    def test_do_list(self, mocked_pulp, caplog, silent):
         bopts = testbOpts()
         bargs = ['test-repo', '--content', '--details', '--labels', '--lists']
         if silent:
             bargs.append('--silent')
         p = testPulp()
-        (flexmock(Pulp)
-            .new_instances(p)
-            .with_args(Pulp, env=bopts.server, config_file=bopts.config_file))
+        mocked_pulp.side_effect = [p]
         repos = [{'id': 'test-repo', 'detail': 'foobar',
                   'images': {'testimage': ['testtag']},
                   'v1_labels': {'testimage': {'testkey': 'testval'}},
@@ -360,16 +354,15 @@ class TestCLI(object):
 
     @pytest.mark.parametrize('silent', [True, False])
     @pytest.mark.parametrize('num_tasks', (1, 2, 30))
-    def test_do_task(self, caplog, silent, num_tasks):
+    @patch('dockpulp.Pulp')
+    def test_do_task(self, mocked_pulp, caplog, silent, num_tasks):
         task_ids = list('abc%d' % x for x in range(num_tasks))
         bopts = testbOpts()
         bargs = list(task_ids)  # Make copy to avoid unwanted side effects
         if silent:
             bargs.append('--silent')
         p = testPulp()
-        (flexmock(Pulp)
-            .new_instances(p)
-            .with_args(Pulp, env=bopts.server, config_file=bopts.config_file))
+        mocked_pulp.side_effect = [p]
 
         tasks = []
         for task_id in task_ids:
@@ -406,12 +399,11 @@ class TestCLI(object):
     @pytest.mark.parametrize('feed', ['--feed https://upstream.url', None])
     @pytest.mark.parametrize('env', ['qa', None])
     @pytest.mark.parametrize('options', ['-u user -p pw --upstream test -s', None])
-    def test_do_sync(self, bargs, feed, env, options):
+    @patch('dockpulp.Pulp')
+    def test_do_sync(self, mocked_pulp, bargs, feed, env, options):
         bopts = testbOpts()
         p = testPulp()
-        (flexmock(Pulp)
-            .new_instances(p)
-            .with_args(Pulp, env=bopts.server, config_file=bopts.config_file))
+        mocked_pulp.side_effect = [p]
         if bargs is None or (env is None and feed is None):
             bargs = []
             with pytest.raises(SystemExit):
@@ -447,14 +439,13 @@ class TestCLI(object):
     @pytest.mark.parametrize('bargs',
                              ['test-repo -r /contentdist --download True --auto-publish false',
                               None])
-    def test_do_update(self, bargs):
+    @patch('dockpulp.Pulp')
+    def test_do_update(self, mocked_pulp, bargs):
         if bargs is not None:
             bargs = bargs.split(" ")
         bopts = testbOpts()
         p = testPulp()
-        (flexmock(Pulp)
-            .new_instances(p)
-            .with_args(Pulp, env=bopts.server, config_file=bopts.config_file))
+        mocked_pulp.side_effect = [p]
         if bargs is None:
             with pytest.raises(SystemExit):
                 cli.do_update(bopts, bargs)
