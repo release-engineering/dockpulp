@@ -865,7 +865,7 @@ class TestCrane(object):
         repoinfo = [{'id': 'test-repo', 'detail': 'foobar',
                      'images': {'testimage': ['testtag']},
                      'v1_labels': {'testimage': {'testkey': 'testval'}},
-                     'manifests': {'testmanifest': {'layers': ['testlayer1'], 'tag': 'testtag',
+                     'manifests': {'testmanifest': {'layers': ['testlayer1'], 'tags': ['testtag'],
                                                     'config': 'testconfig',
                                                     'schema_version': 'testsv',
                                                     'v1id': 'testv1id',
