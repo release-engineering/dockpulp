@@ -208,8 +208,8 @@ class Crane(object):
                 tags.extend(manifest_list['tags'])
             for manifest in repo['manifests'].values():
                 blobs.extend(manifest['layers'])
-                if manifest['tag']:
-                    tags.append(manifest['tag'])
+                if manifest['tags']:
+                    tags.extend(manifest['tags'])
             # reduce duplicate blobs
             blobs = list(set(blobs))
             if v1:
