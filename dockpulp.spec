@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.53
+Version:	1.54
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -49,6 +49,12 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Fri Jul 20 2018 Brendan Reilly <breilly@redhat.com> 1.54-1
+- Bumping version for release (breilly@redhat.com)
+- Fixed unit tests for manifest tag change (breilly@redhat.com)
+- Fixed confirm to support manifest tag changes (breilly@redhat.com)
+- syncRepo: copy new files with an explicit filter (mlangsdo@redhat.com)
+
 * Thu Jun 14 2018 Brendan Reilly <breilly@redhat.com> 1.53-1
 - Bumping version for release (breilly@redhat.com)
 
