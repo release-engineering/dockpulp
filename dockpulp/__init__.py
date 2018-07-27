@@ -1636,18 +1636,20 @@ class Pulp(object):
                 r['images'] = {}
                 if labels:
                     r['v1_labels'] = {}
-                imgs = [unit for unit in units
-                        if unit['unit_type_id'] == V1_C_TYPE]
-                for img in imgs:
-                    r['images'][img['metadata']['image_id']] = []
+                imgs = {}
+                for unit in units:
+                    if unit['unit_type_id'] == V1_C_TYPE:
+                        imgs[unit['metadata']['image_id']] = unit
+                for image_id, img in imgs.items():
+                    r['images'][image_id] = []
 
                     if labels:
                         labels = self._get('/pulp/docker/v1/%s/%s/json' %
                                            (blob['id'], img['metadata']['image_id']))
                         try:
-                            r['v1_labels'][img['metadata']['image_id']] = labels['config']['Labels']
+                            r['v1_labels'][image_id] = labels['config']['Labels']
                         except KeyError:
-                            r['v1_labels'][img['metadata']['image_id']] = None
+                            r['v1_labels'][image_id] = None
 
                 if 'tags' in blob['scratchpad']:
                     tags = blob['scratchpad']['tags']
@@ -1659,6 +1661,31 @@ class Pulp(object):
                             log.warning('stale scratch pad data found!')
                             log.warning(
                                 '%s here but not in repo!' % tag['image_id'])
+
+                base_ids = []
+                for image_id, img in imgs.items():
+                    metadata = img['metadata']
+                    parent_id = metadata.setdefault('parent_id', None)
+                    if parent_id is None:
+                        base_ids.append(image_id)
+                    else:
+                        parent_metadata = imgs[parent_id]['metadata']
+                        child_ids = parent_metadata.setdefault('child_ids', [])
+                        child_ids.append(image_id)
+
+                def construct_tree(imgs, base_id):
+                    child_ids = imgs[base_id]['metadata'].get('child_ids', [])
+
+                    tree = {}
+                    for child_id in child_ids:
+                        tree[child_id] = construct_tree(imgs, child_id)
+                    return tree
+
+                images_children = {}
+                for base_id in base_ids:
+                    images_children[base_id] = construct_tree(imgs, base_id)
+                r['images_children'] = images_children
+
                 manifests = [unit for unit in units
                              if unit['unit_type_id'] == V2_C_TYPE]
 

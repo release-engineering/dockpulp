@@ -473,6 +473,65 @@ class TestPulp(object):
         assert response[0]['manifests']['testdig']['schema_version'] == 2
         assert response[0]['include_in_download_service'] == 'False'
 
+    @pytest.mark.parametrize(('units', 'expected'), [
+        (
+            [{'unit_type_id': 'docker_manifest',
+              'metadata': {'fs_layers': [{'blob_sum': 'test_layer'}],
+                           'digest': 'testdig',
+                           'tag': 'testtag',
+                           'config_layer': 'test_config',
+                           'schema_version': 2}},
+             {'unit_type_id': 'docker_blob',
+              'metadata': {'digest': 'test_config'}},
+             {'unit_type_id': 'docker_blob',
+              'metadata': {'digest': 'test_layer'}}],
+
+            {},
+        ),
+
+        (
+            [{'unit_type_id': 'docker_image',
+              'metadata': {'image_id': '5', 'parent_id': '0'}},
+             {'unit_type_id': 'docker_image',
+              'metadata': {'image_id': '0'}},
+             {'unit_type_id': 'docker_image',
+              'metadata': {'image_id': '1', 'parent_id': '0'}},
+             {'unit_type_id': 'docker_image',
+              'metadata': {'image_id': '2a', 'parent_id': '1'}},
+             {'unit_type_id': 'docker_image',
+              'metadata': {'image_id': '2b', 'parent_id': '1'}},
+             {'unit_type_id': 'docker_image',
+              'metadata': {'image_id': '4', 'parent_id': '3'}},
+             {'unit_type_id': 'docker_image',
+              'metadata': {'image_id': '3', 'parent_id': None}}],
+
+            {
+                '0': {
+                    '1': {
+                        '2a': {},
+                        '2b': {},
+                    },
+                    '5': {},
+                },
+                '3': {
+                    '4': {},
+                },
+            },
+        ),
+    ])
+    def test_listImagesChildren(self, pulp, units, expected):
+        blob = {'notes': {'_repo-type': 'docker-repo', 'include_in_download_service': 'False'},
+                'id': 'testid', 'description': 'testdesc', 'display_name': 'testdisp',
+                'distributors': [], 'scratchpad': {}}
+        flexmock(RequestsHttpCaller)
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .and_return(blob, units)
+            .one_by_one())
+        response = pulp.listRepos('testid', content=True)
+        images_children = response[0]['images_children']
+        assert images_children == expected
+
     @pytest.mark.parametrize('repo, image', [('testrepo', 'testimg')])
     def test_checkLayers(self, pulp, repo, image):
         images = []
