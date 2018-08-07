@@ -757,6 +757,8 @@ def do_orphans(bopts, bargs, parser):
 
     for content_type in (dockpulp.V1_C_TYPE,
                          dockpulp.V2_C_TYPE,
+                         dockpulp.V2_TAG,
+                         dockpulp.V2_LIST,
                          dockpulp.V2_BLOB):
         orphans = p.listOrphans(content_type)
         pretty_content_type = content_type.replace('_', ' ') + 's'
