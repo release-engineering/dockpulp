@@ -2192,7 +2192,7 @@ class Pulp(object):
         self.copy_filters(drepo, source=origin_drepo, filters=pulp_filter, v1=True, v2=False)
 
     def watch(self, tid, timeout=None, poll=5):
-        """Watch a task ID and return when it finishes or fails."""
+        """Watch a task ID and return task report when it finishes or fails."""
         if timeout is None:
             timeout = self.timeout
         log.info('waiting up to %s seconds for task %s...' % (timeout, tid))
@@ -2201,7 +2201,7 @@ class Pulp(object):
             t = self.getTask(tid)
             if t['state'] == 'finished':
                 log.info('subtask completed')
-                return True
+                return t
             elif t['state'] == 'error':
                 log.debug('traceback from subtask:')
                 log.debug(t['traceback'])
