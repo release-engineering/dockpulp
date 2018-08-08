@@ -15,6 +15,7 @@
 
 import atexit
 import ConfigParser
+from datetime import datetime
 import hashlib
 import logging
 import os
@@ -1969,9 +1970,9 @@ class Pulp(object):
             repo = prefix_with + repo
         origin_repo = origin_prefix + repo
 
-        repoinfo = self.listRepos(repo, True)
         if not upstream_name:
-            upstream_name = repoinfo[0]['docker-id']
+            repoinfo = self.listRepos(repos=[repo])[0]
+            upstream_name = repoinfo['docker-id']
 
         if not feed:
             self._getRepo(env, config_file)
@@ -1999,31 +2000,26 @@ class Pulp(object):
         log.info('Syncing repo %s' % repo)
         tid = self._post('/pulp/api/v2/repositories/%s/actions/sync/' % repo,
                          data=json.dumps(data))
-        self.watch(tid)
-
-        repoinfo = repoinfo[0]
-
-        oldimgs = set(repoinfo['images'])
-        oldmanifests = set(repoinfo['manifests'])
-        oldmanifestlists = set(repoinfo['manifest_lists'])
-
-        repoinfo = self.listRepos(repo, True)
-        repoinfo = repoinfo[0]
-
-        newimgs = set(repoinfo['images'])
-        imgs = list(newimgs - oldimgs)
-        imgs.sort()
-
-        newmanifests = set(repoinfo['manifests'])
-        manifests = list(newmanifests - oldmanifests)
-        manifests.sort()
-
-        newmanifestlists = set(repoinfo['manifest_lists'])
-        manifest_lists = list(newmanifestlists - oldmanifestlists)
-        manifest_lists.sort()
 
         # Need to maintain origin repo
         self.createOriginRepo(origin_repo)
+
+        task = self.watch(tid)
+        start_time = task['start_time']
+        try:
+            start = datetime.fromisoformat(start_time)
+        except AttributeError:
+            # For Python < 3.7, assumes UTC
+            start = datetime.strptime(start_time, '%Y-%m-%dT%H:%M:%SZ')
+
+        repoinfo = self.listRepos(repos=[repo], content=True,
+                                  since=start)[0]
+        imgs = repoinfo['images']
+        imgs.sort()
+        manifests = list(repoinfo['manifests'])
+        manifests.sort()
+        manifest_lists = list(repoinfo['manifest_lists'])
+        manifest_lists.sort()
 
         # copy with filter to only select the new units
         new_units = []
@@ -2037,7 +2033,7 @@ class Pulp(object):
             new_units.append({"manifest_digest": {"$in": digests}})
         if new_units:
             filters["unit"] = {"$or": new_units}
-        self.copy_filters(origin_repo, repo, filters)
+            self.copy_filters(origin_repo, repo, filters)
 
         return (imgs, manifests, manifest_lists)
 
