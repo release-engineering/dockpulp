@@ -87,6 +87,20 @@ h = NullHandler()
 log.addHandler(h)
 
 
+def seconds_since_epoch(dt):
+    try:
+        return int(dt.timestamp())
+    except AttributeError:
+        # For Python < 3.3
+        epoch = datetime(1970, 1, 1)
+        delta = dt - epoch
+        try:
+            return delta.total_seconds()
+        except AttributeError:
+            # For Python 3 < 3.2, Python 2 < 2.7
+            return delta.days * 86400 + delta.seconds
+
+
 class RequestsHttpCaller(object):
     def __init__(self, url, retries=0):
         self.url = url
@@ -1524,7 +1538,8 @@ class Pulp(object):
         log.debug('getting list of orphaned %s' % content_type)
         return self._get('/pulp/api/v2/content/orphans/%s/' % content_type)
 
-    def listRepos(self, repos=None, content=False, history=False, labels=False, strict=True):
+    def listRepos(self, repos=None, content=False, history=False,
+                  labels=False, strict=True, since=None):
         """Return information about pulp repositories.
 
         If repos is a string or list of strings, treat them as repo IDs
@@ -1611,11 +1626,18 @@ class Pulp(object):
 
             if content or history:
                 # Fetch all content in a single request
+                filter_unit = {}
+                if since is not None:
+                    # Convert the datetime to seconds since epoch
+                    filter_unit['_last_updated'] = {
+                        "$gte": seconds_since_epoch(since),
+                    }
+
                 data = {
                     'criteria': {
                         'type_ids': [V1_C_TYPE, V2_C_TYPE, V2_BLOB, V2_TAG, V2_LIST, SIG_TYPE],
                         'filters': {
-                            'unit': {}
+                            'unit': filter_unit,
                         }
                     }
                 }
