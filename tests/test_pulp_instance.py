@@ -789,7 +789,7 @@ class TestPulp(object):
     @pytest.mark.parametrize(('images', 'manifests', 'manifest_lists', 'filters'), [
         ([], {}, {}, None),
 
-        (['image'], {}, {}, {
+        ({'image': []}, {}, {}, {
             'unit': {
                 '$or': [
                     {
@@ -803,7 +803,7 @@ class TestPulp(object):
             },
         }),
 
-        ([], {'manifest': {}}, {}, {
+        ({}, {'manifest': {}}, {}, {
             'unit': {
                 '$or': [
                     {
@@ -817,7 +817,7 @@ class TestPulp(object):
             },
         }),
 
-        ([], {}, {'mlist': {}}, {
+        ({}, {}, {'mlist': {}}, {
             'unit': {
                 '$or': [
                     {
@@ -831,7 +831,7 @@ class TestPulp(object):
             },
         }),
 
-        (['image'], {'manifest': {}}, {'mlist': {}}, {
+        ({'image': []}, {'manifest': {}}, {'mlist': {}}, {
             'unit': {
                 '$or': [
                     {
@@ -891,7 +891,7 @@ class TestPulp(object):
          new_manifests,
          new_manifest_lists) = pulp.syncRepo(env='syncenv', repo='foobar',
                                              feed='fb', upstream_name='foobar')
-        assert images == new_imgs
+        assert list(images) == new_imgs
         assert list(manifests) == new_manifests
         assert list(manifest_lists) == new_manifest_lists
 

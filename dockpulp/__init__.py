@@ -2014,7 +2014,7 @@ class Pulp(object):
 
         repoinfo = self.listRepos(repos=[repo], content=True,
                                   since=start)[0]
-        imgs = repoinfo['images']
+        imgs = list(repoinfo['images'])
         imgs.sort()
         manifests = list(repoinfo['manifests'])
         manifests.sort()
