@@ -767,7 +767,9 @@ def do_orphans(bopts, bargs, parser):
         if len(orphans) == 0:
             log.info('  No orphans found')
         for orphan in orphans:
-            display_id = orphan.get('image_id') or orphan.get('digest')
+            display_id = (orphan.get('image_id') or
+                          orphan.get('digest') or
+                          orphan.get('name'))
             log.info('  %s' % display_id)
 
         if opts.remove:
