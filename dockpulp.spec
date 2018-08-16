@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.54
+Version:	1.55
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -49,6 +49,17 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Thu Aug 16 2018 Brendan Reilly <breilly@redhat.com> 1.55-1
+- Bumping version for release (breilly@redhat.com)
+- Better output when listing orphan docker tags (twaugh@redhat.com)
+- syncRepo: make a list of keys before sorting (twaugh@redhat.com)
+- syncRepo: use more efficient query for new units (OSBS-6046)
+  (twaugh@redhat.com)
+- listRepos: new 'since' parameter (a datetime) (twaugh@redhat.com)
+- watch: return the task report (twaugh@redhat.com)
+- Include additional unit types for orphan management (twaugh@redhat.com)
+- listRepos: calculate image inheritance (twaugh@redhat.com)
+
 * Fri Jul 20 2018 Brendan Reilly <breilly@redhat.com> 1.54-1
 - Bumping version for release (breilly@redhat.com)
 - Fixed unit tests for manifest tag change (breilly@redhat.com)
