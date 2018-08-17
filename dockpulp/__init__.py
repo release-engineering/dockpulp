@@ -1691,7 +1691,7 @@ class Pulp(object):
                     parent_id = metadata.setdefault('parent_id', None)
                     if parent_id is None:
                         base_ids.append(image_id)
-                    else:
+                    elif parent_id in imgs:
                         parent_metadata = imgs[parent_id]['metadata']
                         child_ids = parent_metadata.setdefault('child_ids', [])
                         child_ids.append(image_id)
