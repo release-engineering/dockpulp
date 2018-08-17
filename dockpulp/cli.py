@@ -216,6 +216,8 @@ def do_clone(bopts, bargs, parser):
                       default=False, action='store_true')
     parser.add_option('--noprefix', help='do not add prefix to the repo id', default=False,
                       action='store_true')
+    parser.add_option('--no-paginate', default=False, action='store_true',
+                      help='retrieve all repo content at once without pagination')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     productid = None
@@ -232,7 +234,7 @@ def do_clone(bopts, bargs, parser):
         productid = args[1]
 
     log.info('cloning %s repo to %s' % (args[0], repoid))
-    oldinfo = p.listRepos(args[0], content=True)[0]
+    oldinfo = p.listRepos(args[0], content=True, paginate=not opts.no_paginate)[0]
     dist = oldinfo.get('distribution')
     p.createRepo(repoid, oldinfo['redirect'],
                  desc=oldinfo['description'], title=oldinfo['title'],
@@ -268,6 +270,8 @@ def do_confirm(bopts, bargs, parser):
                       help="Tests all layers via shasum for v2 or tar/gzip for v1")
     parser.add_option('--v1', action='store_true', default=False, help='Only report v1 output')
     parser.add_option('--v2', action='store_true', default=False, help='Only report v2 output')
+    parser.add_option('--no-paginate', default=False, action='store_true',
+                      help='retrieve all repo content at once without pagination')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
     c = dockpulp.Crane(p, opts.cert, opts.key)
@@ -290,7 +294,8 @@ def do_confirm(bopts, bargs, parser):
             else:
                 rids.append(arg)
 
-    repoids = c.confirm(rids, opts.v1, opts.v2, opts.silent, opts.check_layers)
+    repoids = c.confirm(rids, opts.v1, opts.v2, opts.silent, opts.check_layers,
+                        paginate=not opts.paginate)
 
     log.info('Testing complete... %s error(s)' % repoids['numerrors'])
 
@@ -393,12 +398,14 @@ def do_delete(bopts, bargs, parser):
     """
     parser.add_option('-p', '--publish', default=False, action='store_true',
                       help='remove content from crane when deleting repo')
+    parser.add_option('--no-paginate', default=False, action='store_true',
+                      help='retrieve all repo content at once without pagination')
     opts, args = parser.parse_args(bargs)
     if len(args) < 1:
         parser.error('You must provide a repository ID')
     p = pulp_login(bopts)
     for repo in args:
-        repoinfo = p.listRepos(repo, content=True)[0]
+        repoinfo = p.listRepos(repo, content=True, paginate=not opts.no_paginate)[0]
         p.deleteRepo(repo, opts.publish)
         log.info('deleted %s' % repo)
         if len(repoinfo['images']) > 0:
@@ -614,6 +621,8 @@ def do_list(bopts, bargs, parser):
                       help="display manifest lists")
     parser.add_option('-s', '--silent', default=False, action='store_true',
                       help='return a json object of the listing, no other output')
+    parser.add_option('--no-paginate', default=False, action='store_true',
+                      help='retrieve all repo content at once without pagination')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
 
@@ -625,7 +634,7 @@ def do_list(bopts, bargs, parser):
         opts.content = True
 
     if len(args) == 0:
-        repos = p.listRepos(content=opts.content)
+        repos = p.listRepos(content=opts.content, paginate=not opts.no_paginate)
     else:
         rids = []
         for arg in args:
@@ -639,7 +648,7 @@ def do_list(bopts, bargs, parser):
             else:
                 rids.append(arg)
         repos = p.listRepos(repos=rids, content=opts.content, history=(opts.history or opts.labels),
-                            labels=opts.labels)
+                            labels=opts.labels, paginate=not opts.no_paginate)
 
     if opts.silent:
         log.addHandler(silent)
@@ -704,9 +713,11 @@ def do_json(bopts, bargs, parser):
     """
     parser.add_option('-p', '--pretty', default=False, action='store_true',
                       help='format the json into something human-readable')
+    parser.add_option('--no-paginate', default=False, action='store_true',
+                      help='retrieve all repo content at once without pagination')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
-    j = p.dump(pretty=opts.pretty)
+    j = p.dump(pretty=opts.pretty, paginate=not opts.paginate)
     log.info('json dump follows this line on stderr')
     print >> sys.stderr, j
 
@@ -790,6 +801,8 @@ def do_remove(bopts, bargs, parser):
                       action='store_true', help='list orphaned images')
     parser.add_option('-r', '--remove', default=False, action='store_true',
                       help='Remove all orphaned content. USE WITH CAUTION')
+    parser.add_option('--no-paginate', default=False, action='store_true',
+                      help='retrieve all repo content at once without pagination')
     opts, args = parser.parse_args(bargs)
     if opts.list_orphans:
         log.warning('DEPRECATED: Use dock-pulp orphans instead.')
@@ -808,7 +821,7 @@ def do_remove(bopts, bargs, parser):
     if len(args) < 2:
         parser.error('You must provide a repo and image-id')
     p = pulp_login(bopts)
-    images = p.listRepos(repos=args[0], content=True)[0]['images']
+    images = p.listRepos(repos=args[0], content=True, paginate=not opts.paginate)[0]['images']
     for img in args[1:]:
         p.remove(args[0], img)
     if args[0] == dockpulp.HIDDEN:
@@ -816,7 +829,7 @@ def do_remove(bopts, bargs, parser):
         sys.exit(0)
 
     log.info('calculating unneeded layers')
-    images = p.listRepos(repos=args[0], content=True)[0]['images']
+    images = p.listRepos(repos=args[0], content=True, paginate=not opts.paginate)[0]['images']
     tagged_images = set([i for i in images.keys() if len(images[i]) > 0])
     if len(tagged_images) == 0:
         log.info('No tagged images, no unneeded layers')
@@ -845,6 +858,8 @@ def do_sync(bopts, bargs, parser):
     parser.add_option('--feed', help='specify an upstream feed url to sync from')
     parser.add_option('-s', '--sslvalidation', help='Use SSL validation', default=False,
                       action='store_true',)
+    parser.add_option('--no-paginate', default=False, action='store_true',
+                      help='retrieve all repo content at once without pagination')
     opts, args = parser.parse_args(bargs)
     if len(args) < 2 and opts.feed is None:
         parser.error('You must provide an environment to sync from and a repo id')
@@ -862,7 +877,8 @@ def do_sync(bopts, bargs, parser):
                                                  basic_auth_username=opts.username,
                                                  basic_auth_password=opts.password,
                                                  ssl_validation=opts.sslvalidation,
-                                                 upstream_name=opts.upstream)
+                                                 upstream_name=opts.upstream,
+                                                 paginate=not opts.no_paginate)
 
     log.info(repo)
     log.info('-' * len(repo))
@@ -903,6 +919,8 @@ def do_tag(bopts, bargs, parser):
     """
     parser.add_option('-r', '--remove', action='store_true', default=False,
                       help='remove any tags associated with the image instead')
+    parser.add_option('--no-paginate', default=False, action='store_true',
+                      help='retrieve all repo content at once without pagination')
     opts, args = parser.parse_args(bargs)
     if opts.remove and len(args) != 2:
         parser.error(
@@ -912,7 +930,7 @@ def do_tag(bopts, bargs, parser):
             'You must provide a repo, image-id, and comma-separated tags')
     p = pulp_login(bopts)
     # check that the image exists in the repository
-    repoinfo = p.listRepos(args[0], content=True)[0]
+    repoinfo = p.listRepos(args[0], content=True, paginate=not opts.paginate)[0]
     if args[1] not in repoinfo['images']:
         log.error('%s does not exist in %s' % (args[1], args[0]))
         sys.exit(1)

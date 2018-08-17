@@ -191,7 +191,7 @@ class Crane(object):
         manifest = manifest.replace('=', ':')
         return (repo, manifest)
 
-    def confirm(self, repos, v1=True, v2=True, silent=True, check_layers=False):
+    def confirm(self, repos, v1=True, v2=True, silent=True, check_layers=False, paginate=True):
 
         auto = 'auto'
 
@@ -199,7 +199,7 @@ class Crane(object):
             v1 = True
             v2 = auto  # auto, based on /v2/ response from crane
 
-        repos = self.p.listRepos(repos=repos, content=True)
+        repos = self.p.listRepos(repos=repos, content=True, paginate=paginate)
         self.errors = 0
         self.errorids = {}
         repoids = {}
@@ -715,7 +715,7 @@ class Crane(object):
 
         return result
 
-    def _test_sigstore(self, signatures, prefix_with=PREFIX, exception=None):
+    def _test_sigstore(self, signatures, prefix_with=PREFIX, exception=None, paginate=True):
         """Confirm we can reach CDN and get data back from it."""
         result = {'error': False, 'sigs_in_pulp_not_crane': [],
                   'manifests_in_sigstore_not_repo': [],
@@ -734,7 +734,8 @@ class Crane(object):
                 log.warning("signature %s is missing '@', skipping", signature)
                 continue
             manifests.setdefault(repo, []).append(manifest)
-        signed_repos = self.p.listRepos(manifests.keys(), content=True, strict=False)
+        signed_repos = self.p.listRepos(manifests.keys(), content=True, strict=False,
+                                        paginate=paginate)
         repo_sigs = {}
         for repo in signed_repos:
             repo_sigs[repo['id']] = repo['signatures']
@@ -1370,13 +1371,13 @@ class Pulp(object):
         tid = self._delete('/pulp/api/v2/repositories/%s/distributors/%s/' % (repo, dist_id))
         self.watch(tid)
 
-    def dump(self, pretty=False):
+    def dump(self, pretty=False, paginate=True):
         """Dump the complete configuration of an environment to json format."""
         if pretty:
-            return json.dumps(self.listRepos(content=True),
+            return json.dumps(self.listRepos(content=True, paginate=paginate),
                               sort_keys=True, indent=2)
         else:
-            return json.dumps(self.listRepos(content=True))
+            return json.dumps(self.listRepos(content=True, paginate=paginate))
 
     def emptyRepo(self, repo):
         self.remove_filters(repo)
@@ -1540,7 +1541,7 @@ class Pulp(object):
         return self._get('/pulp/api/v2/content/orphans/%s/' % content_type)
 
     def listRepos(self, repos=None, content=False, history=False,
-                  labels=False, strict=True, since=None):
+                  labels=False, strict=True, since=None, paginate=True):
         """Return information about pulp repositories.
 
         If repos is a string or list of strings, treat them as repo IDs
@@ -1634,19 +1635,8 @@ class Pulp(object):
                         "$gte": seconds_since_epoch(since),
                     }
 
-                data = {
-                    'criteria': {
-                        'type_ids': [V1_C_TYPE, V2_C_TYPE, V2_BLOB, V2_TAG, V2_LIST, SIG_TYPE],
-                        'filters': {
-                            'unit': filter_unit,
-                        }
-                    }
-                }
-                log.debug('getting unit information with request:')
-                log.debug(pprint.pformat(data))
-                units = self._post(
-                    '/pulp/api/v2/repositories/%s/search/units/' % blob['id'],
-                    data=json.dumps(data))
+                units = self._collect_repo_units(blob['id'], filter_unit, paginate=paginate)
+
                 if blob['id'] == SIGSTORE:
                     r['sigstore'] = []
                     sigs = [unit for unit in units
@@ -1840,6 +1830,81 @@ class Pulp(object):
             clean.sort()
         return clean
 
+    def _collect_repo_units(self, repo_name, filter_unit=None, paginate=True):
+        filter_unit = filter_unit or {}
+
+        data = {
+            'criteria': {
+                'type_ids': [V1_C_TYPE, V2_C_TYPE, V2_BLOB, V2_TAG, V2_LIST, SIG_TYPE],
+                'filters': {
+                    'unit': filter_unit,
+                },
+            }
+        }
+
+        log.debug('getting unit information with request:')
+        log.debug(pprint.pformat(data))
+
+        if not paginate:
+            return self._post('/pulp/api/v2/repositories/%s/search/units/' % repo_name,
+                              data=json.dumps(data))
+
+        # Adjust filters to avoid picking up content added between page requests
+        existing_last_updated = filter_unit.pop('_last_updated', None)
+        lte_filter = {'$lte': time.time()}
+        if existing_last_updated:
+            filter_unit['_last_updated'] = {
+                '$and': [existing_last_updated, lte_filter]
+            }
+        else:
+            filter_unit['_last_updated'] = lte_filter
+
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            try:
+                data['criteria'].update({
+                    'skip': 0,
+                    'limit': 10000,
+                })
+
+                units = []
+                overlap = True
+                while True:
+                    log.debug('paginating content units, skip: %d, limit: %d',
+                              data['criteria']['skip'], data['criteria']['limit'])
+                    partial_units = self._post(
+                        '/pulp/api/v2/repositories/%s/search/units/' % repo_name,
+                        data=json.dumps(data))
+                    log.debug('got %d content units', len(partial_units))
+
+                    if data['criteria']['skip'] > 0 and overlap:
+                        assert partial_units[0]['unit_id'] == units[-1]['unit_id']
+                        partial_units.pop(0)
+
+                    if not partial_units and not overlap:
+                        break
+
+                    # Cause another request without overlap to ensure we really do
+                    # have all the results. See https://pulp.plan.io/issues/3931
+                    if len(partial_units) < data['criteria']['limit'] and overlap:
+                        overlap = False
+                    else:
+                        overlap = True
+
+                    units.extend(partial_units)
+                    data['criteria']['skip'] = len(units) - int(overlap)
+
+            except AssertionError:
+                log.exception('content mismatch while paginating')
+                if attempt == max_attempts:
+                    raise RuntimeError('unable to paginate through content units')
+
+            else:
+                # Results fetched without any errors
+                break
+
+        return units
+
     def listUploadRequests(self):
         """Return a pending upload requests."""
         log.debug('getting all upload IDs')
@@ -1991,7 +2056,7 @@ class Pulp(object):
     def syncRepo(self, env=None, repo=None, config_file=DEFAULT_CONFIG_FILE,
                  prefix_with=PREFIX, origin_prefix=ORIGIN_PREFIX, feed=None,
                  basic_auth_username=None, basic_auth_password=None, ssl_validation=None,
-                 upstream_name=None):
+                 upstream_name=None, paginate=True):
         """Sync repo."""
         if not repo.startswith(prefix_with):
             repo = prefix_with + repo
@@ -2039,8 +2104,7 @@ class Pulp(object):
             # For Python < 3.7, assumes UTC
             start = datetime.strptime(start_time, '%Y-%m-%dT%H:%M:%SZ')
 
-        repoinfo = self.listRepos(repos=[repo], content=True,
-                                  since=start)[0]
+        repoinfo = self.listRepos(repos=[repo], content=True, paginate=paginate, since=start)[0]
         imgs = list(repoinfo['images'])
         imgs.sort()
         manifests = list(repoinfo['manifests'])

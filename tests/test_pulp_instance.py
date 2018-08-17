@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
+from copy import deepcopy
 from datetime import datetime
 from dockpulp import Pulp, Crane, RequestsHttpCaller, errors, log
 import pytest
@@ -383,7 +384,10 @@ class TestPulp(object):
         ('test-repo', True, True, True),
         ('test-repo', False, True, True),
     ])
-    def test_listHistory(self, pulp, repos, content, history, label):
+    def test_listRepo(self, pulp, repos, content, history, label):
+        import time
+        now = time.time()
+        flexmock(time).should_receive('time').and_return(now)
         blob = {'notes': {'_repo-type': 'docker-repo'}, 'id': 'testid', 'description': 'testdesc',
                 'display_name': 'testdisp', 'distributors': [], 'scratchpad': {}}
         units = [{'unit_type_id': 'docker_manifest',
@@ -400,10 +404,14 @@ class TestPulp(object):
                 'type_ids': ['docker_image', 'docker_manifest', 'docker_blob', 'docker_tag',
                              'docker_manifest_list', 'iso'],
                 'filters': {
-                    'unit': {}
-                }
+                    'unit': {'_last_updated': {'$lte': now}}
+                },
+                'skip': 0,
+                'limit': 10000,
             }
         }
+        unitdata2 = deepcopy(unitdata)
+        unitdata2['criteria']['skip'] = len(units)
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
             .should_receive('__call__')
@@ -416,6 +424,13 @@ class TestPulp(object):
             .with_args('post', '/pulp/api/v2/repositories/testid/search/units/',
                        data=json.dumps(unitdata))
             .and_return(units)
+            .once()
+            .ordered())
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .with_args('post', '/pulp/api/v2/repositories/testid/search/units/',
+                       data=json.dumps(unitdata2))
+            .and_return([])
             .once()
             .ordered())
         (RequestsHttpCaller
@@ -448,7 +463,7 @@ class TestPulp(object):
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
             .should_receive('__call__')
-            .and_return(blob, units)
+            .and_return(blob, units, [])  # Empty list to indicate no more units
             .one_by_one())
         response = pulp.listRepos(repoid, content=True)
         assert response[0]['sigstore'][0] == 'testname'
@@ -466,7 +481,7 @@ class TestPulp(object):
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
             .should_receive('__call__')
-            .and_return(blob, units)
+            .and_return(blob, units, [])  # Empty list to indicate no more units
             .one_by_one())
         response = pulp.listRepos('testid', content=True)
         assert response[0]['manifests']['testdig']['config'] == 'test_config'
@@ -527,7 +542,7 @@ class TestPulp(object):
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
             .should_receive('__call__')
-            .and_return(blob, units)
+            .and_return(blob, units, [])  # Empty list to indicate no more units
             .one_by_one())
         response = pulp.listRepos('testid', content=True)
         images_children = response[0]['images_children']
@@ -920,7 +935,7 @@ class TestPulp(object):
         origin_repo = pulp.getOriginPrefix() + 'redhat-foobar'
         (flexmock(pulp)
             .should_receive('listRepos')
-            .with_args(repos=['redhat-foobar'], content=True,
+            .with_args(repos=['redhat-foobar'], content=True, paginate=True,
                        since=datetime(2018, 8, 8, 11, 51, 18))
             .and_return(repoinfo))
         (flexmock(RequestsHttpCaller)
@@ -992,7 +1007,7 @@ class TestCrane(object):
         flexmock(pulp)
         (pulp
             .should_receive('listRepos')
-            .with_args(repos=repos, content=True)
+            .with_args(repos=repos, content=True, paginate=True)
             .once()
             .and_return(repoinfo))
         flexmock(crane)
@@ -1026,7 +1041,7 @@ class TestCrane(object):
         flexmock(pulp)
         (pulp
             .should_receive('listRepos')
-            .with_args(repos=repos, content=True)
+            .with_args(repos=repos, content=True, paginate=True)
             .once()
             .and_return(repoinfo))
         flexmock(crane)
