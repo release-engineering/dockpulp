@@ -2241,8 +2241,10 @@ class Pulp(object):
         if timeout is None:
             timeout = self.timeout
         log.info('waiting up to %s seconds for task %s...' % (timeout, tid))
-        curr = 0
-        while curr < timeout:
+        curr = start = time.time()
+        while curr - start < timeout:
+            if curr > start:
+                time.sleep(poll)
             t = self.getTask(tid)
             if t['state'] == 'finished':
                 log.info('subtask completed')
@@ -2251,10 +2253,10 @@ class Pulp(object):
                 log.debug('traceback from subtask:')
                 log.debug(t['traceback'])
                 raise errors.DockPulpTaskError(t['error'])
-            else:
-                log.debug('sleeping (%s/%s seconds passed)' % (curr, timeout))
-                time.sleep(poll)
-                curr += poll
+
+            log.debug('sleeping (%s/%s seconds passed)' % (curr - start,
+                                                           timeout))
+            curr = time.time()
         log.error('timed out waiting for subtask')
         raise errors.DockPulpError('Timed out waiting for task %s' % tid)
 
@@ -2315,8 +2317,10 @@ class Pulp(object):
         if running:
             log.debug("Waiting on the following %d Pulp tasks: %s" % (
                 len(running), ",".join(sorted(running))))
-        while running:
-            time.sleep(poll)
+        curr = start = time.time()
+        while running and curr - start < timeout:
+            if curr > start:
+                time.sleep(poll)
             tasks_found = self.getTasks(list(running))
             finished = [t for t in tasks_found if t["state"] in ("finished", "error", "canceled")]
             for t in finished:
@@ -2369,6 +2373,7 @@ class Pulp(object):
                 running = set()
                 raise errors.DockPulpError("Pulp tasks failed: %s" % failed_tasks)
 
+            curr = time.time()
             if running and len(running) != running_count:
                 log.debug("Waiting on the following %d Pulp tasks: %s" % (
                     len(running), ",".join(sorted(running))))
