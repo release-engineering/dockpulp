@@ -57,7 +57,7 @@ class testPulp(object):
     def copy(self, arg1, arg2):
         return
 
-    def listRepos(self, repos=None, content=None, history=None, labels=None):
+    def listRepos(self, repos=None, content=None, history=None, labels=None, paginate=None):
         return
 
     def updateRepo(self, arg1, arg2):
@@ -73,7 +73,8 @@ class testPulp(object):
         return
 
     def syncRepo(self, arg1, arg2, arg3, feed=None, basic_auth_username=None,
-                 basic_auth_password=None, ssl_validation=None, upstream_name=None):
+                 basic_auth_password=None, ssl_validation=None, upstream_name=None,
+                 paginate=None):
         return
 
 
@@ -203,7 +204,7 @@ class TestCLI(object):
             (testPulp
                 .should_receive('listRepos')
                 .once()
-                .with_args(args[0], content=True)
+                .with_args(args[0], content=True, paginate=True)
                 .and_return(oldinfo))
             (testPulp
                 .should_receive('createRepo')
@@ -301,7 +302,7 @@ class TestCLI(object):
         else:
             (flexmock(testPulp)
                 .should_receive('listRepos')
-                .with_args(bargs[0], content=True)
+                .with_args(bargs[0], content=True, paginate=True)
                 .once()
                 .and_return([{'images': {}, 'manifests': {}}]))
             assert cli.do_delete(bopts, bargs) is None
@@ -345,7 +346,7 @@ class TestCLI(object):
 
         (flexmock(testPulp)
             .should_receive('listRepos')
-            .with_args(repos=[bargs[0]], content=True, history=True, labels=True)
+            .with_args(repos=[bargs[0]], content=True, history=True, labels=True, paginate=True)
             .and_return(repos))
 
         caplog.setLevel(logging.INFO, logger="dockpulp")
@@ -439,7 +440,7 @@ class TestCLI(object):
                 .should_receive('syncRepo')
                 .with_args(env, 'test-repo', bopts.config_file, feed=feed,
                            basic_auth_username=user, basic_auth_password=password,
-                           ssl_validation=ssl, upstream_name=upstream)
+                           ssl_validation=ssl, upstream_name=upstream, paginate=True)
                 .and_return(response))
             assert cli.do_sync(bopts, bargs) is None
 
