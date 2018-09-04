@@ -1850,14 +1850,7 @@ class Pulp(object):
                               data=json.dumps(data))
 
         # Adjust filters to avoid picking up content added between page requests
-        existing_last_updated = filter_unit.pop('_last_updated', None)
-        lte_filter = {'$lte': time.time()}
-        if existing_last_updated:
-            filter_unit['_last_updated'] = {
-                '$and': [existing_last_updated, lte_filter]
-            }
-        else:
-            filter_unit['_last_updated'] = lte_filter
+        filter_unit.setdefault('_last_updated', {})['$lte'] = time.time()
 
         max_attempts = 3
         for attempt in range(1, max_attempts + 1):
