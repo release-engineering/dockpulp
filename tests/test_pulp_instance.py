@@ -1,7 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-
 from copy import deepcopy
 from datetime import datetime
 from dockpulp import Pulp, Crane, RequestsHttpCaller, errors, log
@@ -14,7 +13,6 @@ import logging
 import subprocess
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
-from contextlib import nested
 from flexmock import flexmock
 from requests.packages.urllib3.util import Retry
 log.setLevel(logging.CRITICAL)
@@ -23,8 +21,7 @@ log.setLevel(logging.CRITICAL)
 # fixtures
 @pytest.fixture
 def pulp(tmpdir):
-    with nested(NamedTemporaryFile(mode='wt'), NamedTemporaryFile(mode='wt'),
-                NamedTemporaryFile(mode='wt')) as (fp, df, dn):
+    with NamedTemporaryFile(mode='wt') as fp:
         name = 'test'
         fp.write(dedent("""
             [pulps]
@@ -48,7 +45,8 @@ def pulp(tmpdir):
             """).format(name=name))
         fp.flush()
 
-        df.write(dedent("""
+        with NamedTemporaryFile(mode='wt') as df:
+            df.write(dedent("""
             {
                 "foo":{
                     "distributor_type_id": "docker_distributor_web",
@@ -60,9 +58,9 @@ def pulp(tmpdir):
                 }
             }
             """))
-        df.flush()
-
-        dn.write(dedent("""
+            df.flush()
+            with NamedTemporaryFile(mode='wt') as dn:
+                dn.write(dedent("""
             {
                 "beta":{
                     "signature": "foobar",
@@ -77,18 +75,17 @@ def pulp(tmpdir):
                     "name_restrict": []
                 }
             }
-            """))
-        dn.flush()
-        pulp = Pulp(env=name, config_file=fp.name, config_distributors=df.name,
-                    config_distributions=dn.name)
+                """))
+                dn.flush()
+                pulp = Pulp(env=name, config_file=fp.name, config_distributors=df.name,
+                            config_distributions=dn.name)
     return pulp
 
 
 @pytest.fixture
 def core_pulp(tmpdir):
     # No optional fields in dockpulp.conf
-    with nested(NamedTemporaryFile(mode='wt'), NamedTemporaryFile(mode='wt'),
-                NamedTemporaryFile(mode='wt')) as (fp, df, dn):
+    with NamedTemporaryFile(mode='wt') as fp:
         name = 'test'
         fp.write(dedent("""
             [pulps]
@@ -105,8 +102,8 @@ def core_pulp(tmpdir):
             {name} = foo
             """).format(name=name))
         fp.flush()
-
-        df.write(dedent("""
+        with NamedTemporaryFile(mode='wtf') as df:
+            df.write(dedent("""
             {
                 "foo":{
                     "distributor_type_id": "docker_distributor_web",
@@ -114,9 +111,9 @@ def core_pulp(tmpdir):
                 }
             }
             """))
-        df.flush()
-
-        dn.write(dedent("""
+            df.flush()
+            with NamedTemporaryFile(mode='wt') as dn:
+                dn.write(dedent("""
             {
                 "foo":{
                     "signature": "",
@@ -126,16 +123,15 @@ def core_pulp(tmpdir):
                 }
             }
             """))
-        dn.flush()
-        core_pulp = Pulp(env=name, config_file=fp.name, config_distributors=df.name,
-                         config_distributions=dn.name)
+                dn.flush()
+                core_pulp = Pulp(env=name, config_file=fp.name, config_distributors=df.name,
+                                 config_distributions=dn.name)
     return core_pulp
 
 
 @pytest.fixture
 def restricted_pulp(tmpdir):
-    with nested(NamedTemporaryFile(mode='wt'), NamedTemporaryFile(mode='wt'),
-                NamedTemporaryFile(mode='wt')) as (fp, df, dn):
+    with NamedTemporaryFile(mode='wt') as fp:
         name = 'test'
         fp.write(dedent("""
             [pulps]
@@ -159,7 +155,8 @@ def restricted_pulp(tmpdir):
             """).format(name=name))
         fp.flush()
 
-        df.write(dedent("""
+        with NamedTemporaryFile(mode='wt') as df:
+            df.write(dedent("""
             {
                 "foo":{
                     "distributor_type_id": "docker_distributor_web",
@@ -167,9 +164,10 @@ def restricted_pulp(tmpdir):
                 }
             }
             """))
-        df.flush()
+            df.flush()
 
-        dn.write(dedent("""
+            with NamedTemporaryFile(mode='wt') as dn:
+                dn.write(dedent("""
             {
                 "beta":{
                     "signature": "foobar",
@@ -185,9 +183,9 @@ def restricted_pulp(tmpdir):
                 }
             }
             """))
-        dn.flush()
-        restricted_pulp = Pulp(env=name, config_file=fp.name, config_distributors=df.name,
-                               config_distributions=dn.name)
+                dn.flush()
+                restricted_pulp = Pulp(env=name, config_file=fp.name, config_distributors=df.name,
+                                       config_distributions=dn.name)
     return restricted_pulp
 
 
@@ -227,8 +225,7 @@ class TestPulp(object):
     # Tests of methods from Pulp class.
     def test_switched_pulp(self):
         # Test for dockpulp switchover
-        with nested(NamedTemporaryFile(mode='wt'), NamedTemporaryFile(mode='wt'),
-                    NamedTemporaryFile(mode='wt')) as (fp, df, dn):
+        with NamedTemporaryFile(mode='wt') as fp:
             name = 'test'
             fp.write(dedent("""
                 [pulps]
@@ -249,8 +246,8 @@ class TestPulp(object):
                 {name} = bar
             """).format(name=name))
             fp.flush()
-
-            df.write(dedent("""
+            with NamedTemporaryFile(mode='wt') as df:
+                df.write(dedent("""
             {
                 "foo":{
                     "distributor_type_id": "docker_distributor_web",
@@ -261,10 +258,10 @@ class TestPulp(object):
                     "distributor_config": {}
                 }
             }
-            """))
-            df.flush()
-
-            dn.write(dedent("""
+                """))
+                df.flush()
+                with NamedTemporaryFile(mode='wt') as dn:
+                    dn.write(dedent("""
             {
                 "foo":{
                     "signature": "",
@@ -273,27 +270,27 @@ class TestPulp(object):
                     "name_restrict": []
                 }
             }
-            """))
-            dn.flush()
-            url = '/pulp/api/v2/status'
-            response = {'versions': {'platform_version': '10.0'}}
-            flexmock(RequestsHttpCaller)
-            (RequestsHttpCaller
-                .should_receive('__call__')
-                .with_args('get', url)
-                .and_return(response))
-            switched_pulp = Pulp(env=name, config_file=fp.name, config_distributors=df.name,
-                                 config_distributions=dn.name)
-            assert switched_pulp.release_order == switched_pulp.switch_release
-            response = {'versions': {'platform_version': '1.0'}}
+                    """))
+                    dn.flush()
+                    url = '/pulp/api/v2/status'
+                    response = {'versions': {'platform_version': '10.0'}}
+                    flexmock(RequestsHttpCaller)
+                    (RequestsHttpCaller
+                        .should_receive('__call__')
+                        .with_args('get', url)
+                        .and_return(response))
+                    switched_pulp = Pulp(env=name, config_file=fp.name, config_distributors=df.name,
+                                         config_distributions=dn.name)
+                    assert switched_pulp.release_order == switched_pulp.switch_release
+                    response = {'versions': {'platform_version': '1.0'}}
 
-            (RequestsHttpCaller
-                .should_receive('__call__')
-                .with_args('get', url)
-                .and_return(response))
-            switched_pulp = Pulp(env=name, config_file=fp.name, config_distributors=df.name,
-                                 config_distributions=dn.name)
-            assert switched_pulp.release_order != switched_pulp.switch_release
+                    (RequestsHttpCaller
+                        .should_receive('__call__')
+                        .with_args('get', url)
+                        .and_return(response))
+                    switched_pulp = Pulp(env=name, config_file=fp.name, config_distributors=df.name,
+                                         config_distributions=dn.name)
+                    assert switched_pulp.release_order != switched_pulp.switch_release
 
     @pytest.mark.parametrize('cert, key', [('foo', 'bar')])
     def test_set_certs(self, pulp, cert, key):
@@ -539,8 +536,7 @@ class TestPulp(object):
         blob = {'notes': {'_repo-type': 'docker-repo', 'include_in_download_service': 'False'},
                 'id': 'testid', 'description': 'testdesc', 'display_name': 'testdisp',
                 'distributors': [], 'scratchpad': {}}
-        flexmock(RequestsHttpCaller)
-        (RequestsHttpCaller
+        (flexmock(RequestsHttpCaller)
             .should_receive('__call__')
             .and_return(blob, units, [])  # Empty list to indicate no more units
             .one_by_one())

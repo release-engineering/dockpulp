@@ -63,13 +63,13 @@ def recreate(dpo, jfile, test=False):
     """Recreate the hidden repo in the environment provided."""
     try:
         repos = json.load(open(jfile, 'r'))
-    except ValueError, e:
+    except ValueError as e:
         log.error('%s does not contain valid json' % jfile)
         die(e)
     # make sure the hidden repository is available
     try:
         p.listRepos(repos=dockpulp.HIDDEN, content=True)[0]
-    except dockpulp.errors.DockPulpError, e:
+    except dockpulp.errors.DockPulpError as e:
         if '404' in str(e):
             log.error(
                 '  This command expects the %s repository to be available' %

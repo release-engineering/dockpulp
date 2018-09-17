@@ -104,7 +104,7 @@ def get_versions(md):
     vers = {}
     for data in md:
         image_id = data.get('id', data.get('Id'))
-        if 'docker_version' in data.keys():
+        if 'docker_version' in data:
             vers[image_id] = data['docker_version']
     return vers
 
@@ -127,7 +127,7 @@ def check_repo(tarfile_path):
             if os.path.basename(member.path) == "repositories":
                 repo_data = json.load(archive.extractfile(member))
                 found = True
-                if len(repo_data.keys()) != 1:
+                if len(repo_data) != 1:
                     return 2
             else:
                 seen_ids.append(os.path.basename(member.path))
@@ -180,7 +180,7 @@ def get_top_layer(pulp_md):
     # Find layers that are parents
     layers = set()
     parents = set()
-    for img_hash, value in pulp_md.iteritems():
+    for img_hash, value in pulp_md.items():
         layers.add(img_hash)
         if 'parent' in value:
             parents.add(value['parent'])

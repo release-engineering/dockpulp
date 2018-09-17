@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with dockpulp.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import print_function
 from functools import wraps
 from optparse import OptionParser
 from textwrap import dedent
@@ -58,33 +59,33 @@ def main(args=None):
     cmd = find_directive('do_', args)
     try:
         cmd(opts, args[1:])
-    except dockpulp.errors.DockPulpConfigError, pe:
+    except dockpulp.errors.DockPulpConfigError as pe:
         log.error('Configuration error: %s' % str(pe))
         log.error('')
         log.error('Something is wrong in /etc/dockpulp.conf, /etc/dockpulpdistributors.json,')
         log.error('or /etc/dockpulpdistributions.json')
         log.error('Or you mistyped an option you are passing to --server')
         sys.exit(1)
-    except dockpulp.errors.DockPulpInternalError, pe:
+    except dockpulp.errors.DockPulpInternalError as pe:
         log.error('Internal failure: %s' % str(pe))
         sys.exit(1)
-    except dockpulp.errors.DockPulpLoginError, pe:
+    except dockpulp.errors.DockPulpLoginError as pe:
         log.error('Login Error: %s' % str(pe))
         log.error('Did you log into the %s environment with the right password?' %
                   opts.server)
         sys.exit(1)
-    except dockpulp.errors.DockPulpServerError, pe:
+    except dockpulp.errors.DockPulpServerError as pe:
         log.error('Server-side problem: %s' % str(pe))
         log.error('')
         log.error('The only recourse here is to contact IT. :(')
         sys.exit(1)
-    except dockpulp.errors.DockPulpTaskError, pe:
+    except dockpulp.errors.DockPulpTaskError as pe:
         log.error('Subtask failed: %s' % pe)
         log.error('')
         log.error('Use the "task" command to see the full traceback')
         log.error('Use --debug to see inspect the server request')
         sys.exit(1)
-    except dockpulp.errors.DockPulpError, pe:
+    except dockpulp.errors.DockPulpError as pe:
         log.error('Error: %s' % str(pe))
         log.error('')
         log.error('For help diagnosing errors, go to the link below. The API')
@@ -118,10 +119,10 @@ def pulp_login(bopts):
 def list_directives(prefix):
     """List all base directives supported by relengo-tool."""
     dirs = [(k.replace(prefix, ''), v.__doc__)
-            for k, v in globals().items() if k.startswith(prefix)]
+            for k, v in list(globals().items()) if k.startswith(prefix)]
     dirs.sort()
     for directive in dirs:
-        print '  %s: %s' % (directive)
+        print('  %s: %s' % (directive))
     sys.exit(2)
 
 
@@ -138,7 +139,7 @@ def find_directive(prefix, arguments):
             log.error('Unknown directive: %s' % arguments[0])
         else:
             return cmd
-    print 'Available directives:\n'
+    print('Available directives:\n')
     list_directives(prefix)
 
 
@@ -242,12 +243,12 @@ def do_clone(bopts, bargs, parser):
                  productline=productid, prefix_with=prefix_with)
     log.info('cloning content in %s to %s' % (args[0], repoid))
     if len(oldinfo['images']) > 0:
-        for img in oldinfo['images'].keys():
+        for img in oldinfo['images']:
             p.copy(repoid, img)
             tags = {'tag': '%s:%s' % (','.join(oldinfo['images'][img]), img)}
             p.updateRepo(repoid, tags)
     if len(oldinfo['manifests']) > 0:
-        for manifest in oldinfo['manifests'].keys():
+        for manifest in oldinfo['manifests']:
             p.copy(repoid, manifest)
     if len(oldinfo['images']) == 0 and len(oldinfo['manifests']) == 0:
         log.info('no content to copy in')
@@ -410,12 +411,12 @@ def do_delete(bopts, bargs, parser):
         log.info('deleted %s' % repo)
         if len(repoinfo['images']) > 0:
             log.info('Layers removed:')
-            for img in repoinfo['images'].keys():
+            for img in repoinfo['images']:
                 log.info('    %s', img)
             log.info('Layers still exist in redhat-everything')
         if len(repoinfo['manifests']) > 0:
             log.info('Manifests removed:')
-            for manifest in repoinfo['manifests'].keys():
+            for manifest in repoinfo['manifests']:
                 log.info('    %s', manifest)
             log.info('Manifests still exist in redhat-everything')
 
@@ -464,10 +465,10 @@ def do_imageids(bopts, bargs, parser):
 def _print_v1_images(repo, showlabels):
     # Print out v1 image information
     log.info('v1 image details:')
-    if len(repo['images'].keys()) == 0:
+    if not repo['images']:
         log.info('  No images')
     else:
-        imgs = repo['images'].keys()
+        imgs = list(repo['images'].keys())
         imgs.sort()
         for img in imgs:
             log.info('  %s (tags: %s)',
@@ -482,13 +483,13 @@ def _print_v1_images(repo, showlabels):
 def _print_v2_images(repo, showlists, justmanifests, showhistory, showlabels, showschema):
     # Print out v2 image information
     log.info('v2 manifest details:')
-    if len(repo['manifests'].keys()) == 0:
+    if not repo['manifests']:
         log.info('  No manifests')
         return
 
-    manifests = repo['manifests'].keys()
+    manifests = list(repo['manifests'].keys())
     manifests.sort()
-    manifest_lists = repo['manifest_lists'].keys()
+    manifest_lists = list(repo['manifest_lists'].keys())
     manifest_lists.sort()
     tags = repo['tags']
     output = {}
@@ -543,7 +544,7 @@ def _print_v2_images(repo, showlists, justmanifests, showhistory, showlabels, sh
 
     # Print all manifests and layers not associated with a manifest list
     for layers, manifestinfo in output.items():
-        manifests = manifestinfo.keys()
+        manifests = list(manifestinfo.keys())
         if seenlayers[layers]:
             continue
         log.info('')
@@ -719,7 +720,7 @@ def do_json(bopts, bargs, parser):
     p = pulp_login(bopts)
     j = p.dump(pretty=opts.pretty, paginate=not opts.paginate)
     log.info('json dump follows this line on stderr')
-    print >> sys.stderr, j
+    print(j, file=sys.stderr)
 
 
 @make_parser
@@ -830,7 +831,7 @@ def do_remove(bopts, bargs, parser):
 
     log.info('calculating unneeded layers')
     images = p.listRepos(repos=args[0], content=True, paginate=not opts.paginate)[0]['images']
-    tagged_images = set([i for i in images.keys() if len(images[i]) > 0])
+    tagged_images = set([i for i in images if len(images[i]) > 0])
     if len(tagged_images) == 0:
         log.info('No tagged images, no unneeded layers')
         sys.exit(0)
@@ -1067,7 +1068,7 @@ def do_upload(bopts, bargs, parser):
     # TODO: this gets read again during the upload
     manifest = dockpulp.imgutils.get_manifest(args[0])
     metadata = dockpulp.imgutils.get_metadata(args[0])
-    newimgs = dockpulp.imgutils.get_metadata_pulp(metadata).keys()
+    newimgs = list(dockpulp.imgutils.get_metadata_pulp(metadata).keys())
     log.info('Layers in this tarball:')
     for img in newimgs:
         log.info('  %s' % img)
