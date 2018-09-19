@@ -296,7 +296,7 @@ def do_confirm(bopts, bargs, parser):
                 rids.append(arg)
 
     repoids = c.confirm(rids, opts.v1, opts.v2, opts.silent, opts.check_layers,
-                        paginate=not opts.paginate)
+                        paginate=not opts.no_paginate)
 
     log.info('Testing complete... %s error(s)' % repoids['numerrors'])
 
@@ -718,7 +718,7 @@ def do_json(bopts, bargs, parser):
                       help='retrieve all repo content at once without pagination')
     opts, args = parser.parse_args(bargs)
     p = pulp_login(bopts)
-    j = p.dump(pretty=opts.pretty, paginate=not opts.paginate)
+    j = p.dump(pretty=opts.pretty, paginate=not opts.no_paginate)
     log.info('json dump follows this line on stderr')
     print(j, file=sys.stderr)
 
@@ -822,7 +822,7 @@ def do_remove(bopts, bargs, parser):
     if len(args) < 2:
         parser.error('You must provide a repo and image-id')
     p = pulp_login(bopts)
-    images = p.listRepos(repos=args[0], content=True, paginate=not opts.paginate)[0]['images']
+    images = p.listRepos(repos=args[0], content=True, paginate=not opts.no_paginate)[0]['images']
     for img in args[1:]:
         p.remove(args[0], img)
     if args[0] == dockpulp.HIDDEN:
@@ -830,7 +830,7 @@ def do_remove(bopts, bargs, parser):
         sys.exit(0)
 
     log.info('calculating unneeded layers')
-    images = p.listRepos(repos=args[0], content=True, paginate=not opts.paginate)[0]['images']
+    images = p.listRepos(repos=args[0], content=True, paginate=not opts.no_paginate)[0]['images']
     tagged_images = set([i for i in images if len(images[i]) > 0])
     if len(tagged_images) == 0:
         log.info('No tagged images, no unneeded layers')
@@ -931,7 +931,7 @@ def do_tag(bopts, bargs, parser):
             'You must provide a repo, image-id, and comma-separated tags')
     p = pulp_login(bopts)
     # check that the image exists in the repository
-    repoinfo = p.listRepos(args[0], content=True, paginate=not opts.paginate)[0]
+    repoinfo = p.listRepos(args[0], content=True, paginate=not opts.no_paginate)[0]
     if args[1] not in repoinfo['images']:
         log.error('%s does not exist in %s' % (args[1], args[0]))
         sys.exit(1)
