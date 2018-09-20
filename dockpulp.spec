@@ -13,6 +13,7 @@ BuildArch:  noarch
 BuildRequires:	python-devel
 Requires: python-requests
 Requires: gnupg
+Requires: python-six
 %if 0%{?rhel} == 6
 Requires: python-simplejson
 %endif

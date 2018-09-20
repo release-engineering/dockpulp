@@ -16,7 +16,7 @@
 import six
 import atexit
 from datetime import datetime
-import configparser
+from six.moves import configparser
 import hashlib
 import logging
 import os
@@ -40,6 +40,7 @@ from distutils.version import LooseVersion
 from six.moves.urllib.parse import urlparse
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+from operator import itemgetter
 import multiprocessing
 
 try:
@@ -1642,7 +1643,7 @@ class Pulp(object):
                     for sig in sigs:
                         r['sigstore'].append(sig['metadata']['name'])
                     clean.append(r)
-                    clean.sort()
+                    clean.sort(key=itemgetter('id'))
                     continue
                 r['images'] = {}
                 if labels:
@@ -1773,7 +1774,7 @@ class Pulp(object):
                     if r['id'] == HIDDEN:
                         log.warning("Hidden repo does not have history info, skipping")
                         clean.append(r)
-                        clean.sort()
+                        clean.sort(key=itemgetter('id'))
                         continue
                     for manifest in r['manifests'].keys():
                         manifestpaths = [manifest]
@@ -1825,7 +1826,7 @@ class Pulp(object):
                             r['manifests'][manifest]['v1labels'] = None
 
             clean.append(r)
-            clean.sort()
+            clean.sort(key=itemgetter('id'))
         return clean
 
     def _collect_repo_units(self, repo_name, filter_unit=None, paginate=True):
