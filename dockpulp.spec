@@ -1,5 +1,25 @@
+%if 0%{?rhel} && 0%{?rhel} <= 6
+%{!?__python2: %global __python2 /usr/bin/python2}
+%{!?python2_sitelib: %global python2_sitelib %(%{__python2} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
+%{!?python2_sitearch: %global python2_sitearch %(%{__python2} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(1))")}
+%{!?python2_version: %global python2_version %(%{__python2} -c "import sys; sys.stdout.write(sys.version[:3])")}
+%endif
+
+%if 0%{?rhel} && 0%{?rhel} <= 7
+%{!?py2_build: %global py2_build %{__python2} setup.py build}
+%{!?py2_install: %global py2_install %{__python2} setup.py install --skip-build --root %{buildroot}}
+%endif
+
+%if (0%{?fedora} >= 22 || 0%{?rhel} >= 8)
+%global with_python3 1
+%global binaries_py_version %{python3_version}
+%else
+%global binaries_py_version %{python2_version}
+%endif
+
+
 Name:		dockpulp
-Version:	1.56
+Version:	1.57
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -50,6 +70,14 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Fri Oct 05 2018 Brendan Reilly <breilly@redhat.com> 1.57-1
+- Bug fixes related to python 3 change (breilly@redhat.com)
+- Add python3 tests to travis (breilly@redhat.com)
+- Updating unit tests for py3 (breilly@redhat.com)
+- Made dockpulp python 3 compatible (breilly@redhat.com)
+- Fix content list pagination with since filter (lucarval@redhat.com)
+- Paginate repo contents to avoid pulp memory issues (lucarval@redhat.com)
+
 * Wed Aug 22 2018 Brendan Reilly <breilly@redhat.com> 1.56-1
 - Bumping version for release (breilly@redhat.com)
 - Avoid traceback when computing ancestry (twaugh@redhat.com)
