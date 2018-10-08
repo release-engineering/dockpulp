@@ -261,8 +261,8 @@ class TestCLI(object):
            and args[0] == 'foo':
             (testPulp
                 .should_receive('createRepo')
-                .with_args('foo-bar', '/content/foo-bar', library=lib, protected=False,
-                           title=None, productline='foo', distribution=None, desc="No description",
+                .with_args('foo-bar', '/content/foo-bar', library=lib, title=None,
+                           productline='foo', distribution=None, desc="No description",
                            prefix_with='', rel_url='content/foo-bar', download=True)
                 .and_return(None))
         else:
