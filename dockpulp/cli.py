@@ -342,8 +342,6 @@ def do_create(bopts, bargs, parser):
     parser.add_option('--distribution', help='set the distribution field for the repo')
     parser.add_option('--download', help='set the include_in_download_service bit. '
                       'Accepts (t, true, True) for True, (f, false, False) for False. ')
-    parser.add_option('-p', '--protected', help='set the protected bit to true for the repo',
-                      default=False, action='store_true')
     parser.add_option('--noprefix', help='do not add prefix to the repo id', default=False,
                       action='store_true')
     opts, args = parser.parse_args(bargs)
@@ -385,9 +383,9 @@ def do_create(bopts, bargs, parser):
         assert url.startswith('/')
         rel_url = url[1:]  # remove leading '/'
 
-    p.createRepo(repoid, url, desc=opts.description, title=opts.title, protected=opts.protected,
-                 productline=productid, library=opts.library, distribution=opts.distribution,
-                 prefix_with=prefix_with, rel_url=rel_url, download=download)
+    p.createRepo(repoid, url, desc=opts.description, title=opts.title, productline=productid,
+                 library=opts.library, distribution=opts.distribution, prefix_with=prefix_with,
+                 rel_url=rel_url, download=download)
     log.info('repository created')
 
 
@@ -998,9 +996,6 @@ def do_update(bopts, bargs, parser):
     parser.add_option('-a', '--auto-publish', help='set the auto publish bit for the repo. '
                       'Accepts (t, true, True) for True, (f, false, False) for False',
                       dest='autopublish')
-    parser.add_option('-p', '--protected',
-                      help='set the protected bit. Accepts (t, true, True) for True, '
-                           '(f, false, False) for False')
     opts, args = parser.parse_args(bargs)
     if len(args) < 1:
         parser.error('You must specify a repo ID (not the docker name)')
@@ -1025,8 +1020,6 @@ def do_update(bopts, bargs, parser):
             updates['download'] = get_bool_from_string(opts.download)
         if opts.autopublish:
             updates['auto_publish'] = get_bool_from_string(opts.autopublish)
-        if opts.protected:
-            updates['protected'] = get_bool_from_string(opts.protected)
         p.updateRepo(repo, updates)
         log.info('repo successfully updated')
 
