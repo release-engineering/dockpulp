@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.58
+Version:	1.59
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -50,6 +50,11 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Thu Oct 11 2018 Brendan Reilly <breilly@redhat.com> 1.59-1
+- Bumping version for release (breilly@redhat.com)
+- updated unit tests for 'protected' removal (breilly@redhat.com)
+- removal of 'protected' option from CLI (breilly@redhat.com)
+
 * Fri Oct 05 2018 Brendan Reilly <breilly@redhat.com> 1.58-1
 - Bumping for new version (breilly@redhat.com)
 - Bug fixes related to python 3 change (breilly@redhat.com)
