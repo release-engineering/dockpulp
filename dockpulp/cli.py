@@ -614,10 +614,14 @@ def do_list(bopts, bargs, parser):
                       help='show labels')
     parser.add_option('-m', '--manifests', default=False, action='store_true',
                       help='only list manifests and their tags, no blobs')
-    parser.add_option('--schema', default=False, action='store_true',
-                      help='display schema version for each manifest')
-    parser.add_option('--lists', default=False, action='store_true',
-                      help="display manifest lists")
+    parser.add_option('--no-schema', default=True, action='store_false', dest="schema",
+                      help='do not display schema version for each manifest')
+    parser.add_option('--no-lists', default=True, action='store_false', dest="lists",
+                      help="do not display manifest lists")
+    parser.add_option('--schema', default=False, action='store_true', dest="old_schema",
+                      help='Deprecated - display schema version for each manifest')
+    parser.add_option('--lists', default=False, action='store_true', dest="old_lists",
+                      help="Deprecated - display manifest lists")
     parser.add_option('-s', '--silent', default=False, action='store_true',
                       help='return a json object of the listing, no other output')
     parser.add_option('--no-paginate', default=False, action='store_true',
@@ -629,7 +633,8 @@ def do_list(bopts, bargs, parser):
         log.removeHandler(sh)
         log.addHandler(dockpulp.NullHandler())
 
-    if opts.schema or opts.lists:
+    if opts.old_schema or opts.old_lists:
+        log.warning("schema and lists options are deprecated")
         opts.content = True
 
     if len(args) == 0:
