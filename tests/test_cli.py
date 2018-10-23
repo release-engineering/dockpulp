@@ -321,7 +321,7 @@ class TestCLI(object):
     @patch('dockpulp.Pulp')
     def test_do_list(self, mocked_pulp, caplog, silent):
         bopts = testbOpts()
-        bargs = ['test-repo', '--content', '--details', '--labels', '--lists']
+        bargs = ['test-repo', '--content', '--details', '--labels']
         if silent:
             bargs.append('--silent')
         p = testPulp()
