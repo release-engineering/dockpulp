@@ -29,8 +29,8 @@ class testPulp(object):
     def __init__(self):
         self.certificate = None
         self.key = None
-        self.AUTH_CER_FILE = ''
-        self.AUTH_KEY_FILE = ''
+        self.AUTH_CER_FILE = '%s'
+        self.AUTH_KEY_FILE = '%s'
 
     def set_certs(self, cert, key):
         return
