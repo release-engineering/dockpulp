@@ -531,6 +531,8 @@ def _print_v2_images(repo, showlists, justmanifests, showhistory, showlabels, sh
             if mltags:
                 log.info('    Tags: %s', mltags)
             for manifest in manifest_list_info['mdigests']:
+                if isinstance(manifest, dict):
+                    manifest = manifest['digest']
                 seenmanifests[manifest] = True
                 layers = manifest_layers[manifest]
                 seenlayers[layers] = True
