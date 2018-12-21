@@ -1157,10 +1157,13 @@ class Pulp(object):
             pool = multiprocessing.Pool()
 
         for repo in repos:
-            releasekeys = self.release_order.strip().split(",")
             distributors = []
-            for key in releasekeys:
-                distributors.append(self.distributorconf[key])
+            if repo == SIGSTORE:
+                distributors.append(self.distributorconf['iso_distributor_sigstore'])
+            else:
+                releasekeys = self.release_order.strip().split(",")
+                for key in releasekeys:
+                    distributors.append(self.distributorconf[key])
             for distributor in distributors:
                 dist_id = distributor['distributor_id']
                 override = {}
@@ -1354,15 +1357,18 @@ class Pulp(object):
         self._post('/pulp/api/v2/repositories/', data=json.dumps(stuff))
         return stuff
 
-    def deleteRepo(self, repo, publish=False):
+    def deleteRepo(self, repo, publish=False, sigs=False):
         """Delete a repository; cannot be undone!."""
+        log.info('removing images and manifests from repo %s', repo)
+        self.emptyRepo(repo, sigs)
         if publish:
-            log.info('removing images and manifests from repo %s' % repo)
-            self.emptyRepo(repo)
-            log.info('publishing repo %s twice to remove all content from crane' % repo)
+            log.info('publishing repo %s twice to remove all content from crane', repo)
             self.crane(repo, force_refresh=True)
             # Need to publish twice due to order of distributors
             self.crane(repo, force_refresh=True)
+            if sigs:
+                log.info('publishing repo %s to remove related signatures from crane', SIGSTORE)
+                self.crane(SIGSTORE, force_refresh=True)
         log.info('deleting repo %s' % repo)
         tid = self._delete('/pulp/api/v2/repositories/%s/' % repo)
         self.watch(tid)
@@ -1380,9 +1386,23 @@ class Pulp(object):
         else:
             return json.dumps(self.listRepos(content=True, paginate=paginate))
 
-    def emptyRepo(self, repo):
+    def emptyRepo(self, repo, sigs=False):
         self.remove_filters(repo)
         log.info('%s emptied' % repo)
+        if sigs:
+            result = self.listRepos(repos=[repo], content=True)[0]
+            repoid = result['docker-id']
+            signatures = []
+            for manifest in result['manifests']:
+                signature = {'name': "%s@%s/signature-1" % (repoid, manifest.replace('@', '='))}
+                signatures.append(signature)
+            filters = {
+                'unit': {
+                    "$or": signatures
+                }
+            }
+            log.debug("Removing signatures from sigstore: %s", signatures)
+            self.remove_filters(SIGSTORE, filters, v1=False, v2=False, sigs=sigs)
 
     def exists(self, rid):
         """Return True if a repository already exists, False otherwise."""
@@ -1975,6 +1995,21 @@ class Pulp(object):
                 'override_config': {}
             }
 
+        elif '=' in img:
+
+            data = {
+                'criteria': {
+                    'type_ids': [SIG_TYPE],
+                    'filters': {
+                        'unit': {
+                            "$or": [{'name': img}]
+                        }
+                    }
+                },
+                'limit': 1,
+                'override_config': {}
+            }
+
         else:
 
             data = {
@@ -1997,13 +2032,15 @@ class Pulp(object):
             data=json.dumps(data))
         self.watch(tid)
 
-    def remove_filters(self, repo, filters={}, v1=True, v2=True):
+    def remove_filters(self, repo, filters={}, v1=True, v2=True, sigs=False):
         """Remove content from a repo according to filters."""
         type_ids = []
         if v1:
             type_ids.append(V1_C_TYPE)
         if v2:
             type_ids.extend([V2_C_TYPE, V2_BLOB, V2_TAG, V2_LIST])
+        if sigs:
+            type_ids.append(SIG_TYPE)
         data = {
             'criteria': {
                 'type_ids': type_ids,

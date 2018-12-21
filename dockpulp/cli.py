@@ -396,6 +396,8 @@ def do_delete(bopts, bargs, parser):
     """
     parser.add_option('-p', '--publish', default=False, action='store_true',
                       help='remove content from crane when deleting repo')
+    parser.add_option('--no-sigs', default=False, action='store_true',
+                      help='do not remove associated signatures')
     parser.add_option('--no-paginate', default=False, action='store_true',
                       help='retrieve all repo content at once without pagination')
     opts, args = parser.parse_args(bargs)
@@ -404,7 +406,7 @@ def do_delete(bopts, bargs, parser):
     p = pulp_login(bopts)
     for repo in args:
         repoinfo = p.listRepos(repo, content=True, paginate=not opts.no_paginate)[0]
-        p.deleteRepo(repo, opts.publish)
+        p.deleteRepo(repo, opts.publish, sigs=not opts.no_sigs)
         log.info('deleted %s' % repo)
         if len(repoinfo['images']) > 0:
             log.info('Layers removed:')

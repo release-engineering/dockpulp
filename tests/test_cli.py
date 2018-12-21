@@ -67,7 +67,7 @@ class testPulp(object):
     def updateRepo(self, arg1, arg2):
         return
 
-    def deleteRepo(self, arg1, arg2):
+    def deleteRepo(self, arg1, arg2, sigs=False):
         return
 
     def emptyRepo(self, arg1):
