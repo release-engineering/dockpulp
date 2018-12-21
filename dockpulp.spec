@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.60
+Version:	1.61
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -50,6 +50,12 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Fri Dec 21 2018 Brendan Reilly <breilly@redhat.com> 1.61-1
+- Quick fix for Pulp manifest list change (breilly@redhat.com)
+- Separate credentials by server (ahills@redhat.com)
+- Instead of escaping "/" in regular expressions use r"" (pbabinca@redhat.com)
+- Ignore W504 in flake8 (pbabinca@redhat.com)
+
 * Wed Nov 07 2018 Brendan Reilly <breilly@redhat.com> 1.60-1
 - bumping version for release (breilly@redhat.com)
 - Schema and List output made default (breilly@redhat.com)
