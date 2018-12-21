@@ -55,6 +55,14 @@ def pulp(tmpdir):
                 "docker_rsync":{
                     "distributor_type_id": "docker_rsync_distributor",
                     "distributor_config": {}
+                },
+                "iso_distributor_sigstore": {
+                    "distributor_id": "iso_distributor",
+                    "distributor_type_id": "iso_distributor",
+                    "distributor_config": {
+                        "rsync_extra_args": ["--exclude", "PULP_MANIFEST"]
+                    },
+                    "auto_publish": "True"
                 }
             }
             """))
@@ -755,6 +763,24 @@ class TestPulp(object):
             else:
                 assert response['notes']['include_in_download_service'] == "False"
 
+    @pytest.mark.parametrize('repo_id', ['redhat-sigstore'])
+    def test_crane(self, pulp, repo_id):
+        data = {'id': 'iso_distributor', 'override_config': {}}
+        flexmock(RequestsHttpCaller)
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .with_args('post', '/pulp/api/v2/repositories/%s/actions/publish/' % repo_id,
+                       data=json.dumps(data))
+            .once()
+            .and_return(123))
+        flexmock(Pulp)
+        (Pulp
+            .should_receive('watch')
+            .with_args(123)
+            .once()
+            .and_return(None))
+        pulp.crane(repos=repo_id)
+
     def test_disassociate(self, pulp):
         repo = 'testrepo'
         dist_id = 'foo'
@@ -792,20 +818,27 @@ class TestPulp(object):
         assert response['id'] == repo_id
 
     @pytest.mark.parametrize('publish', [True, False])
-    def test_deleteRepo(self, pulp, publish):
+    @pytest.mark.parametrize('sigs', [True, False])
+    def test_deleteRepo(self, pulp, publish, sigs):
         repo = 'foobar'
         flexmock(Pulp)
+        (Pulp
+            .should_receive('emptyRepo')
+            .with_args(repo, sigs)
+            .once()
+            .and_return(None))
         if publish:
-            (Pulp
-                .should_receive('emptyRepo')
-                .with_args(repo)
-                .once()
-                .and_return(None))
             (Pulp
                 .should_receive('crane')
                 .with_args(repo, force_refresh=True)
                 .twice()
                 .and_return(None))
+            if sigs:
+                (Pulp
+                    .should_receive('crane')
+                    .with_args('redhat-sigstore', force_refresh=True)
+                    .once()
+                    .and_return(None))
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
             .should_receive('__call__')
@@ -817,22 +850,106 @@ class TestPulp(object):
             .with_args(123)
             .once()
             .and_return(None))
-        pulp.deleteRepo(repo, publish)
+        pulp.deleteRepo(repo, publish, sigs)
 
-    def test_emptyRepo(self, pulp):
+    @pytest.mark.parametrize('sigs', [True, False])
+    def test_emptyRepo(self, pulp, sigs):
         repo = 'foobar'
+        repoinfo = [{'id': 'foobar', 'detail': 'foobar',
+                     'manifests': {'test@manifest': {'layers': ['testlayer1'], 'tags': ['testtag'],
+                                                     'config': 'testconfig',
+                                                     'schema_version': 'testsv'}},
+                     'docker-id': 'testdockerid',
+                     'redirect': 'testredirect'}]
+        filters = {
+            'unit': {
+                "$or": [{'name': 'testdockerid@test=manifest/signature-1'}]
+            }
+        }
         flexmock(Pulp)
         (Pulp
             .should_receive('remove_filters')
             .with_args(repo)
             .once()
             .and_return(None))
-        pulp.emptyRepo(repo)
+        if sigs:
+            (pulp
+                .should_receive('listRepos')
+                .with_args(repos=[repo], content=True)
+                .once()
+                .and_return(repoinfo))
+            (pulp
+                .should_receive('remove_filters')
+                .with_args('redhat-sigstore', filters, v1=False, v2=False, sigs=sigs)
+                .once()
+                .and_return(None))
+        pulp.emptyRepo(repo, sigs)
 
-    def test_remove_filters(self, pulp):
+    @pytest.mark.parametrize(('img', 'data'), [
+        ('123456v1sum', {
+            'criteria': {
+                'type_ids': ['docker_image'],
+                'filters': {
+                    'unit': {
+                        'image_id': '123456v1sum'
+                    }
+                }
+            },
+            'limit': 1,
+            'override_config': {}
+        }),
+        ('sha256:123456v2sum', {
+            'criteria': {
+                'type_ids': ['docker_manifest', 'docker_blob', 'docker_tag',
+                             'docker_manifest_list'],
+                'filters': {
+                    'unit': {
+                        "$or": [{'digest': 'sha256:123456v2sum'},
+                                {'manifest_digest': 'sha256:123456v2sum'}]
+                    }
+                }
+            },
+            'limit': 1,
+            'override_config': {}
+        }),
+        ('test@sig=sum/signature-1', {
+            'criteria': {
+                'type_ids': ['iso'],
+                'filters': {
+                    'unit': {
+                        "$or": [{'name': 'test@sig=sum/signature-1'}]
+                    }
+                }
+            },
+            'limit': 1,
+            'override_config': {}
+        }),
+    ])
+    def test_remove(self, pulp, img, data):
+        repo = 'testrepo'
+
+        flexmock(RequestsHttpCaller)
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .with_args('post', '/pulp/api/v2/repositories/%s/actions/unassociate/' % repo,
+                       data=json.dumps(data))
+            .once()
+            .and_return(123))
+        flexmock(Pulp)
+        (Pulp
+            .should_receive('watch')
+            .with_args(123)
+            .once()
+            .and_return(None))
+        pulp.remove(repo, img)
+
+    @pytest.mark.parametrize('sigs', [True, False])
+    def test_remove_filters(self, pulp, sigs):
         repo = 'foobar'
         type_ids = ['docker_image', 'docker_manifest', 'docker_blob', 'docker_tag',
                     'docker_manifest_list']
+        if sigs:
+            type_ids.append('iso')
         data = {
             'criteria': {
                 'type_ids': type_ids,
@@ -854,7 +971,7 @@ class TestPulp(object):
             .with_args(123)
             .once()
             .and_return(None))
-        pulp.remove_filters(repo)
+        pulp.remove_filters(repo, sigs=sigs)
 
     @pytest.mark.parametrize(('images', 'manifests', 'manifest_lists', 'filters'), [
         ([], {}, {}, None),
