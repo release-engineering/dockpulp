@@ -1,6 +1,6 @@
 pytest==3.2.5
 six
-pytest-capturelog==0.7
+pytest-catchlog
 responses
 requests
 flexmock

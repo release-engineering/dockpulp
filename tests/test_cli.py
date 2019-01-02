@@ -343,10 +343,10 @@ class TestCLI(object):
             .with_args(repos=[bargs[0]], content=True, history=True, labels=True, paginate=True)
             .and_return(repos))
 
-        caplog.setLevel(logging.INFO, logger="dockpulp")
+        caplog.set_level(logging.INFO, logger="dockpulp")
         response = cli.do_list(bopts, bargs)
         if silent:
-            output = caplog.text()
+            output = caplog.text
             jsontext = output[output.find('['):]
             assert json.loads(jsontext) == repos
         else:
@@ -375,10 +375,10 @@ class TestCLI(object):
                 .with_args(task_id)
                 .and_return(taskinfo))
 
-        caplog.setLevel(logging.INFO, logger="dockpulp")
+        caplog.set_level(logging.INFO, logger="dockpulp")
         response = cli.do_task(bopts, bargs)
         if silent:
-            output = caplog.text()
+            output = caplog.text
             jsontext = output[output.find('['):]
             assert json.loads(jsontext) == tasks
         else:
