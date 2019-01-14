@@ -1396,6 +1396,11 @@ class Pulp(object):
             for manifest in result['manifests']:
                 signature = {'name': "%s@%s/signature-1" % (repoid, manifest.replace('@', '='))}
                 signatures.append(signature)
+
+            if not signatures:
+                log.debug("No signatures to remove")
+                return
+
             filters = {
                 'unit': {
                     "$or": signatures
