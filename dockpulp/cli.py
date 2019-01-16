@@ -390,7 +390,7 @@ def do_create(bopts, bargs, parser):
 
 @make_parser
 def do_delete(bopts, bargs, parser):
-    """Delete a repository; this will not affect content in other repos.
+    """Delete a repository; by default this will also remove associated signatures.
 
     dock-pulp delete [options] repo-id [repo-id...]
     """

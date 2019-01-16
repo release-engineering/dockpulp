@@ -1359,9 +1359,9 @@ class Pulp(object):
 
     def deleteRepo(self, repo, publish=False, sigs=False):
         """Delete a repository; cannot be undone!."""
-        log.info('removing images and manifests from repo %s', repo)
-        self.emptyRepo(repo, sigs)
         if publish:
+            log.info('removing images and manifests from repo %s', repo)
+            self.emptyRepo(repo, sigs)
             log.info('publishing repo %s twice to remove all content from crane', repo)
             self.crane(repo, force_refresh=True)
             # Need to publish twice due to order of distributors
@@ -1369,9 +1369,27 @@ class Pulp(object):
             if sigs:
                 log.info('publishing repo %s to remove related signatures from crane', SIGSTORE)
                 self.crane(SIGSTORE, force_refresh=True)
+        elif sigs:
+            self.deleteSignatures(repo)
         log.info('deleting repo %s' % repo)
         tid = self._delete('/pulp/api/v2/repositories/%s/' % repo)
         self.watch(tid)
+
+    def deleteSignatures(self, repo):
+        """Delete signatures associated with a deleted repo."""
+        result = self.listRepos(repos=[repo], content=True)[0]
+        repoid = result['docker-id']
+        signatures = []
+        for manifest in result['manifests']:
+            signature = {'name': "%s@%s/signature-1" % (repoid, manifest.replace('@', '='))}
+            signatures.append(signature)
+        filters = {
+            'unit': {
+                "$or": signatures
+            }
+        }
+        log.debug("Removing signatures from sigstore: %s", signatures)
+        self.remove_filters(SIGSTORE, filters, v1=False, v2=False, sigs=True)
 
     def disassociate(self, dist_id, repo):
         """Disassociate a distributor associated with a repo."""
@@ -1387,27 +1405,10 @@ class Pulp(object):
             return json.dumps(self.listRepos(content=True, paginate=paginate))
 
     def emptyRepo(self, repo, sigs=False):
+        if sigs:
+            self.deleteSignatures(repo)
         self.remove_filters(repo)
         log.info('%s emptied' % repo)
-        if sigs:
-            result = self.listRepos(repos=[repo], content=True)[0]
-            repoid = result['docker-id']
-            signatures = []
-            for manifest in result['manifests']:
-                signature = {'name': "%s@%s/signature-1" % (repoid, manifest.replace('@', '='))}
-                signatures.append(signature)
-
-            if not signatures:
-                log.debug("No signatures to remove")
-                return
-
-            filters = {
-                'unit': {
-                    "$or": signatures
-                }
-            }
-            log.debug("Removing signatures from sigstore: %s", signatures)
-            self.remove_filters(SIGSTORE, filters, v1=False, v2=False, sigs=sigs)
 
     def exists(self, rid):
         """Return True if a repository already exists, False otherwise."""

@@ -822,12 +822,12 @@ class TestPulp(object):
     def test_deleteRepo(self, pulp, publish, sigs):
         repo = 'foobar'
         flexmock(Pulp)
-        (Pulp
-            .should_receive('emptyRepo')
-            .with_args(repo, sigs)
-            .once()
-            .and_return(None))
         if publish:
+            (Pulp
+                .should_receive('emptyRepo')
+                .with_args(repo, sigs)
+                .once()
+                .and_return(None))
             (Pulp
                 .should_receive('crane')
                 .with_args(repo, force_refresh=True)
@@ -839,6 +839,12 @@ class TestPulp(object):
                     .with_args('redhat-sigstore', force_refresh=True)
                     .once()
                     .and_return(None))
+        elif sigs:
+            (Pulp
+                .should_receive('deleteSignatures')
+                .with_args(repo)
+                .once()
+                .and_return(None))
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
             .should_receive('__call__')
@@ -852,8 +858,7 @@ class TestPulp(object):
             .and_return(None))
         pulp.deleteRepo(repo, publish, sigs)
 
-    @pytest.mark.parametrize('sigs', [True, False])
-    def test_emptyRepo(self, pulp, sigs):
+    def test_deleteSignatures(self, pulp):
         repo = 'foobar'
         repoinfo = [{'id': 'foobar', 'detail': 'foobar',
                      'manifests': {'test@manifest': {'layers': ['testlayer1'], 'tags': ['testtag'],
@@ -866,6 +871,24 @@ class TestPulp(object):
                 "$or": [{'name': 'testdockerid@test=manifest/signature-1'}]
             }
         }
+
+        flexmock(Pulp)
+        (Pulp
+            .should_receive('listRepos')
+            .with_args(repos=[repo], content=True)
+            .once()
+            .and_return(repoinfo))
+        (Pulp
+            .should_receive('remove_filters')
+            .with_args('redhat-sigstore', filters, v1=False, v2=False, sigs=True)
+            .once()
+            .and_return(None))
+        pulp.deleteSignatures(repo)
+
+    @pytest.mark.parametrize('sigs', [True, False])
+    def test_emptyRepo(self, pulp, sigs):
+        repo = 'foobar'
+
         flexmock(Pulp)
         (Pulp
             .should_receive('remove_filters')
@@ -873,14 +896,9 @@ class TestPulp(object):
             .once()
             .and_return(None))
         if sigs:
-            (pulp
-                .should_receive('listRepos')
-                .with_args(repos=[repo], content=True)
-                .once()
-                .and_return(repoinfo))
-            (pulp
-                .should_receive('remove_filters')
-                .with_args('redhat-sigstore', filters, v1=False, v2=False, sigs=sigs)
+            (Pulp
+                .should_receive('deleteSignatures')
+                .with_args(repo)
                 .once()
                 .and_return(None))
         pulp.emptyRepo(repo, sigs)
