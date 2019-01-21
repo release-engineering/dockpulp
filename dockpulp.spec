@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.62
+Version:	1.63
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -50,6 +50,10 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Mon Jan 21 2019 Brendan Reilly <breilly@redhat.com> 1.63-1
+- bumping version for release (breilly@redhat.com)
+- Fixes for automatic signature removal (breilly@redhat.com)
+
 * Thu Jan 17 2019 Brendan Reilly <breilly@redhat.com> 1.62-1
 - Bumping version for release (breilly@redhat.com)
 - Restore commit 1316cf (breilly@redhat.com)
