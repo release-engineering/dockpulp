@@ -1381,7 +1381,7 @@ class Pulp(object):
         repoid = result['docker-id']
         signatures = []
         for manifest in result['manifests']:
-            signature = {'name': "%s@%s/signature-1" % (repoid, manifest.replace('@', '='))}
+            signature = {'name': "%s@%s/signature-1" % (repoid, manifest.replace(':', '='))}
             signatures.append(signature)
 
         if not signatures:
@@ -1989,9 +1989,11 @@ class Pulp(object):
         if self._request.certificate:
             self._cleanup(os.path.dirname(self._request.certificate))
 
-    def remove(self, repo, img):
+    def remove(self, repo, img, sigs=False):
         """Remove an image from a repo."""
         if img.startswith("sha256:"):
+            if sigs:
+                self.removeSignature(repo, img)
 
             data = {
                 'criteria': {
@@ -2067,6 +2069,13 @@ class Pulp(object):
             '/pulp/api/v2/repositories/%s/actions/unassociate/' % repo,
             data=json.dumps(data))
         self.watch(tid)
+
+    def removeSignature(self, repo, img):
+        """Remove a signature associated with a manifest."""
+        result = self.listRepos(repos=[repo], content=False)[0]
+        repoid = result['docker-id']
+        signature = "%s@%s/signature-1" % (repoid, img.replace(':', '='))
+        self.remove(SIGSTORE, signature)
 
     def searchRepos(self, patt):
         """Search and return Pulp repository IDs matching given pattern."""
