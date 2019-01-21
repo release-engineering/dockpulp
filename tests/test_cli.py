@@ -70,10 +70,13 @@ class testPulp(object):
     def deleteRepo(self, arg1, arg2, sigs=False):
         return
 
-    def emptyRepo(self, arg1):
+    def emptyRepo(self, arg1, sigs=False):
         return
 
     def getTask(self, tids):
+        return
+
+    def remove(self, repo, img, sigs=False):
         return
 
     def syncRepo(self, arg1, arg2, arg3, feed=None, basic_auth_username=None,
@@ -351,6 +354,37 @@ class TestCLI(object):
             assert json.loads(jsontext) == repos
         else:
             assert response is None
+
+    @pytest.mark.parametrize('bargs', ['1 2', None])
+    @patch('dockpulp.Pulp')
+    def test_do_remove(self, mocked_pulp, bargs):
+        if bargs is not None:
+            bargs = bargs.split(" ")
+        bopts = testbOpts()
+        p = testPulp()
+        mocked_pulp.side_effect = [p]
+        repos = [{'id': 'test-repo', 'detail': 'foobar',
+                  'images': {},
+                  'manifests': {'testmanifest': {'layers': ['testlayer1'], 'tags': ['testtag'],
+                                                 'config': 'testconfig', 'schema_version': 'testsv',
+                                                 'v1id': 'testv1id', 'v1parent': 'testv1parent',
+                                                 'v1labels': 'testv1labels'}},
+                  'tags': {'testtag': 'testmanifest'}}]
+        if bargs is None:
+            with pytest.raises(SystemExit):
+                cli.do_remove(bopts, bargs)
+        else:
+            with pytest.raises(SystemExit):
+                # exit with code 0
+                (flexmock(testPulp)
+                    .should_receive('remove')
+                    .with_args(bargs[0], bargs[1], sigs=True)
+                    .and_return(None))
+                (flexmock(testPulp)
+                    .should_receive('listRepos')
+                    .with_args(repos=bargs[0], content=True, paginate=True)
+                    .and_return(repos))
+                assert cli.do_remove(bopts, bargs) is None
 
     @pytest.mark.parametrize('silent', [True, False])
     @pytest.mark.parametrize('num_tasks', (1, 2, 30))

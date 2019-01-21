@@ -439,12 +439,14 @@ def do_empty(bopts, bargs, parser):
 
     dock-pulp empty [options] repo-id [repo-id]
     """
+    parser.add_option('--no-sigs', default=False, action='store_true',
+                      help='do not remove associated signatures')
     opts, args = parser.parse_args(bargs)
     if len(args) < 1:
         parser.error('You must provide a repository ID')
     p = pulp_login(bopts)
     for repo in args:
-        p.emptyRepo(repo)
+        p.emptyRepo(repo, sigs=not opts.no_sigs)
 
 
 @make_parser
@@ -810,6 +812,8 @@ def do_remove(bopts, bargs, parser):
                       help='Remove all orphaned content. USE WITH CAUTION')
     parser.add_option('--no-paginate', default=False, action='store_true',
                       help='retrieve all repo content at once without pagination')
+    parser.add_option('--no-sigs', default=False, action='store_true',
+                      help='do not remove associated signatures')
     opts, args = parser.parse_args(bargs)
     if opts.list_orphans:
         log.warning('DEPRECATED: Use dock-pulp orphans instead.')
@@ -828,9 +832,8 @@ def do_remove(bopts, bargs, parser):
     if len(args) < 2:
         parser.error('You must provide a repo and image-id')
     p = pulp_login(bopts)
-    images = p.listRepos(repos=args[0], content=True, paginate=not opts.no_paginate)[0]['images']
     for img in args[1:]:
-        p.remove(args[0], img)
+        p.remove(args[0], img, sigs=not opts.no_sigs)
     if args[0] == dockpulp.HIDDEN:
         log.info('removed images')
         sys.exit(0)

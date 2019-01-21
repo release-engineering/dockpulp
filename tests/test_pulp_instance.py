@@ -861,7 +861,7 @@ class TestPulp(object):
     def test_deleteSignatures(self, pulp):
         repo = 'foobar'
         repoinfo = [{'id': 'foobar', 'detail': 'foobar',
-                     'manifests': {'test@manifest': {'layers': ['testlayer1'], 'tags': ['testtag'],
+                     'manifests': {'test:manifest': {'layers': ['testlayer1'], 'tags': ['testtag'],
                                                      'config': 'testconfig',
                                                      'schema_version': 'testsv'}},
                      'docker-id': 'testdockerid',
@@ -945,7 +945,15 @@ class TestPulp(object):
     ])
     def test_remove(self, pulp, img, data):
         repo = 'testrepo'
+        sigs = True
+        flexmock(Pulp)
 
+        if img.startswith('sha256:'):
+            (Pulp
+                .should_receive('removeSignature')
+                .with_args(repo, img)
+                .once()
+                .and_return(None))
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
             .should_receive('__call__')
@@ -953,13 +961,12 @@ class TestPulp(object):
                        data=json.dumps(data))
             .once()
             .and_return(123))
-        flexmock(Pulp)
         (Pulp
             .should_receive('watch')
             .with_args(123)
             .once()
             .and_return(None))
-        pulp.remove(repo, img)
+        pulp.remove(repo, img, sigs)
 
     @pytest.mark.parametrize('sigs', [True, False])
     def test_remove_filters(self, pulp, sigs):
@@ -990,6 +997,25 @@ class TestPulp(object):
             .once()
             .and_return(None))
         pulp.remove_filters(repo, sigs=sigs)
+
+    def test_removeSignature(self, pulp):
+        repo = 'testrepo'
+        img = 'sha256:testrepo'
+        repoinfo = [{'id': 'foobar', 'detail': 'foobar', 'docker-id': 'testdockerid',
+                     'redirect': 'testredirect'}]
+        signature = 'testdockerid@sha256=testrepo/signature-1'
+        flexmock(Pulp)
+        (Pulp
+            .should_receive('listRepos')
+            .with_args(repos=[repo], content=False)
+            .once()
+            .and_return(repoinfo))
+        (Pulp
+            .should_receive('remove')
+            .with_args('redhat-sigstore', signature)
+            .once()
+            .and_return(None))
+        pulp.removeSignature(repo, img)
 
     @pytest.mark.parametrize(('images', 'manifests', 'manifest_lists', 'filters'), [
         ([], {}, {}, None),
