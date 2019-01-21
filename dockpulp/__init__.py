@@ -158,17 +158,25 @@ class RequestsHttpCaller(object):
                     'Expired or bad certificate, or SSL verification failed')
         if 'stream' in kwargs and kwargs['stream']:
             return answer
+        if not answer.ok:
+            log.debug('status code:')
+            log.debug(answer.status_code)
+            log.debug('raw response data:')
+            log.debug(answer.content)
+            if answer.status_code == 403:
+                raise errors.DockPulpLoginError('Received 403: Forbidden')
+            self._error(answer.status_code, url)
         try:
-            r = json.loads(answer.content)
+            r = answer.json()
             log.debug('raw response data:')
             log.debug(pprint.pformat(r))
         except ValueError:
-            raise errors.DockPulpError('No content in Pulp response')
-        if answer.status_code == 403:
-            raise errors.DockPulpLoginError('Received 403: Forbidden')
-        elif answer.status_code >= 400:
-            self._error(answer.status_code, url)
-        elif answer.status_code == 202:
+            log.debug('status code:')
+            log.debug(answer.status_code)
+            log.debug('raw response data:')
+            log.debug(pprint.pformat(answer.content))
+            raise errors.DockPulpError('No valid JSON in Pulp response')
+        if answer.status_code == 202:
             log.info('Pulp spawned a subtask: %s' %
                      r['spawned_tasks'][0]['task_id'])
             # TODO: blindly takes the first task only
