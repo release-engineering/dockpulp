@@ -868,7 +868,7 @@ class TestPulp(object):
                      'redirect': 'testredirect'}]
         filters = {
             'unit': {
-                "$or": [{'name': 'testdockerid@test=manifest/signature-1'}]
+                "$or": [{'name': {'$regex': 'testdockerid@test=manifest/signature-.*'}}]
             }
         }
 
@@ -935,7 +935,7 @@ class TestPulp(object):
                 'type_ids': ['iso'],
                 'filters': {
                     'unit': {
-                        "$or": [{'name': 'test@sig=sum/signature-1'}]
+                        'name': 'test@sig=sum/signature-1'
                     }
                 }
             },
@@ -1003,7 +1003,8 @@ class TestPulp(object):
         img = 'sha256:testrepo'
         repoinfo = [{'id': 'foobar', 'detail': 'foobar', 'docker-id': 'testdockerid',
                      'redirect': 'testredirect'}]
-        signature = 'testdockerid@sha256=testrepo/signature-1'
+        signature = 'testdockerid@sha256=testrepo/signature-.*'
+        filters = {'unit': {'name': {'$regex': signature}}}
         flexmock(Pulp)
         (Pulp
             .should_receive('listRepos')
@@ -1011,8 +1012,8 @@ class TestPulp(object):
             .once()
             .and_return(repoinfo))
         (Pulp
-            .should_receive('remove')
-            .with_args('redhat-sigstore', signature)
+            .should_receive('remove_filters')
+            .with_args('redhat-sigstore', filters, v1=False, v2=False, sigs=True)
             .once()
             .and_return(None))
         pulp.removeSignature(repo, img)
