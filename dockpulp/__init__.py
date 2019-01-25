@@ -1389,7 +1389,9 @@ class Pulp(object):
         repoid = result['docker-id']
         signatures = []
         for manifest in result['manifests']:
-            signature = {'name': "%s@%s/signature-1" % (repoid, manifest.replace(':', '='))}
+            signature = {'name':
+                         # signatures can increment, we always want to remove all of them
+                         {'$regex': "%s@%s/signature-.*" % (repoid, manifest.replace(':', '='))}}
             signatures.append(signature)
 
         if not signatures:
@@ -2023,7 +2025,7 @@ class Pulp(object):
                     'type_ids': [SIG_TYPE],
                     'filters': {
                         'unit': {
-                            "$or": [{'name': img}]
+                            'name': img
                         }
                     }
                 },
@@ -2082,8 +2084,12 @@ class Pulp(object):
         """Remove a signature associated with a manifest."""
         result = self.listRepos(repos=[repo], content=False)[0]
         repoid = result['docker-id']
-        signature = "%s@%s/signature-1" % (repoid, img.replace(':', '='))
-        self.remove(SIGSTORE, signature)
+        # signatures can increment, need to remove all
+        signature = {'name': {'$regex': "%s@%s/signature-.*" % (repoid, img.replace(':', '='))}}
+        filters = {
+            'unit': signature
+        }
+        self.remove_filters(SIGSTORE, filters, v1=False, v2=False, sigs=True)
 
     def searchRepos(self, patt):
         """Search and return Pulp repository IDs matching given pattern."""
