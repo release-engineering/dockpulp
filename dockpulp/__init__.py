@@ -842,10 +842,10 @@ class Pulp(object):
         self._request = RequestsHttpCaller(self.url, self.retries)
         self._request.set_cert_key_paths(self.certificate, self.key)
         if not os.path.exists(config_distributors):
-                log.error('could not load distributors json: %s' % config_distributors)
+            log.error('could not load distributors json: %s' % config_distributors)
         self.distributorconf = json.load(open(config_distributors, 'r'))
         if not os.path.exists(config_distributions):
-                log.error('could not load distributions json: %s' % config_distributions)
+            log.error('could not load distributions json: %s' % config_distributions)
         self.distributionconf = json.load(open(config_distributions, 'r'))
         if not hasattr(self, 'timeout'):
             self.timeout = 180
