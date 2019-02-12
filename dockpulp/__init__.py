@@ -1166,12 +1166,13 @@ class Pulp(object):
 
         for repo in repos:
             distributors = []
+            releasekeys = self.release_order.strip().split(",")
             if repo == SIGSTORE:
                 distributors.append(self.distributorconf['iso_distributor_sigstore'])
-            else:
-                releasekeys = self.release_order.strip().split(",")
-                for key in releasekeys:
-                    distributors.append(self.distributorconf[key])
+                # need to cut off last distributor in release order for sigstore
+                releasekeys = releasekeys[:-1]
+            for key in releasekeys:
+                distributors.append(self.distributorconf[key])
             for distributor in distributors:
                 dist_id = distributor['distributor_id']
                 override = {}
