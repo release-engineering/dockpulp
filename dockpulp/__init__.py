@@ -815,7 +815,8 @@ class Pulp(object):
                               ('sig_exception', "_set_env_attr", "sig_exception"),
                               ('dist_switchover', "_set_independent_attr", "dist_switchover"),
                               ('switch_ver', "_set_independent_attr", "switch_ver"),
-                              ('switch_release', "_set_env_attr", "switch_release"))
+                              ('switch_release', "_set_env_attr", "switch_release"),
+                              ('sig_release_order', "_set_env_attr", "sig_release_order"))
     AUTH_CER_FILE = "pulp-%s.cer"
     AUTH_KEY_FILE = "pulp-%s.key"
 
@@ -864,6 +865,8 @@ class Pulp(object):
                 if LooseVersion(self.getPulpVersion()) >= LooseVersion(val):
                     if hasattr(self, 'switch_release') and self.switch_release is not None:
                         self.release_order = self.switch_release
+        if not hasattr(self, 'sig_release_order'):
+            self.sig_release_order = self.release_order
 
     def _set_bool(self, attrs):
         for key, boolean in attrs:
@@ -1166,11 +1169,10 @@ class Pulp(object):
 
         for repo in repos:
             distributors = []
-            releasekeys = self.release_order.strip().split(",")
             if repo == SIGSTORE:
-                distributors.append(self.distributorconf['iso_distributor_sigstore'])
-                # need to cut off last distributor in release order for sigstore
-                releasekeys = releasekeys[:-1]
+                releasekeys = self.sig_release_order.strip().split(",")
+            else:
+                releasekeys = self.release_order.strip().split(",")
             for key in releasekeys:
                 distributors.append(self.distributorconf[key])
             for distributor in distributors:
