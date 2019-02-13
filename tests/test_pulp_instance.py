@@ -36,6 +36,8 @@ def pulp(tmpdir):
             {name} = foo,docker_rsync
             [release_order]
             {name} = foo,docker_rsync
+            [sig_release_order]
+            {name} = iso_distributor_sigstore,foo
             [retries]
             {name} = 2
             [signatures]
@@ -50,10 +52,12 @@ def pulp(tmpdir):
             {
                 "foo":{
                     "distributor_type_id": "docker_distributor_web",
+                    "distributor_id": "docker_web_distributor_name_cli",
                     "distributor_config": {}
                 },
                 "docker_rsync":{
                     "distributor_type_id": "docker_rsync_distributor",
+                    "distributor_id": "docker_rsync_distributor",
                     "distributor_config": {}
                 },
                 "iso_distributor_sigstore": {
@@ -652,6 +656,7 @@ class TestPulp(object):
             url = '/pulp/api/v2/repositories/testrepo/distributors/'
             data = {
                 "distributor_type_id": "docker_distributor_web",
+                "distributor_id": "docker_web_distributor_name_cli",
                 "distributor_config": {}
             }
             if type_id:
@@ -766,6 +771,7 @@ class TestPulp(object):
     @pytest.mark.parametrize('repo_id', ['redhat-sigstore'])
     def test_crane(self, pulp, repo_id):
         data = {'id': 'iso_distributor', 'override_config': {}}
+        webdata = {'id': 'docker_web_distributor_name_cli', 'override_config': {}}
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
             .should_receive('__call__')
@@ -773,11 +779,17 @@ class TestPulp(object):
                        data=json.dumps(data))
             .once()
             .and_return(123))
+        (RequestsHttpCaller
+            .should_receive('__call__')
+            .with_args('post', '/pulp/api/v2/repositories/%s/actions/publish/' % repo_id,
+                       data=json.dumps(webdata))
+            .once()
+            .and_return(123))
         flexmock(Pulp)
         (Pulp
             .should_receive('watch')
             .with_args(123)
-            .once()
+            .twice()
             .and_return(None))
         pulp.crane(repos=repo_id)
 

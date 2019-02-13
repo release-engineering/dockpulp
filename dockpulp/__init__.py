@@ -815,7 +815,8 @@ class Pulp(object):
                               ('sig_exception', "_set_env_attr", "sig_exception"),
                               ('dist_switchover', "_set_independent_attr", "dist_switchover"),
                               ('switch_ver', "_set_independent_attr", "switch_ver"),
-                              ('switch_release', "_set_env_attr", "switch_release"))
+                              ('switch_release', "_set_env_attr", "switch_release"),
+                              ('sig_release_order', "_set_env_attr", "sig_release_order"))
     AUTH_CER_FILE = "pulp-%s.cer"
     AUTH_KEY_FILE = "pulp-%s.key"
 
@@ -842,10 +843,10 @@ class Pulp(object):
         self._request = RequestsHttpCaller(self.url, self.retries)
         self._request.set_cert_key_paths(self.certificate, self.key)
         if not os.path.exists(config_distributors):
-                log.error('could not load distributors json: %s' % config_distributors)
+            log.error('could not load distributors json: %s' % config_distributors)
         self.distributorconf = json.load(open(config_distributors, 'r'))
         if not os.path.exists(config_distributions):
-                log.error('could not load distributions json: %s' % config_distributions)
+            log.error('could not load distributions json: %s' % config_distributions)
         self.distributionconf = json.load(open(config_distributions, 'r'))
         if not hasattr(self, 'timeout'):
             self.timeout = 180
@@ -864,6 +865,8 @@ class Pulp(object):
                 if LooseVersion(self.getPulpVersion()) >= LooseVersion(val):
                     if hasattr(self, 'switch_release') and self.switch_release is not None:
                         self.release_order = self.switch_release
+        if not hasattr(self, 'sig_release_order'):
+            self.sig_release_order = self.release_order
 
     def _set_bool(self, attrs):
         for key, boolean in attrs:
@@ -1167,11 +1170,11 @@ class Pulp(object):
         for repo in repos:
             distributors = []
             if repo == SIGSTORE:
-                distributors.append(self.distributorconf['iso_distributor_sigstore'])
+                releasekeys = self.sig_release_order.strip().split(",")
             else:
                 releasekeys = self.release_order.strip().split(",")
-                for key in releasekeys:
-                    distributors.append(self.distributorconf[key])
+            for key in releasekeys:
+                distributors.append(self.distributorconf[key])
             for distributor in distributors:
                 dist_id = distributor['distributor_id']
                 override = {}
