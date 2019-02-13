@@ -36,6 +36,8 @@ def pulp(tmpdir):
             {name} = foo,docker_rsync
             [release_order]
             {name} = foo,docker_rsync
+            [sig_release_order]
+            {name} = iso_distributor_sigstore,foo
             [retries]
             {name} = 2
             [signatures]
