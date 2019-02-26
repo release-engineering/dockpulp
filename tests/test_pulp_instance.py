@@ -389,15 +389,16 @@ class TestPulp(object):
         with pytest.raises(ValueError):
             pulp.updateRepo(rid, update)
 
-    @pytest.mark.parametrize('repos, content, history, label', [
-        ('test-repo', True, True, True),
-        ('test-repo', False, True, True),
+    @pytest.mark.parametrize('repos, content, history, label, repo_type', [
+        ('test-repo', True, True, True, {'_repo-type': 'docker-repo'}),
+        ('test-repo', False, True, True, {'_repo-type': 'docker-repo'}),
+        ('test-repo', True, True, True, {}),
     ])
-    def test_listRepo(self, pulp, repos, content, history, label):
+    def test_listRepo(self, pulp, repos, content, history, label, repo_type):
         import time
         now = time.time()
         flexmock(time).should_receive('time').and_return(now)
-        blob = {'notes': {'_repo-type': 'docker-repo'}, 'id': 'testid', 'description': 'testdesc',
+        blob = {'notes': repo_type, 'id': 'testid', 'description': 'testdesc',
                 'display_name': 'testdisp', 'distributors': [], 'scratchpad': {}}
         units = [{'unit_type_id': 'docker_manifest',
                   'metadata': {'fs_layers': [{'blob_sum': 'test'}], 'digest': 'testdig',
@@ -428,6 +429,9 @@ class TestPulp(object):
             .and_return(blob)
             .once()
             .ordered())
+        if repo_type == {}:
+            assert pulp.listRepos(repos, content, history, label) == []
+            return
         (RequestsHttpCaller
             .should_receive('__call__')
             .with_args('post', '/pulp/api/v2/repositories/testid/search/units/',
