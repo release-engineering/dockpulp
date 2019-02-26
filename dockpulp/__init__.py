@@ -1613,7 +1613,12 @@ class Pulp(object):
         # From here we trim out data nobody cares about
         # we assume distributors have the same configuration
         for blob in blobs:
-            if blob['notes']['_repo-type'] != 'docker-repo' and blob['id'] != SIGSTORE:
+            try:
+                repo_type = blob['notes']['_repo-type']
+            except KeyError:
+                log.warning('repo %s missing repo-type, skipping', blob['id'])
+                continue
+            if repo_type != 'docker-repo' and blob['id'] != SIGSTORE:
                 raise errors.DockPulpError('Non-docker repo hit, what should I do?!')
             r = {
                 'id': blob['id'],
