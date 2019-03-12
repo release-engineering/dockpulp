@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.64
+Version:	1.66
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -50,6 +50,16 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Tue Mar 12 2019 Brendan Reilly <breilly@redhat.com> 1.66-1
+- bumping version for release (breilly@redhat.com)
+- updated tests for repo type skip (breilly@redhat.com)
+- list skips repos without repo type (breilly@redhat.com)
+- Updated tests for new method (breilly@redhat.com)
+- Changed method for sigstore release order (breilly@redhat.com)
+- Fix flake8 error (breilly@redhat.com)
+- Updated unit tests for sigstore change (breilly@redhat.com)
+- sigstore now publishes all associated repos (breilly@redhat.com)
+
 * Fri Jan 25 2019 Brendan Reilly <breilly@redhat.com> 1.64-1
 - bumping version for release (breilly@redhat.com)
 - Signature removal now removes all incremented signatures (breilly@redhat.com)
