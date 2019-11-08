@@ -56,7 +56,7 @@ except ImportError:
 from . import errors
 from . import imgutils
 
-__version__ = "1.66"
+__version__ = "1.67"
 
 SIG_TYPE = 'iso'
 V2_C_TYPE = 'docker_manifest'
