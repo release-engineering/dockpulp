@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.66
+Version:	1.67
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -50,6 +50,11 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Fri Nov 08 2019 Brendan Reilly <breilly@redhat.com> 1.67-1
+- Bumping version for release (breilly@redhat.com)
+- Remove cdn_distributor_unprotected from dock-pulp-bootstrap
+  (breilly@redhat.com)
+
 * Tue Mar 12 2019 Brendan Reilly <breilly@redhat.com> 1.66-1
 - bumping version for release (breilly@redhat.com)
 - updated tests for repo type skip (breilly@redhat.com)
