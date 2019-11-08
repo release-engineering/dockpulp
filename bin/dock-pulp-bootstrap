@@ -87,7 +87,6 @@ def create_sigstore(dpo):
         if LooseVersion(dpo.getPulpVersion()) >= LooseVersion('2.14'):
             type_id = 'iso_rsync_distributor'
         dpo.associate('cdn_distributor', dockpulp.SIGSTORE, type_id)
-        dpo.associate('cdn_distributor_unprotected', dockpulp.SIGSTORE, type_id)
         dpo.associate('iso_distributor_sigstore', dockpulp.SIGSTORE)
 
 
