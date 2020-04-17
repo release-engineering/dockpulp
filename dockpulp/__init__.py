@@ -1419,7 +1419,7 @@ class Pulp(object):
                 }
             }
             log.debug("Removing signatures from sigstore [%d/%d]: %s",
-                      i+1, len(signature_batches), signatures)
+                      i + 1, len(signature_batches), signatures)
             self.remove_filters(SIGSTORE, filters,
                                 v1=False, v2=False, sigs=True)
 
