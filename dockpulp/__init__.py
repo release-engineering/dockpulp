@@ -17,6 +17,7 @@ import six
 import atexit
 from datetime import datetime
 from six.moves import configparser
+from six.moves import zip_longest
 import hashlib
 import logging
 import os
@@ -71,6 +72,7 @@ DEFAULT_DISTRIBUTORS_FILE = '/etc/dockpulpdistributors.json'
 DEFAULT_DISTRIBUTIONS_FILE = '/etc/dockpulpdistributions.json'
 PREFIX = 'redhat-'
 ORIGIN_PREFIX = 'origin-'
+BATCH_SIZE = os.environ.get("DOCKPULP_BATCH_SIZE", 10000)
 
 
 # Setup our logger
@@ -102,6 +104,13 @@ def seconds_since_epoch(dt):
         except AttributeError:
             # For Python 3 < 3.2, Python 2 < 2.7
             return delta.days * 86400 + delta.seconds
+
+
+def grouper(iterable, n, fillvalue=None):
+    """Collect data into fixed-length chunks or blocks."""
+    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
+    args = [iter(iterable)] * n
+    return list(zip_longest(*args, fillvalue=fillvalue))
 
 
 class RequestsHttpCaller(object):
@@ -1400,14 +1409,19 @@ class Pulp(object):
         if not signatures:
             log.debug("No signatures to remove")
             return
+        signature_batches = grouper(signatures, BATCH_SIZE, None)
 
-        filters = {
-            'unit': {
-                "$or": signatures
+        for i, batch in enumerate(signature_batches):
+            filtered_batch = [b for b in batch if b]
+            filters = {
+                'unit': {
+                    "$or": filtered_batch
+                }
             }
-        }
-        log.debug("Removing signatures from sigstore: %s", signatures)
-        self.remove_filters(SIGSTORE, filters, v1=False, v2=False, sigs=True)
+            log.debug("Removing signatures from sigstore [%d/%d]: %s",
+                      i + 1, len(signature_batches), signatures)
+            self.remove_filters(SIGSTORE, filters,
+                                v1=False, v2=False, sigs=True)
 
     def disassociate(self, dist_id, repo):
         """Disassociate a distributor associated with a repo."""
