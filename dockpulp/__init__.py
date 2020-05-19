@@ -72,7 +72,7 @@ DEFAULT_DISTRIBUTORS_FILE = '/etc/dockpulpdistributors.json'
 DEFAULT_DISTRIBUTIONS_FILE = '/etc/dockpulpdistributions.json'
 PREFIX = 'redhat-'
 ORIGIN_PREFIX = 'origin-'
-BATCH_SIZE = os.environ.get("DOCKPULP_BATCH_SIZE", 10000)
+BATCH_SIZE = int(os.environ.get("DOCKPULP_BATCH_SIZE", 1000))
 
 
 # Setup our logger
