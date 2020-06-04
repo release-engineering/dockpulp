@@ -1143,6 +1143,26 @@ class TestPulp(object):
         assert list(manifests) == new_manifests
         assert list(manifest_lists) == new_manifest_lists
 
+    @pytest.mark.parametrize('exception,tid,task', [
+        (errors.DockPulpTaskError, '111', {'state': 'error', 'traceback': 'fake',
+                                           'error': {'code': 'fake'}}),
+        (errors.DockPulpError, '112', {'state': 'canceled'}),
+        ('', '113', {'state': 'skipped'}),
+        ('', '114', {'state': 'finished'}),
+    ])
+    def test_watch(self, pulp, exception, tid, task):
+        flexmock(Pulp)
+        (Pulp
+            .should_receive('getTask')
+            .with_args(tid)
+            .and_return(task))
+        if exception:
+            with pytest.raises(exception):
+                pulp.watch(tid)
+        else:
+            ret = pulp.watch(tid)
+            assert ret == task
+
 
 class TestCrane(object):
     # Tests of methods of Crane class.

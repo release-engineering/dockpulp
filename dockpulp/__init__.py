@@ -2400,6 +2400,11 @@ class Pulp(object):
                 log.debug('traceback from subtask:')
                 log.debug(t['traceback'])
                 raise errors.DockPulpTaskError(t['error'])
+            elif t['state'] == 'skipped':
+                log.info('subtask skipped')
+                return t
+            elif t['state'] == 'canceled':
+                raise errors.DockPulpError('subtask canceled, please retry')
             else:
                 log.debug('sleeping (%s/%s seconds passed)' % (curr, timeout))
                 time.sleep(poll)
