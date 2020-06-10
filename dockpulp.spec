@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.67
+Version:	1.68
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -50,6 +50,13 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Wed Jun 10 2020 Emily Zheng <yuzheng@redhat.com> 1.68-1
+- Bumping version for release (yuzheng@redhat.com)
+- Not wait for tasks in terminal states (#211) (yuzheng@redhat.com)
+- pep8 fixes (jluza@redhat.com)
+- Fixed progress reporting in logs (jluza@redhat.com)
+- Remove image signatures in batches (jluza@redhat.com)
+
 * Fri Nov 08 2019 Brendan Reilly <breilly@redhat.com> 1.67-1
 - Bumping version for release (breilly@redhat.com)
 - Remove cdn_distributor_unprotected from dock-pulp-bootstrap
