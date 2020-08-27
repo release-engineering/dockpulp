@@ -485,3 +485,9 @@ class TestCLI(object):
                 cli.do_update(bopts, bargs)
         else:
             assert cli.do_update(bopts, bargs) is None
+
+    def test_no_server(self, capsys):
+        with pytest.raises(SystemExit):
+            cli.main(args=['list'])
+        out, err = capsys.readouterr()
+        assert "Please specify --server" in err
