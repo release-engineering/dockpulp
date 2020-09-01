@@ -50,12 +50,14 @@ def main(args=None):
     parser.add_option('-K', '--key', default=False,
                       help='specify a key file, use with -C')
     parser.add_option('-d', '--debug', default=False, action='store_true')
-    parser.add_option('-s', '--server', default='qa',
+    parser.add_option('-s', '--server',
                       help='a Pulp environment to execute against')
     parser.add_option('-c', '--config-file',
                       default=dockpulp.DEFAULT_CONFIG_FILE,
                       help='config file to use [default: %default]')
     opts, args = parser.parse_args(args)
+    if not opts.server:
+        parser.error("Please specify --server.")
     cmd = find_directive('do_', args)
     try:
         cmd(opts, args[1:])
