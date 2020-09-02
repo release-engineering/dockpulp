@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.68
+Version:	1.69
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -50,6 +50,10 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Wed Sep 02 2020 Emily Zheng <yuzheng@redhat.com> 1.69-1
+- Bumping version for release (yuzheng@redhat.com)
+- Report error when --server isn't specified (#212) (yuzheng@redhat.com)
+
 * Wed Jun 10 2020 Emily Zheng <yuzheng@redhat.com> 1.68-1
 - Bumping version for release (yuzheng@redhat.com)
 - Not wait for tasks in terminal states (#211) (yuzheng@redhat.com)
