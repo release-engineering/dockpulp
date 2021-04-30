@@ -41,6 +41,7 @@ from distutils.version import LooseVersion
 from six.moves.urllib.parse import urlparse
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+from OpenSSL.SSL import Error as OpenSSLError
 from operator import itemgetter
 import multiprocessing
 
@@ -158,7 +159,7 @@ class RequestsHttpCaller(object):
                     warnings.simplefilter("ignore")
                 answer = c(url, **kwargs)
 
-        except requests.exceptions.SSLError:
+        except (OpenSSLError, requests.exceptions.SSLError):
             if not self.verify:
                 raise errors.DockPulpLoginError(
                     'Expired or bad certificate, please re-login')
