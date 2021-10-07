@@ -996,6 +996,9 @@ def do_update(bopts, bargs, parser):
 
     dock-pulp update [options] repo-id [repo-id...]
     """
+    log.error('Updating repository metadata with dockpulp is no longer supported.')
+    sys.exit(1)
+
     parser.add_option('-d', '--description',
                       help='update the description for this repository')
     parser.add_option('-i', '--dockerid',
