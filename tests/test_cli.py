@@ -480,11 +480,8 @@ class TestCLI(object):
         bopts = testbOpts()
         p = testPulp()
         mocked_pulp.side_effect = [p]
-        if bargs is None:
-            with pytest.raises(SystemExit):
-                cli.do_update(bopts, bargs)
-        else:
-            assert cli.do_update(bopts, bargs) is None
+        with pytest.raises(SystemExit):
+            cli.do_update(bopts, bargs)
 
     def test_no_server(self, capsys):
         with pytest.raises(SystemExit):
