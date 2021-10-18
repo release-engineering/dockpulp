@@ -5,3 +5,4 @@ responses
 requests
 flexmock
 simplejson
+pyOpenSSL

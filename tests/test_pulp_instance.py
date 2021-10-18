@@ -1,20 +1,24 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from copy import deepcopy
-from datetime import datetime
-from dockpulp import Pulp, Crane, RequestsHttpCaller, errors, log
-import pytest
 import hashlib
 import json
-import requests
-import tarfile
 import logging
 import subprocess
+import tarfile
+from copy import deepcopy
+from datetime import datetime
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
+
+import pytest
+import requests
+from OpenSSL.SSL import Error as OpenSSLError
 from flexmock import flexmock
 from requests.packages.urllib3.util import Retry
+
+from dockpulp import Pulp, Crane, RequestsHttpCaller, errors, log
+
 log.setLevel(logging.CRITICAL)
 
 
@@ -309,6 +313,28 @@ class TestPulp(object):
         pulp.set_certs(cert, key)
         assert pulp.certificate == cert
         assert pulp.key == key
+
+    @pytest.mark.parametrize('tid, url', [
+        ('111', '/pulp/api/v2/tasks/111/')])
+    def test_invalid_cert(self, pulp, tid, url):
+        flexmock(requests.Session)
+        (requests.Session.should_receive('get').once().and_raise(OpenSSLError))
+        with pytest.raises(errors.DockPulpLoginError):
+            pulp.getTask(tid)
+
+    @pytest.mark.parametrize('tid, url', [
+        ('111', '/pulp/api/v2/tasks/111/')
+    ])
+    def test_always_valid_cert(self, pulp, tid, url):
+        class Answer:
+            def __init__(self):
+                self.ok = True
+                self.json = (lambda: None)
+                self.status_code = 200
+
+        flexmock(requests.Session)
+        (requests.Session.should_receive('get').once().and_return(Answer()))
+        pulp.getTask(tid)
 
     @pytest.mark.parametrize('tid, url', [
         ('111', '/pulp/api/v2/tasks/111/')
