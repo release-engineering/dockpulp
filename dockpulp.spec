@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.69
+Version:	1.70
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -50,6 +50,9 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Mon Oct 18 2021 Lubomir Gallovic <lgallovi@redhat.com> 1.70-1
+- Remove update repo metadata functionality (lgallovi@redhat.com)
+
 * Wed Sep 02 2020 Emily Zheng <yuzheng@redhat.com> 1.69-1
 - Bumping version for release (yuzheng@redhat.com)
 - Report error when --server isn't specified (#212) (yuzheng@redhat.com)
