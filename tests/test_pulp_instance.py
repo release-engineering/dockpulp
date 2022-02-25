@@ -1284,7 +1284,7 @@ class TestCrane(object):
         flexmock(requests.Session)
         (requests.Session
             .should_receive('get')
-            .with_args(url + signature, verify=False)
+            .with_args(url + signature)
             .once()
             .and_return(answer))
         flexmock(subprocess.Popen)
@@ -1341,7 +1341,7 @@ class TestCrane(object):
         if sslerror:
             (requests.Session
                 .should_receive('get')
-                .with_args(url + '/' + 'testmanifest', verify=False, cert=(crane.cert, crane.key))
+                .with_args(url + '/' + 'testmanifest', cert=(crane.cert, crane.key))
                 .once()
                 .and_raise(requests.exceptions.SSLError))
             result['error'] = True
@@ -1360,7 +1360,7 @@ class TestCrane(object):
                                ok=True)
         (requests.Session
             .should_receive('get')
-            .with_args(url + '/' + 'testmanifest', verify=False, cert=(crane.cert, crane.key))
+            .with_args(url + '/' + 'testmanifest', cert=(crane.cert, crane.key))
             .once()
             .and_return(fake_answer))
         result['manifests_in_pulp_not_crane'] = []
@@ -1373,7 +1373,7 @@ class TestCrane(object):
                                ok=True)
         (requests.Session
             .should_receive('get')
-            .with_args(url + '/' + 'testmanifestlist', verify=False, cert=(crane.cert, crane.key))
+            .with_args(url + '/' + 'testmanifestlist', cert=(crane.cert, crane.key))
             .once()
             .and_return(fake_answer))
         result['manifest_lists_in_pulp_not_crane'] = []
@@ -1383,7 +1383,7 @@ class TestCrane(object):
         flexmock(requests)
         (requests
             .should_receive('head')
-            .with_args(url + 'testlayer1', verify=False, cert=(crane.cert, crane.key),
+            .with_args(url + 'testlayer1', cert=(crane.cert, crane.key),
                        allow_redirects=True)
             .once()
             .and_return(fake_answer))
@@ -1397,7 +1397,7 @@ class TestCrane(object):
                                ok=True)
         (requests
             .should_receive('get')
-            .with_args(url, verify=False, cert=(crane.cert, crane.key))
+            .with_args(url, cert=(crane.cert, crane.key))
             .once()
             .and_return(fake_answer))
         result['tags_in_pulp_not_crane'] = []

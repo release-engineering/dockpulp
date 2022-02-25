@@ -119,7 +119,7 @@ class RequestsHttpCaller(object):
         self.retries = retries
         self.certificate = None
         self.key = None
-        self.verify = False
+        self.verify = True
 
     def set_cert_key_paths(self, cert_path, key_path):
         self.certificate = cert_path
@@ -153,18 +153,10 @@ class RequestsHttpCaller(object):
             log.debug('kwargs: %s' % kwargs)
         try:
             with warnings.catch_warnings():
-                # XXX: hides a known SecurityWarning (and potentially others)
-                if not self.verify:
-                    warnings.simplefilter("ignore")
                 answer = c(url, **kwargs)
-
         except requests.exceptions.SSLError:
-            if not self.verify:
-                raise errors.DockPulpLoginError(
-                    'Expired or bad certificate, please re-login')
-            else:
-                raise errors.DockPulpLoginError(
-                    'Expired or bad certificate, or SSL verification failed')
+            raise errors.DockPulpLoginError(
+                'Expired or bad certificate, or SSL verification failed')
         if 'stream' in kwargs and kwargs['stream']:
             return answer
         if not answer.ok:
@@ -255,7 +247,7 @@ class Crane(object):
                     self.check_response_error(response)
             if v2 == auto:
                 log.debug('  Checking whether v2 is supported by crane')
-                v2 = requests.get(self.p.registry + '/v2/', verify=False).ok
+                v2 = requests.get(self.p.registry + '/v2/').ok
                 if v2:
                     log.debug('  /v2/ response ok, will check v2')
                 else:
@@ -313,7 +305,7 @@ class Crane(object):
         log.debug('  contacting %s', url)
         if protected:
             log.info('  Repo is protected, trying certs')
-            answer = requests.get(url, verify=False)
+            answer = requests.get(url)
             if answer.status_code != requests.codes.not_found:
                 log.warning('  Crane not reporting 404 - possibly unprotected?')
             if self.cert is None and self.key is None:
@@ -322,7 +314,7 @@ class Crane(object):
                 return result
 
         try:
-            answer = requests.get(url, verify=False, cert=(self.cert, self.key))
+            answer = requests.get(url, cert=(self.cert, self.key))
         except requests.exceptions.SSLError:
             log.error('  Request failed due to invalid cert or key')
             result['error'] = True
@@ -384,7 +376,7 @@ class Crane(object):
                 url = redirect + '/' + img + '/' + ext
                 log.debug('  reaching for %s', url)
                 try:
-                    req_params = {'verify': False, 'stream': True, 'cert': (self.cert, self.key)}
+                    req_params = {'stream': True, 'cert': (self.cert, self.key)}
                     with closing(requests.get(url, **req_params)) as answer:
                         log.debug('    got back a %s', answer.status_code)
                         if answer.status_code != requests.codes.ok:
@@ -417,7 +409,7 @@ class Crane(object):
             url = self.p.registry + '/v1/images/' + img + '/json'
             log.debug('  reaching for %s' % url)
             try:
-                answer = requests.get(url, verify=False, cert=(self.cert, self.key))
+                answer = requests.get(url, cert=(self.cert, self.key))
             except requests.exceptions.SSLError:
                 log.error('  Request failed due to invalid cert or key')
                 result['error'] = True
@@ -454,7 +446,7 @@ class Crane(object):
                 url = self.p.registry + '/v1/images/' + img + '/json'
                 log.debug('  reaching for %s' % url)
                 try:
-                    answer = requests.get(url, verify=False, cert=(self.cert, self.key))
+                    answer = requests.get(url, cert=(self.cert, self.key))
                 except requests.exceptions.SSLError:
                     log.error('  Request failed due to invalid cert or key')
                     result['error'] = True
@@ -504,7 +496,7 @@ class Crane(object):
         c_manifests = set()
         if protected:
             log.info('  Repo is protected, trying certs')
-            answer = requests.get(url, verify=False)
+            answer = requests.get(url)
             if answer.status_code != requests.codes.not_found:
                 log.warning('  Crane not reporting 404 - possibly unprotected?')
             if self.cert is None and self.key is None:
@@ -525,8 +517,7 @@ class Crane(object):
                     s.headers['Accept'] = '*/*'
                 else:
                     s.headers['Accept'] = mediatype
-                answer = s.get(url + '/' + manifest, verify=False,
-                               cert=(self.cert, self.key))
+                answer = s.get(url + '/' + manifest, cert=(self.cert, self.key))
                 log.debug('  crane content: %s', answer.content)
                 log.debug('  status code: %s', answer.status_code)
                 if not answer.ok:
@@ -591,8 +582,7 @@ class Crane(object):
             s = requests.Session()
             s.headers['Accept'] = mediatype
             for manifest_list in pulp_manifest_lists:
-                answer = s.get(url + '/' + manifest_list, verify=False,
-                               cert=(self.cert, self.key))
+                answer = s.get(url + '/' + manifest_list, cert=(self.cert, self.key))
                 log.debug('  crane content: %s', answer.content)
                 log.debug('  status code: %s', answer.status_code)
                 if not answer.ok:
@@ -638,7 +628,7 @@ class Crane(object):
 
         try:
             for blob in blobs_to_test:
-                answer = requests.head(url + blob, verify=False,
+                answer = requests.head(url + blob,
                                        cert=(self.cert, self.key), allow_redirects=True)
                 log.debug('  status code: %s', answer.status_code)
                 if answer.ok:
@@ -674,7 +664,7 @@ class Crane(object):
         log.debug('  contacting %s', url)
 
         try:
-            answer = requests.get(url, verify=False, cert=(self.cert, self.key))
+            answer = requests.get(url, cert=(self.cert, self.key))
         except requests.exceptions.SSLError:
             log.error('  Request failed due to invalid cert or key')
             result['error'] = True
@@ -778,7 +768,7 @@ class Crane(object):
             if repo in result['missing_repos_in_pulp']:
                 continue
             log.debug('  contacting %s', url + signature)
-            answer = self.requests.get(url + signature, verify=False)
+            answer = self.requests.get(url + signature)
             log.debug('  status code: %s', answer.status_code)
             if not answer.ok:
                 log.error('  Signature missing in CDN: %s', signature)
