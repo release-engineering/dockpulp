@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.70
+Version:	1.71
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -50,6 +50,9 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Fri Feb 25 2022 Emily Zheng <yuzheng@redhat.com> 1.71-1
+- Enable SSL certificate validation (yuzheng@redhat.com)
+
 * Mon Oct 18 2021 Lubomir Gallovic <lgallovi@redhat.com> 1.70-1
 - Remove update repo metadata functionality (lgallovi@redhat.com)
 
