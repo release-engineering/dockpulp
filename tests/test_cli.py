@@ -52,9 +52,6 @@ class testPulp(object):
     def getPrefix(self):
         return
 
-    def getSigstore(self):
-        return 'SIGSTORE'
-
     def associate(self, arg1, arg2):
         return {'id': 0}
 
@@ -67,16 +64,16 @@ class testPulp(object):
     def updateRepo(self, arg1, arg2):
         return
 
-    def deleteRepo(self, arg1, arg2, sigs=False):
+    def deleteRepo(self, arg1, arg2):
         return
 
-    def emptyRepo(self, arg1, sigs=False):
+    def emptyRepo(self, arg1):
         return
 
     def getTask(self, tids):
         return
 
-    def remove(self, repo, img, sigs=False):
+    def remove(self, repo, img):
         return
 
     def syncRepo(self, arg1, arg2, arg3, feed=None, basic_auth_username=None,
@@ -378,7 +375,7 @@ class TestCLI(object):
                 # exit with code 0
                 (flexmock(testPulp)
                     .should_receive('remove')
-                    .with_args(bargs[0], bargs[1], sigs=True)
+                    .with_args(bargs[0], bargs[1])
                     .and_return(None))
                 (flexmock(testPulp)
                     .should_receive('listRepos')

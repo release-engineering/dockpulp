@@ -392,14 +392,12 @@ def do_create(bopts, bargs, parser):
 
 @make_parser
 def do_delete(bopts, bargs, parser):
-    """Delete a repository; by default this will also remove associated signatures.
+    """Delete a repository.
 
     dock-pulp delete [options] repo-id [repo-id...]
     """
     parser.add_option('-p', '--publish', default=False, action='store_true',
                       help='remove content from crane when deleting repo')
-    parser.add_option('--no-sigs', default=False, action='store_true',
-                      help='do not remove associated signatures')
     parser.add_option('--no-paginate', default=False, action='store_true',
                       help='retrieve all repo content at once without pagination')
     opts, args = parser.parse_args(bargs)
@@ -408,7 +406,7 @@ def do_delete(bopts, bargs, parser):
     p = pulp_login(bopts)
     for repo in args:
         repoinfo = p.listRepos(repo, content=True, paginate=not opts.no_paginate)[0]
-        p.deleteRepo(repo, opts.publish, sigs=not opts.no_sigs)
+        p.deleteRepo(repo, opts.publish)
         log.info('deleted %s' % repo)
         if len(repoinfo['images']) > 0:
             log.info('Layers removed:')
@@ -441,14 +439,12 @@ def do_empty(bopts, bargs, parser):
 
     dock-pulp empty [options] repo-id [repo-id]
     """
-    parser.add_option('--no-sigs', default=False, action='store_true',
-                      help='do not remove associated signatures')
     opts, args = parser.parse_args(bargs)
     if len(args) < 1:
         parser.error('You must provide a repository ID')
     p = pulp_login(bopts)
     for repo in args:
-        p.emptyRepo(repo, sigs=not opts.no_sigs)
+        p.emptyRepo(repo)
 
 
 @make_parser
@@ -678,14 +674,6 @@ def do_list(bopts, bargs, parser):
                 else:
                     log.info('%s = %s', k, v)
         if opts.content or opts.history or opts.labels:
-            # sigstore repo handled in a special way
-            if repo['id'] == p.getSigstore():
-                log.info('  Signatures: ')
-                for sig in repo['sigstore']:
-                    log.info('    %s', sig)
-                log.info('')
-                continue
-
             _print_v1_images(repo, opts.labels)
             _print_v2_images(repo, opts.lists, opts.manifests, opts.history, opts.labels,
                              opts.schema)
@@ -814,8 +802,6 @@ def do_remove(bopts, bargs, parser):
                       help='Remove all orphaned content. USE WITH CAUTION')
     parser.add_option('--no-paginate', default=False, action='store_true',
                       help='retrieve all repo content at once without pagination')
-    parser.add_option('--no-sigs', default=False, action='store_true',
-                      help='do not remove associated signatures')
     opts, args = parser.parse_args(bargs)
     if opts.list_orphans:
         log.warning('DEPRECATED: Use dock-pulp orphans instead.')
@@ -835,7 +821,7 @@ def do_remove(bopts, bargs, parser):
         parser.error('You must provide a repo and image-id')
     p = pulp_login(bopts)
     for img in args[1:]:
-        p.remove(args[0], img, sigs=not opts.no_sigs)
+        p.remove(args[0], img)
     if args[0] == dockpulp.HIDDEN:
         log.info('removed images')
         sys.exit(0)

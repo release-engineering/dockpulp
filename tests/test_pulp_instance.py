@@ -467,20 +467,6 @@ class TestPulp(object):
         for key in history[0]['v1_labels']:
             assert history[0]['v1_labels'][key] == labels['config']['Labels']
 
-    def test_listSigstore(self, pulp):
-        repoid = pulp.getSigstore()
-        blob = {'notes': {'_repo-type': 'iso'}, 'id': repoid,
-                'description': 'testdesc', 'display_name': 'testdisp', 'distributors': [],
-                'scratchpad': {}}
-        units = [{'unit_type_id': 'iso', 'metadata': {'name': 'testname'}}]
-        flexmock(RequestsHttpCaller)
-        (RequestsHttpCaller
-            .should_receive('__call__')
-            .and_return(blob, units, [])  # Empty list to indicate no more units
-            .one_by_one())
-        response = pulp.listRepos(repoid, content=True)
-        assert response[0]['sigstore'][0] == 'testname'
-
     def test_listSchema2(self, pulp):
         blob = {'notes': {'_repo-type': 'docker-repo', 'include_in_download_service': 'False'},
                 'id': 'testid', 'description': 'testdesc', 'display_name': 'testdisp',
@@ -772,31 +758,6 @@ class TestPulp(object):
             else:
                 assert response['notes']['include_in_download_service'] == "False"
 
-    @pytest.mark.parametrize('repo_id', ['redhat-sigstore'])
-    def test_crane(self, pulp, repo_id):
-        data = {'id': 'iso_distributor', 'override_config': {}}
-        webdata = {'id': 'docker_web_distributor_name_cli', 'override_config': {}}
-        flexmock(RequestsHttpCaller)
-        (RequestsHttpCaller
-            .should_receive('__call__')
-            .with_args('post', '/pulp/api/v2/repositories/%s/actions/publish/' % repo_id,
-                       data=json.dumps(data))
-            .once()
-            .and_return(123))
-        (RequestsHttpCaller
-            .should_receive('__call__')
-            .with_args('post', '/pulp/api/v2/repositories/%s/actions/publish/' % repo_id,
-                       data=json.dumps(webdata))
-            .once()
-            .and_return(123))
-        flexmock(Pulp)
-        (Pulp
-            .should_receive('watch')
-            .with_args(123)
-            .twice()
-            .and_return(None))
-        pulp.crane(repos=repo_id)
-
     def test_disassociate(self, pulp):
         repo = 'testrepo'
         dist_id = 'foo'
@@ -834,32 +795,19 @@ class TestPulp(object):
         assert response['id'] == repo_id
 
     @pytest.mark.parametrize('publish', [True, False])
-    @pytest.mark.parametrize('sigs', [True, False])
-    def test_deleteRepo(self, pulp, publish, sigs):
+    def test_deleteRepo(self, pulp, publish):
         repo = 'foobar'
         flexmock(Pulp)
         if publish:
             (Pulp
                 .should_receive('emptyRepo')
-                .with_args(repo, sigs)
+                .with_args(repo)
                 .once()
                 .and_return(None))
             (Pulp
                 .should_receive('crane')
                 .with_args(repo, force_refresh=True)
                 .twice()
-                .and_return(None))
-            if sigs:
-                (Pulp
-                    .should_receive('crane')
-                    .with_args('redhat-sigstore', force_refresh=True)
-                    .once()
-                    .and_return(None))
-        elif sigs:
-            (Pulp
-                .should_receive('deleteSignatures')
-                .with_args(repo)
-                .once()
                 .and_return(None))
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
@@ -872,37 +820,9 @@ class TestPulp(object):
             .with_args(123)
             .once()
             .and_return(None))
-        pulp.deleteRepo(repo, publish, sigs)
+        pulp.deleteRepo(repo, publish)
 
-    def test_deleteSignatures(self, pulp):
-        repo = 'foobar'
-        repoinfo = [{'id': 'foobar', 'detail': 'foobar',
-                     'manifests': {'test:manifest': {'layers': ['testlayer1'], 'tags': ['testtag'],
-                                                     'config': 'testconfig',
-                                                     'schema_version': 'testsv'}},
-                     'docker-id': 'testdockerid',
-                     'redirect': 'testredirect'}]
-        filters = {
-            'unit': {
-                "$or": [{'name': {'$regex': 'testdockerid@test=manifest/signature-.*'}}]
-            }
-        }
-
-        flexmock(Pulp)
-        (Pulp
-            .should_receive('listRepos')
-            .with_args(repos=[repo], content=True)
-            .once()
-            .and_return(repoinfo))
-        (Pulp
-            .should_receive('remove_filters')
-            .with_args('redhat-sigstore', filters, v1=False, v2=False, sigs=True)
-            .once()
-            .and_return(None))
-        pulp.deleteSignatures(repo)
-
-    @pytest.mark.parametrize('sigs', [True, False])
-    def test_emptyRepo(self, pulp, sigs):
+    def test_emptyRepo(self, pulp):
         repo = 'foobar'
 
         flexmock(Pulp)
@@ -911,13 +831,7 @@ class TestPulp(object):
             .with_args(repo)
             .once()
             .and_return(None))
-        if sigs:
-            (Pulp
-                .should_receive('deleteSignatures')
-                .with_args(repo)
-                .once()
-                .and_return(None))
-        pulp.emptyRepo(repo, sigs)
+        pulp.emptyRepo(repo)
 
     @pytest.mark.parametrize(('img', 'data'), [
         ('123456v1sum', {
@@ -961,15 +875,8 @@ class TestPulp(object):
     ])
     def test_remove(self, pulp, img, data):
         repo = 'testrepo'
-        sigs = True
         flexmock(Pulp)
 
-        if img.startswith('sha256:'):
-            (Pulp
-                .should_receive('removeSignature')
-                .with_args(repo, img)
-                .once()
-                .and_return(None))
         flexmock(RequestsHttpCaller)
         (RequestsHttpCaller
             .should_receive('__call__')
@@ -982,15 +889,12 @@ class TestPulp(object):
             .with_args(123)
             .once()
             .and_return(None))
-        pulp.remove(repo, img, sigs)
+        pulp.remove(repo, img)
 
-    @pytest.mark.parametrize('sigs', [True, False])
-    def test_remove_filters(self, pulp, sigs):
+    def test_remove_filters(self, pulp):
         repo = 'foobar'
         type_ids = ['docker_image', 'docker_manifest', 'docker_blob', 'docker_tag',
                     'docker_manifest_list']
-        if sigs:
-            type_ids.append('iso')
         data = {
             'criteria': {
                 'type_ids': type_ids,
@@ -1012,27 +916,7 @@ class TestPulp(object):
             .with_args(123)
             .once()
             .and_return(None))
-        pulp.remove_filters(repo, sigs=sigs)
-
-    def test_removeSignature(self, pulp):
-        repo = 'testrepo'
-        img = 'sha256:testrepo'
-        repoinfo = [{'id': 'foobar', 'detail': 'foobar', 'docker-id': 'testdockerid',
-                     'redirect': 'testredirect'}]
-        signature = 'testdockerid@sha256=testrepo/signature-.*'
-        filters = {'unit': {'name': {'$regex': signature}}}
-        flexmock(Pulp)
-        (Pulp
-            .should_receive('listRepos')
-            .with_args(repos=[repo], content=False)
-            .once()
-            .and_return(repoinfo))
-        (Pulp
-            .should_receive('remove_filters')
-            .with_args('redhat-sigstore', filters, v1=False, v2=False, sigs=True)
-            .once()
-            .and_return(None))
-        pulp.removeSignature(repo, img)
+        pulp.remove_filters(repo)
 
     @pytest.mark.parametrize(('images', 'manifests', 'manifest_lists', 'filters'), [
         ([], {}, {}, None),
@@ -1227,24 +1111,6 @@ class TestCrane(object):
             .once()
             .and_return(response))
         assert crane.confirm(repos, check_layers=True) == repoids
-
-    def test_confirm_sigstore(self, crane, pulp):
-        repos = pulp.getSigstore()
-        repoinfo = [{'id': repos, 'sigstore': 'image@shasum'}]
-        response = {'error': False}
-        flexmock(pulp)
-        (pulp
-            .should_receive('listRepos')
-            .with_args(repos=repos, content=True, paginate=True)
-            .once()
-            .and_return(repoinfo))
-        flexmock(crane)
-        (crane
-            .should_receive('_test_sigstore')
-            .with_args(repoinfo[0]['sigstore'], exception='barfoo78')
-            .once()
-            .and_return(response))
-        crane.confirm(repos)
 
     @pytest.mark.parametrize('signatures, status, ok, shasum, expected_result', [
         (None, None, None, None, None),

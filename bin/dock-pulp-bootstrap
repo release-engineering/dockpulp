@@ -30,17 +30,13 @@ log.addHandler(sh)
 
 def get_opts():
     usage = """%prog [options] environment
-create the everything and sigstore repositories in the given environment"""
+create the everything repository in the given environment"""
     parser = OptionParser(usage=usage)
     parser.add_option('-d', '--debug', default=False, action='store_true',
                       help='turn on debugging output')
     parser.add_option('-p', '--password', help='specify the account password')
     parser.add_option('-u', '--username', default='admin',
                       help='provide an account besides "admin"')
-    parser.add_option('-e', '--everything', default=False, action='store_true',
-                      help='only create the everything repo')
-    parser.add_option('-s', '--sigstore', default=False, action='store_true',
-                      help='only create the sigstore repo')
     opts, args = parser.parse_args()
     if len(args) != 1:
         parser.error('You must provide an environment to create the repository')
@@ -64,39 +60,10 @@ def create_everything(dpo):
     # remove distributors from the hidden repository so it is never published
 
 
-def create_sigstore(dpo):
-    """Create the sigstore repo with the given dockpulp object."""
-    # check if sigstore repo exists first
-    try:
-        dpo.listRepos(dockpulp.SIGSTORE)
-        log.info("%s already exists, skipping" % dockpulp.SIGSTORE)
-        return
-    except dockpulp.errors.DockPulpError:
-        log.info("creating SIGSTORE repo %s" % dockpulp.SIGSTORE)
-        dpo.createRepo(dockpulp.SIGSTORE, '/content/sigstore',
-                       desc='repository that contains container manifest signatures',
-                       title='SIGSTORE repository',
-                       distributors=False,
-                       repotype="iso-repo",
-                       importer_type_id="iso_importer",
-                       rel_url='/content/sigstore',
-                       is_origin=True)
-        # add iso distributors to the sigstore repo
-        type_id = 'cdn_distributor'
-        # used for 2.14 distributor switchover
-        if LooseVersion(dpo.getPulpVersion()) >= LooseVersion('2.14'):
-            type_id = 'iso_rsync_distributor'
-        dpo.associate('cdn_distributor', dockpulp.SIGSTORE, type_id)
-        dpo.associate('iso_distributor_sigstore', dockpulp.SIGSTORE)
-
-
 if __name__ == '__main__':
     opts, args = get_opts()
     p = dockpulp.Pulp(env=args[0])
     p.login(opts.username, opts.password)
     if opts.debug:
         p.setDebug()
-    if not opts.sigstore or opts.everything:
-        create_everything(p)
-    if not opts.everything or opts.sigstore:
-        create_sigstore(p)
+    create_everything(p)

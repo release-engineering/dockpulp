@@ -66,7 +66,6 @@ V2_TAG = 'docker_tag'
 V2_LIST = 'docker_manifest_list'
 V1_C_TYPE = 'docker_image'         # pulp content type identifier for docker
 HIDDEN = 'redhat-everything'    # ID of a "hidden" repository for RCM
-SIGSTORE = 'redhat-sigstore'    # ID of an iso repo for docker manifest signatures
 DEFAULT_CONFIG_FILE = '/etc/dockpulp.conf'
 DEFAULT_DISTRIBUTORS_FILE = '/etc/dockpulpdistributors.json'
 DEFAULT_DISTRIBUTIONS_FILE = '/etc/dockpulpdistributions.json'
@@ -218,13 +217,6 @@ class Crane(object):
             log.info('Testing %s' % repo['id'])
             repoids[repo['id']] = {}
             self.errorids[repo['id']] = False
-            if repo['id'] == SIGSTORE:
-                response = self._test_sigstore(repo['sigstore'], exception=self.p.sig_exception)
-                if silent:
-                    self.handle_silent_output(response, repoids, repo['id'])
-                if response['error']:
-                    self.check_response_error(response)
-                continue
             imgs = list(repo['images'].keys())
             manifests = list(repo['manifests'].keys())
             manifest_lists = list(repo['manifest_lists'].keys())
@@ -1168,10 +1160,7 @@ class Pulp(object):
 
         for repo in repos:
             distributors = []
-            if repo == SIGSTORE:
-                releasekeys = self.sig_release_order.strip().split(",")
-            else:
-                releasekeys = self.release_order.strip().split(",")
+            releasekeys = self.release_order.strip().split(",")
             for key in releasekeys:
                 distributors.append(self.distributorconf[key])
             for distributor in distributors:
@@ -1308,7 +1297,7 @@ class Pulp(object):
                 sig = self.getSignature(distconf['signature'])
                 stuff['notes']['signatures'] = sig
             stuff['notes']['distribution'] = distribution
-        elif self.dists and repo_id != HIDDEN and repo_id != SIGSTORE and not is_origin:
+        elif self.dists and repo_id != HIDDEN and not is_origin:
             raise errors.DockPulpError("Env %s requires distribution defined at repo creation" %
                                        self.env)
         if repotype:
@@ -1357,7 +1346,7 @@ class Pulp(object):
         else:
             stuff['distributors'] = []
 
-        if not is_origin and repo_id != HIDDEN and repo_id != SIGSTORE:
+        if not is_origin and repo_id != HIDDEN:
             # want to create origin- repo for every new repo
             # do this at the end in case of errors
             self.createOriginRepo(repo_id)
@@ -1367,51 +1356,18 @@ class Pulp(object):
         self._post('/pulp/api/v2/repositories/', data=json.dumps(stuff))
         return stuff
 
-    def deleteRepo(self, repo, publish=False, sigs=False):
+    def deleteRepo(self, repo, publish=False):
         """Delete a repository; cannot be undone!."""
         if publish:
             log.info('removing images and manifests from repo %s', repo)
-            self.emptyRepo(repo, sigs)
+            self.emptyRepo(repo)
             log.info('publishing repo %s twice to remove all content from crane', repo)
             self.crane(repo, force_refresh=True)
             # Need to publish twice due to order of distributors
             self.crane(repo, force_refresh=True)
-            if sigs:
-                log.info('publishing repo %s to remove related signatures from crane', SIGSTORE)
-                self.crane(SIGSTORE, force_refresh=True)
-        elif sigs:
-            self.deleteSignatures(repo)
         log.info('deleting repo %s' % repo)
         tid = self._delete('/pulp/api/v2/repositories/%s/' % repo)
         self.watch(tid)
-
-    def deleteSignatures(self, repo):
-        """Delete signatures associated with a deleted repo."""
-        result = self.listRepos(repos=[repo], content=True)[0]
-        repoid = result['docker-id']
-        signatures = []
-        for manifest in result['manifests']:
-            signature = {'name':
-                         # signatures can increment, we always want to remove all of them
-                         {'$regex': "%s@%s/signature-.*" % (repoid, manifest.replace(':', '='))}}
-            signatures.append(signature)
-
-        if not signatures:
-            log.debug("No signatures to remove")
-            return
-        signature_batches = grouper(signatures, BATCH_SIZE, None)
-
-        for i, batch in enumerate(signature_batches):
-            filtered_batch = [b for b in batch if b]
-            filters = {
-                'unit': {
-                    "$or": filtered_batch
-                }
-            }
-            log.debug("Removing signatures from sigstore [%d/%d]: %s",
-                      i + 1, len(signature_batches), signatures)
-            self.remove_filters(SIGSTORE, filters,
-                                v1=False, v2=False, sigs=True)
 
     def disassociate(self, dist_id, repo):
         """Disassociate a distributor associated with a repo."""
@@ -1426,9 +1382,7 @@ class Pulp(object):
         else:
             return json.dumps(self.listRepos(content=True, paginate=paginate))
 
-    def emptyRepo(self, repo, sigs=False):
-        if sigs:
-            self.deleteSignatures(repo)
+    def emptyRepo(self, repo):
         self.remove_filters(repo)
         log.info('%s emptied' % repo)
 
@@ -1553,10 +1507,6 @@ class Pulp(object):
             raise errors.DockPulpConfigError(
                 'Available signatures are: %s' % ', '.join(self.sigs.keys()))
 
-    def getSigstore(self):
-        """Return the sigstore repo id."""
-        return SIGSTORE
-
     def getTask(self, tid):
         """Return a task report for a given id."""
         log.debug('getting task %s information' % tid)
@@ -1622,7 +1572,7 @@ class Pulp(object):
             except KeyError:
                 log.warning('repo %s missing repo-type, skipping', blob['id'])
                 continue
-            if repo_type != 'docker-repo' and blob['id'] != SIGSTORE:
+            if repo_type != 'docker-repo':
                 raise errors.DockPulpError('Non-docker repo hit, what should I do?!')
             r = {
                 'id': blob['id'],
@@ -1689,15 +1639,6 @@ class Pulp(object):
                     }
 
                 units = self._collect_repo_units(blob['id'], filter_unit, paginate=paginate)
-                if blob['id'] == SIGSTORE:
-                    r['sigstore'] = []
-                    sigs = [unit for unit in units
-                            if unit['unit_type_id'] == SIG_TYPE]
-                    for sig in sigs:
-                        r['sigstore'].append(sig['metadata']['name'])
-                    clean.append(r)
-                    clean.sort(key=itemgetter('id'))
-                    continue
                 r['images'] = {}
                 if labels:
                     r['v1_labels'] = {}
@@ -2011,12 +1952,9 @@ class Pulp(object):
         if self._request.certificate:
             self._cleanup(os.path.dirname(self._request.certificate))
 
-    def remove(self, repo, img, sigs=False):
+    def remove(self, repo, img):
         """Remove an image from a repo."""
         if img.startswith("sha256:"):
-            if sigs:
-                self.removeSignature(repo, img)
-
             data = {
                 'criteria': {
                     'type_ids': [V2_C_TYPE, V2_BLOB, V2_TAG, V2_LIST],
@@ -2067,15 +2005,13 @@ class Pulp(object):
             data=json.dumps(data))
         self.watch(tid)
 
-    def remove_filters(self, repo, filters={}, v1=True, v2=True, sigs=False):
+    def remove_filters(self, repo, filters={}, v1=True, v2=True):
         """Remove content from a repo according to filters."""
         type_ids = []
         if v1:
             type_ids.append(V1_C_TYPE)
         if v2:
             type_ids.extend([V2_C_TYPE, V2_BLOB, V2_TAG, V2_LIST])
-        if sigs:
-            type_ids.append(SIG_TYPE)
         data = {
             'criteria': {
                 'type_ids': type_ids,
@@ -2091,17 +2027,6 @@ class Pulp(object):
             '/pulp/api/v2/repositories/%s/actions/unassociate/' % repo,
             data=json.dumps(data))
         self.watch(tid)
-
-    def removeSignature(self, repo, img):
-        """Remove a signature associated with a manifest."""
-        result = self.listRepos(repos=[repo], content=False)[0]
-        repoid = result['docker-id']
-        # signatures can increment, need to remove all
-        signature = {'name': {'$regex': "%s@%s/signature-.*" % (repoid, img.replace(':', '='))}}
-        filters = {
-            'unit': signature
-        }
-        self.remove_filters(SIGSTORE, filters, v1=False, v2=False, sigs=True)
 
     def searchRepos(self, patt):
         """Search and return Pulp repository IDs matching given pattern."""
