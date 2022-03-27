@@ -30,6 +30,8 @@ def pulp(tmpdir):
             {name} = foo
             [filers]
             {name} = foo
+            [pyxis_hosts]
+            {name} = foo
             [redirect]
             {name} = no
             [distributors]
@@ -106,6 +108,8 @@ def core_pulp(tmpdir):
             {name} = foo
             [filers]
             {name} = foo
+            [pyxis_hosts]
+            {name} = foo
             [redirect]
             {name} = no
             [distributors]
@@ -151,6 +155,8 @@ def restricted_pulp(tmpdir):
             [registries]
             {name} = foo
             [filers]
+            {name} = foo
+            [pyxis_hosts]
             {name} = foo
             [redirect]
             {name} = no
@@ -245,6 +251,8 @@ class TestPulp(object):
                 [registries]
                 {name} = foo
                 [filers]
+                {name} = foo
+                [pyxis_hosts]
                 {name} = foo
                 [redirect]
                 {name} = no
@@ -1141,7 +1149,7 @@ class TestCrane(object):
             .should_receive('listRepos')
             .once()
             .and_return(pulp_repos))
-        url = 'foo/content/sigstore/'
+        url = 'foo/v1/signatures/reference/'
         signature = signatures[0]
         answer = flexmock(
             status_code=status,

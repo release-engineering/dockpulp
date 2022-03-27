@@ -750,7 +750,7 @@ class Crane(object):
                 result['error'] = True
 
         log.info('  Confirming CDN has valid signatures available')
-        url = self.p.cdnhost + '/content/sigstore/'
+        url = self.p.pyxis_host + '/v1/signatures/reference/'
         for signature in signatures:
             try:
                 (repo, manifest) = self._split_signature(signature, prefix_with)
@@ -794,6 +794,7 @@ class Pulp(object):
     MANDATORY_CONF_SECTIONS = (('pulps', "_set_env_attr", "url"),
                                ('registries', "_set_env_attr", "registry"),
                                ('filers', "_set_env_attr", "cdnhost"),
+                               ('pyxis_hosts', "_set_env_attr", "pyxis_host"),
                                ('redirect', "_set_bool", "redirect"),
                                ('distributors', "_set_env_attr", "distributors"),
                                ('release_order', "_set_env_attr", "release_order"))
@@ -938,7 +939,7 @@ class Pulp(object):
         if not config_file:
             raise errors.DockPulpConfigError('Missing config file')
         conf.readfp(open(config_file))
-        for sect in ('pulps', 'registries', 'filers'):
+        for sect in ('pulps', 'registries', 'filers', 'pyxis_hosts'):
             if not conf.has_section(sect):
                 raise errors.DockPulpConfigError('Missing section: %s' % sect)
             if not conf.has_option(sect, env):
