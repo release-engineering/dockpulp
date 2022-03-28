@@ -1,5 +1,5 @@
 Name:		dockpulp
-Version:	1.71
+Version:	1.72
 Release:	1%{?dist}
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
@@ -50,6 +50,9 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Mon Mar 28 2022 Andy Mikhaylenko <amikhayl@redhat.com> 1.72-1
+- Remove references to legacy sigstore (amikhayl@redhat.com)
+
 * Fri Feb 25 2022 Emily Zheng <yuzheng@redhat.com> 1.71-1
 - Enable SSL certificate validation (yuzheng@redhat.com)
 
