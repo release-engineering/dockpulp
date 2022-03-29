@@ -1,6 +1,6 @@
 Name:		dockpulp
 Version:	1.72
-Release:	1%{?dist}
+Release:	2
 Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
 
 Group:		Applications/System
@@ -50,6 +50,9 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Tue Mar 29 2022 Andy Mikhaylenko <amikhayl@redhat.com> 1.72-2
+- Bumping version for release (amikhayl@redhat.com)
+
 * Mon Mar 28 2022 Andy Mikhaylenko <amikhayl@redhat.com> 1.72-1
 - Remove references to legacy sigstore (amikhayl@redhat.com)
 
