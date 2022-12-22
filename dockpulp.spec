@@ -1,21 +1,34 @@
+%if 0%{?rhel} && 0%{?rhel} <= 7
+%define python python
+%else
+%define python %{__python3}
+%endif
+
 Name:		dockpulp
 Version:	1.72
 Release:	3%{?dist}
-Summary:	Configure the Pulp instances that power Docker registrires for Red Hat
+Summary:	Configure the Pulp instances that power Docker registries for Red Hat
 
 Group:		Applications/System
 License:	Red Hat Internal
 URL:		https://github.com/release-engineering/dockpulp.git
 Source0:	%{name}-%{version}.tar.gz
-BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
+BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-buildroot
 BuildArch:  noarch
 
-BuildRequires:	python-devel
+%if 0%{?rhel} && 0%{?rhel} <= 7
+BuildRequires:	python-setuptools
 Requires: python-requests
-Requires: gnupg
 Requires: python-six
+Requires: gnupg
 %if 0%{?rhel} == 6
 Requires: python-simplejson
+%endif
+%else
+BuildRequires:	python3-setuptools
+Requires: python3-requests
+Requires: python3-six
+Requires: gnupg
 %endif
 
 %description
@@ -27,25 +40,18 @@ and workflows that are specific to docker image and registries.
 %setup -q
 
 %build
+%{python} setup.py build
 
 %install
 rm -rf $RPM_BUILD_ROOT
-install -d $RPM_BUILD_ROOT%{python_sitelib}/dockpulp
-install -d $RPM_BUILD_ROOT%{_bindir}
-install -pm 0644 dockpulp/* $RPM_BUILD_ROOT%{python_sitelib}/dockpulp
-install -pm 0755 bin/dock-pulp $RPM_BUILD_ROOT%{_bindir}/dock-pulp
-install -pm 0755 bin/dock-pulp-bootstrap $RPM_BUILD_ROOT%{_bindir}/dock-pulp-bootstrap
-install -pm 0755 bin/dock-pulp-restore $RPM_BUILD_ROOT%{_bindir}/dock-pulp-restore
-install -pm 0755 bin/dock-pulp-recreate-hidden $RPM_BUILD_ROOT%{_bindir}/dock-pulp-recreate-hidden
+%{python} setup.py install --single-version-externally-managed -O1 --root=$RPM_BUILD_ROOT --record=INSTALLED_FILES
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 
-%files
+%files -f INSTALLED_FILES
 %defattr(-,root,root,-)
-%{python_sitelib}/*
-%{_bindir}/*
 %doc LICENSE
 
 
