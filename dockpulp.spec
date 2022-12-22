@@ -6,7 +6,7 @@
 
 Name:		dockpulp
 Version:	1.72
-Release:	3%{?dist}
+Release:	4%{?dist}
 Summary:	Configure the Pulp instances that power Docker registries for Red Hat
 
 Group:		Applications/System
@@ -56,6 +56,10 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Thu Dec 22 2022 Michal Haluza <mhaluza@redhat.com> 1.72-4
+- Update RPM spec file to work with RHEL-8 / python 3 builds
+  (mhaluza@redhat.com)
+
 
 * Tue Mar 29 2022 Andy Mikhaylenko <amikhayl@redhat.com> 1.72-3
 - Bumping version for release (amikhayl@redhat.com)
