@@ -556,29 +556,33 @@ class TestPulp(object):
 
     @pytest.mark.parametrize('repo, image', [('testrepo', 'testimg')])
     def test_checkLayers(self, pulp, repo, image):
-        images = []
-        images.append(image)
-        req = requests.Response()
-        flexmock(
-            req,
-            raw="rawtest")
-        flexmock(RequestsHttpCaller)
-        (RequestsHttpCaller
-            .should_receive('__call__')
-            .once()
-            .and_return(req))
-        flexmock(tarfile)
-        (tarfile
-            .should_receive('open')
-            .once()
-            .and_return(tarfile.TarFile))
-        flexmock(tarfile.TarFile)
-        (tarfile.TarFile
-            .should_receive('close')
-            .once()
-            .and_return())
-        response = pulp.checkLayers(repo, images)
-        assert not response['error']
+        with NamedTemporaryFile() as f_tar, NamedTemporaryFile() as f_content:
+            with tarfile.open(fileobj=f_tar, mode="w:gz") as f:
+                f.add(f_content.name)
+
+            images = []
+            images.append(image)
+            req = requests.Response()
+            flexmock(
+                req,
+                raw=f_tar)
+            flexmock(RequestsHttpCaller)
+            (RequestsHttpCaller
+                .should_receive('__call__')
+                .once()
+                .and_return(req))
+            flexmock(tarfile)
+            (tarfile
+                .should_receive('open')
+                .once()
+                .and_return(tarfile.TarFile(fileobj=f_tar)))
+            flexmock(tarfile.TarFile)
+            (tarfile.TarFile
+                .should_receive('close')
+                .once()
+                .and_return())
+            response = pulp.checkLayers(repo, images)
+            assert not response['error']
 
     @pytest.mark.parametrize('repo, image', [('testrepo', 'testimg')])
     def test_checkLayersFail(self, pulp, repo, image):
