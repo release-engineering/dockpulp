@@ -1,0 +1,41 @@
+name: Tox tests
+
+on: [push, pull_request]
+
+jobs:
+  py38:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.8
+      - name: Install Tox
+        run: pip install tox
+      - name: Run Tox
+        run: tox -e py38
+  py39:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+      - name: Install Tox
+        run: pip install tox
+      - name: Run Tox
+        run: tox -e py39
+  flake8:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+      - name: Install tox
+        run: pip install tox
+      - name: Run tox
+        run: tox -e flake8

@@ -1016,7 +1016,7 @@ class TestPulp(object):
             .should_receive('watch')
             .with_args('123')
             .once()
-            .and_return({'start_time': '2018-08-08T11:51:18Z'}))
+            .and_return({'start_time': '2018-08-08T11:51:18'}))
         (pulp
             .should_receive('createOriginRepo')
             .with_args(origin_repo)
