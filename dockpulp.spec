@@ -1,9 +1,3 @@
-%if 0%{?rhel} && 0%{?rhel} <= 7
-%define python python
-%else
-%define python %{__python3}
-%endif
-
 Name:		dockpulp
 Version:	1.72
 Release:	4%{?dist}
@@ -18,17 +12,26 @@ BuildArch:  noarch
 
 %if 0%{?rhel} && 0%{?rhel} <= 7
 BuildRequires:	python-setuptools
+BuildRequires:	python-devel
 Requires: python-requests
 Requires: python-six
 Requires: gnupg
-%if 0%{?rhel} == 6
-Requires: python-simplejson
-%endif
 %else
 BuildRequires:	python3-setuptools
+BuildRequires:	python3-devel
 Requires: python3-requests
 Requires: python3-six
 Requires: gnupg
+%endif
+
+%if 0%{?rhel} && 0%{?rhel} <= 7
+%define py_build %{py2_build}
+%define py_install %{py2_install}
+%define python_sitelib %{python2_sitelib}
+%else
+%define py_build %{py3_build}
+%define py_install %{py3_install}
+%define python_sitelib %{python3_sitelib}
 %endif
 
 %description
@@ -40,18 +43,21 @@ and workflows that are specific to docker image and registries.
 %setup -q
 
 %build
-%{python} setup.py build
+%py_build
 
 %install
 rm -rf $RPM_BUILD_ROOT
-%{python} setup.py install --single-version-externally-managed -O1 --root=$RPM_BUILD_ROOT --record=INSTALLED_FILES
+%py_install
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 
-%files -f INSTALLED_FILES
+%files
 %defattr(-,root,root,-)
+%{_bindir}/dock-pulp*
+%{python_sitelib}/%{name}/
+%{python_sitelib}/%{name}-*.egg-info/
 %doc LICENSE
 
 
@@ -562,7 +568,7 @@ rm -rf $RPM_BUILD_ROOT
 - Updated logging to work with python 2.6 (breilly@redhat.com)
 
 * Tue Nov 24 2015 Unknown name <breilly@redhat.com> 1.12-7
-- 
+-
 
 * Tue Nov 24 2015 Unknown name <breilly@redhat.com> 1.12-6
 - Removed push_to_pulp functions (breilly@redhat.com)
