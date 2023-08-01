@@ -3,6 +3,8 @@
 # dockpulp
 ReST API Client to Pulp for manipulating docker images
 
+NOTE: dockpulp has been decommissioned and this repository has been archived
+
 ## Installation
 
 The only test installation is via RPM deployment, which presently is not
